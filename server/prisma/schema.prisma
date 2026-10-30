@@ -11,12 +11,16 @@ enum Role {
   STUDENT
   TEACHER
   ADMIN
+
+  @@map("user_role")
 }
 
 enum UserStatus {
   PENDING
   ACTIVE
   LOCKED
+
+  @@map("user_status")
 }
 
 enum Skill {
@@ -25,6 +29,8 @@ enum Skill {
   READING
   WRITING
   FOUNDATION
+
+  @@map("skill")
 }
 
 enum Level {
@@ -32,6 +38,8 @@ enum Level {
   A2
   B1
   B2
+
+  @@map("cefr_level")
 }
 
 enum ExerciseStatus {
@@ -39,24 +47,28 @@ enum ExerciseStatus {
   PROPOSED
   PUBLISHED
   HIDDEN
+
+  @@map("exercise_status")
 }
 
 enum ExerciseSource {
   ADMIN
   TEACHER
   AI
+
+  @@map("exercise_source")
 }
 
 model User {
   id           Int        @id @default(autoincrement())
   name         String
-  email        String     @unique
-  passwordHash String
+  email        String     @unique(map: "users_email_key")
+  passwordHash String     @map("password_hash")
   role         Role       @default(STUDENT)
   status       UserStatus @default(ACTIVE) // giao vien dang ky => PENDING
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  taughtClasses Class[]         @relation("TeacherClasses")
+  taughtClasses Class[]          @relation("TeacherClasses")
   memberships   ClassMember[]
   exercises     Exercise[]
   assignments   Assignment[]
@@ -67,170 +79,206 @@ model User {
   reports       ExerciseReport[]
   aiLogs        AiUsageLog[]
   auditLogs     AuditLog[]
+
+  @@map("users")
 }
 
 model Class {
   id        Int      @id @default(autoincrement())
   name      String
-  code      String   @unique // ma lop 6 ky tu
-  teacherId Int
+  code      String   @unique(map: "classes_code_key")
+  teacherId Int      @map("teacher_id")
   teacher   User     @relation("TeacherClasses", fields: [teacherId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   members     ClassMember[]
   assignments Assignment[]
+
+  @@index([teacherId], map: "classes_teacher_id_idx")
+  @@map("classes")
 }
 
 model ClassMember {
-  classId   Int
-  studentId Int
-  joinedAt  DateTime @default(now())
+  classId   Int      @map("class_id")
+  studentId Int      @map("student_id")
+  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(3)
   class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@id([classId, studentId])
+  @@index([studentId], map: "class_members_student_id_idx")
+  @@map("class_members")
 }
 
 model Exercise {
   id          Int            @id @default(autoincrement())
-  type        String // multiple_choice, fill_blank, matching, error_correction, listening_fill, writing, speaking
+  type        String
   skill       Skill
   level       Level
   topic       String
-  content     Json // noi dung de bai theo tung dang
-  answer      Json? // dap an (bai tu dong cham)
+  content     Json           @db.JsonB
+  answer      Json?          @db.JsonB
   explanation String?
   status      ExerciseStatus @default(DRAFT)
   source      ExerciseSource
-  inLibrary   Boolean        @default(false) // true = thu vien chung
-  createdById Int
+  inLibrary   Boolean        @default(false) @map("in_library")
+  createdById Int            @map("created_by_id")
   createdBy   User           @relation(fields: [createdById], references: [id])
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   assignments Assignment[]
   attempts    Attempt[]
   reports     ExerciseReport[]
   pathItems   LearningPathItem[]
 
-  @@index([skill, level, status])
+  @@index([inLibrary, status, skill, level], map: "exercises_library_filter_idx")
+  @@index([createdById], map: "exercises_created_by_id_idx")
+  @@map("exercises")
 }
 
 model Assignment {
   id            Int      @id @default(autoincrement())
-  exerciseId    Int
-  classId       Int
-  assignedById  Int
-  dueAt         DateTime
-  remindBeforeH Int[] // vd [24, 1]
-  createdAt     DateTime @default(now())
+  exerciseId    Int      @map("exercise_id")
+  classId       Int      @map("class_id")
+  assignedById  Int      @map("assigned_by_id")
+  dueAt         DateTime @map("due_at") @db.Timestamptz(3)
+  remindBeforeH Int[]    @default([]) @map("remind_before_hours")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  exercise   Exercise @relation(fields: [exerciseId], references: [id])
-  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  assignedBy User     @relation(fields: [assignedById], references: [id])
+  exercise   Exercise  @relation(fields: [exerciseId], references: [id])
+  class      Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignedBy User      @relation(fields: [assignedById], references: [id])
   attempts   Attempt[]
+
+  @@index([classId, dueAt], map: "assignments_class_due_idx")
+  @@index([exerciseId], map: "assignments_exercise_id_idx")
+  @@map("assignments")
 }
 
 model Attempt {
   id             Int      @id @default(autoincrement())
-  studentId      Int
-  exerciseId     Int
-  assignmentId   Int? // null = tu luyen
-  mode           String   @default("practice") // practice | exam
-  answer         Json
+  studentId      Int      @map("student_id")
+  exerciseId     Int      @map("exercise_id")
+  assignmentId   Int?     @map("assignment_id")
+  mode           String   @default("practice")
+  answer         Json     @db.JsonB
   score          Float?
-  maxScore       Float    @default(10)
-  errors         Json? // danh sach loi: loai, vi tri, ban sua
-  aiFeedback     Json? // JSON AI tra ve da kiem tra bang Zod
-  teacherScore   Float?
-  teacherComment String?
-  isLate         Boolean  @default(false)
-  submittedAt    DateTime @default(now())
+  maxScore       Float    @default(10) @map("max_score")
+  errors         Json?    @db.JsonB
+  aiFeedback     Json?    @map("ai_feedback") @db.JsonB
+  teacherScore   Float?   @map("teacher_score")
+  teacherComment String?  @map("teacher_comment")
+  isLate         Boolean  @default(false) @map("is_late")
+  submittedAt    DateTime @default(now()) @map("submitted_at") @db.Timestamptz(3)
 
   student    User        @relation(fields: [studentId], references: [id])
   exercise   Exercise    @relation(fields: [exerciseId], references: [id])
   assignment Assignment? @relation(fields: [assignmentId], references: [id])
 
-  @@index([studentId, submittedAt])
+  @@index([studentId, submittedAt], map: "attempts_student_time_idx")
+  @@index([assignmentId], map: "attempts_assignment_id_idx")
+  @@index([exerciseId], map: "attempts_exercise_id_idx")
+  @@map("attempts")
 }
 
 model SkillProfile {
   id         Int      @id @default(autoincrement())
-  studentId  Int
+  studentId  Int      @map("student_id")
   skill      Skill
   score      Float    @default(0)
   level      Level?
-  errorStats Json? // { "grammar:tense": 5, "article": 3, ... }
-  updatedAt  DateTime @updatedAt
+  errorStats Json?    @map("error_stats") @db.JsonB
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, skill])
+  @@unique([studentId, skill], map: "skill_profiles_student_id_skill_key")
+  @@map("skill_profiles")
 }
 
 model LearningPath {
-  id        Int      @id @default(autoincrement())
-  studentId Int
-  weekStart DateTime
-  createdAt DateTime @default(now())
-  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id        Int                @id @default(autoincrement())
+  studentId Int                @map("student_id")
+  weekStart DateTime           @map("week_start") @db.Date
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  student   User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
   items     LearningPathItem[]
+
+  @@index([studentId, weekStart], map: "learning_paths_student_week_idx")
+  @@map("learning_paths")
 }
 
 model LearningPathItem {
-  id         Int      @id @default(autoincrement())
-  pathId     Int
+  id         Int          @id @default(autoincrement())
+  pathId     Int          @map("path_id")
   title      String
-  exerciseId Int?
-  done       Boolean  @default(false)
+  exerciseId Int?         @map("exercise_id")
+  done       Boolean      @default(false)
   path       LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
-  exercise   Exercise?    @relation(fields: [exerciseId], references: [id])
+  exercise   Exercise?    @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  @@index([pathId], map: "learning_path_items_path_id_idx")
+  @@map("learning_path_items")
 }
 
 model Notification {
   id        Int       @id @default(autoincrement())
-  userId    Int
-  type      String // deadline | graded | teacher_edit | system
+  userId    Int       @map("user_id")
+  type      String
   message   String
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  readAt    DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt], map: "notifications_user_time_idx")
+  @@map("notifications")
 }
 
 model ExerciseReport {
   id         Int      @id @default(autoincrement())
-  exerciseId Int
-  reporterId Int
+  exerciseId Int      @map("exercise_id")
+  reporterId Int      @map("reporter_id")
   reason     String
-  status     String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
-  createdAt  DateTime @default(now())
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   reporter   User     @relation(fields: [reporterId], references: [id])
+
+  @@index([status], map: "exercise_reports_status_idx")
+  @@index([exerciseId], map: "exercise_reports_exercise_idx")
+  @@map("exercise_reports")
 }
 
 model AiUsageLog {
   id        Int      @id @default(autoincrement())
-  userId    Int
-  task      String // grade_writing | grade_speaking | generate | analysis | path
-  status    String // ok | error | cached | rate_limited
+  userId    Int      @map("user_id")
+  task      String
+  status    String
   tokens    Int?
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   user      User     @relation(fields: [userId], references: [id])
 
-  @@index([userId, createdAt])
+  @@index([userId, createdAt], map: "ai_usage_logs_user_time_idx")
+  @@map("ai_usage_logs")
 }
 
 model PromptTemplate {
   id        Int      @id @default(autoincrement())
-  key       String   @unique
+  key       String   @unique(map: "prompt_templates_key_key")
   template  String
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("prompt_templates")
 }
 
 model AuditLog {
   id        Int      @id @default(autoincrement())
-  userId    Int?
+  userId    Int?     @map("user_id")
   action    String
-  detail    Json?
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
+  detail    Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt], map: "audit_logs_created_at_idx")
+  @@map("audit_logs")
 }
