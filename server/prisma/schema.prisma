@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  LOCKED
+}
+
+enum Skill {
+  LISTENING
+  SPEAKING
+  READING
+  WRITING
+  FOUNDATION
+}
+
+enum Level {
+  A1
+  A2
+  B1
+  B2
+}
+
+enum ExerciseStatus {
+  DRAFT
+  PROPOSED
+  PUBLISHED
+  HIDDEN
+}
+
+enum ExerciseSource {
+  ADMIN
+  TEACHER
+  AI
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(STUDENT)
+  status       UserStatus @default(ACTIVE) // giao vien dang ky => PENDING
+  createdAt    DateTime   @default(now())
+
+  taughtClasses Class[]         @relation("TeacherClasses")
+  memberships   ClassMember[]
+  exercises     Exercise[]
+  assignments   Assignment[]
+  attempts      Attempt[]
+  skillProfiles SkillProfile[]
+  learningPaths LearningPath[]
+  notifications Notification[]
+  reports       ExerciseReport[]
+  aiLogs        AiUsageLog[]
+  auditLogs     AuditLog[]
+}
+
+model Class {
+  id        Int      @id @default(autoincrement())
+  name      String
+  code      String   @unique // ma lop 6 ky tu
+  teacherId Int
+  teacher   User     @relation("TeacherClasses", fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+
+  members     ClassMember[]
+  assignments Assignment[]
+}
+
+model ClassMember {
+  classId   Int
+  studentId Int
+  joinedAt  DateTime @default(now())
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([classId, studentId])
+}
+
+model Exercise {
+  id          Int            @id @default(autoincrement())
+  type        String // multiple_choice, fill_blank, matching, error_correction, listening_fill, writing, speaking
+  skill       Skill
+  level       Level
+  topic       String
+  content     Json // noi dung de bai theo tung dang
+  answer      Json? // dap an (bai tu dong cham)
+  explanation String?
+  status      ExerciseStatus @default(DRAFT)
+  source      ExerciseSource
+  inLibrary   Boolean        @default(false) // true = thu vien chung
+  createdById Int
+  createdBy   User           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  assignments Assignment[]
+  attempts    Attempt[]
+  reports     ExerciseReport[]
+  pathItems   LearningPathItem[]
+
+  @@index([skill, level, status])
+}
+
+model Assignment {
+  id            Int      @id @default(autoincrement())
+  exerciseId    Int
+  classId       Int
+  assignedById  Int
+  dueAt         DateTime
+  remindBeforeH Int[] // vd [24, 1]
+  createdAt     DateTime @default(now())
+
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  assignedBy User     @relation(fields: [assignedById], references: [id])
+  attempts   Attempt[]
+}
+
+model Attempt {
+  id             Int      @id @default(autoincrement())
+  studentId      Int
+  exerciseId     Int
+  assignmentId   Int? // null = tu luyen
+  mode           String   @default("practice") // practice | exam
+  answer         Json
+  score          Float?
+  maxScore       Float    @default(10)
+  errors         Json? // danh sach loi: loai, vi tri, ban sua
+  aiFeedback     Json? // JSON AI tra ve da kiem tra bang Zod
+  teacherScore   Float?
+  teacherComment String?
+  isLate         Boolean  @default(false)
+  submittedAt    DateTime @default(now())
+
+  student    User        @relation(fields: [studentId], references: [id])
+  exercise   Exercise    @relation(fields: [exerciseId], references: [id])
+  assignment Assignment? @relation(fields: [assignmentId], references: [id])
+
+  @@index([studentId, submittedAt])
+}
+
+model SkillProfile {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  skill      Skill
+  score      Float    @default(0)
+  level      Level?
+  errorStats Json? // { "grammar:tense": 5, "article": 3, ... }
+  updatedAt  DateTime @updatedAt
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, skill])
+}
+
+model LearningPath {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  weekStart DateTime
+  createdAt DateTime @default(now())
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  items     LearningPathItem[]
+}
+
+model LearningPathItem {
+  id         Int      @id @default(autoincrement())
+  pathId     Int
+  title      String
+  exerciseId Int?
+  done       Boolean  @default(false)
+  path       LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  exercise   Exercise?    @relation(fields: [exerciseId], references: [id])
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  type      String // deadline | graded | teacher_edit | system
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExerciseReport {
+  id         Int      @id @default(autoincrement())
+  exerciseId Int
+  reporterId Int
+  reason     String
+  status     String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
+  createdAt  DateTime @default(now())
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  reporter   User     @relation(fields: [reporterId], references: [id])
+}
+
+model AiUsageLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  task      String // grade_writing | grade_speaking | generate | analysis | path
+  status    String // ok | error | cached | rate_limited
+  tokens    Int?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model PromptTemplate {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  template  String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String
+  detail    Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
