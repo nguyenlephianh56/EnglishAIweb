@@ -1,14 +1,25 @@
 services:
   db:
-    image: postgres:16
-    container_name: englishai-db
+    image: postgres:16-alpine
+    container_name: english-learning-db
+    restart: unless-stopped
+
     environment:
-      POSTGRES_USER: englishai
-      POSTGRES_PASSWORD: englishai
-      POSTGRES_DB: englishai
+      POSTGRES_USER: english_user
+      POSTGRES_PASSWORD: english_password
+      POSTGRES_DB: english_learning
+
     ports:
       - "5432:5432"
+
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U english_user -d english_learning"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
-  pgdata:
+  postgres_data:
