@@ -3,18 +3,31 @@ import express from "express";
 import cors from "cors";
 import { env } from "./config/env";
 import { prisma } from "./config/prisma";
+import { errorHandler } from "./middlewares/errorHandler";
+import { authRoutes } from "./modules/auth/auth.routes";
 
 export const app = express();
 
-app.use(cors({ origin: env.CLIENT_ORIGIN }));
+// CORS
+app.use(
+  cors({
+    origin: env.CLIENT_ORIGIN,
+    credentials: true,
+  })
+);
+
+// Đọc dữ liệu JSON
 app.use(express.json({ limit: "1mb" }));
 
-// Health check: Kiem tra server
+// Health check: Kiểm tra server
 app.get("/api/v1/health", (_req, res) => {
-  res.json({ data: { status: "ok" }, error: null });
+  res.json({
+    data: { status: "ok" },
+    error: null,
+  });
 });
 
-// Database health check: Kiem tra ket noi PostgreSQL
+// Database health check: Kiểm tra PostgreSQL
 app.get("/api/v1/health/db", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -33,13 +46,14 @@ app.get("/api/v1/health/db", async (_req, res) => {
       data: null,
       error: {
         code: "DATABASE_UNAVAILABLE",
-        message: "Khong the ket noi database",
+        message: "Không thể kết nối database",
       },
     });
   }
 });
 
-// TODO: app.use("/api/v1/auth", authRoutes); ... (moi module mot dong)
+// Auth routes
+app.use("/api/v1/auth", authRoutes);
 
 // 404 handler
 app.use((_req, res) => {
@@ -47,7 +61,10 @@ app.use((_req, res) => {
     data: null,
     error: {
       code: "NOT_FOUND",
-      message: "Khong tim thay",
+      message: "Không tìm thấy",
     },
   });
 });
+
+// Error handler: Phải đặt cuối cùng
+app.use(errorHandler);
