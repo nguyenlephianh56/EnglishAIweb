@@ -5,6 +5,7 @@ import { env } from "./config/env";
 import { prisma } from "./config/prisma";
 import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
+import { adminRoutes } from "./modules/admin/admin.routes";
 
 export const app = express();
 
@@ -55,6 +56,9 @@ app.get("/api/v1/health/db", async (_req, res) => {
 // Auth routes
 app.use("/api/v1/auth", authRoutes);
 
+// Admin routes
+app.use("/api/v1/admin", adminRoutes);
+
 // 404 handler
 app.use((_req, res) => {
   res.status(404).json({
@@ -68,3 +72,4 @@ app.use((_req, res) => {
 
 // Error handler: Phải đặt cuối cùng
 app.use(errorHandler);
+

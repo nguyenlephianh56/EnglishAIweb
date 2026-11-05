@@ -30,3 +30,7 @@ uploads/
 # Temporary files
 *.tmp
 *.temp
+
+# Ignore Postman folders
+postman/
+.postman/
