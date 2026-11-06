@@ -6,6 +6,7 @@ import { prisma } from "./config/prisma";
 import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { adminRoutes } from "./modules/admin/admin.routes";
+import { classRoutes } from "./modules/classes/classes.routes";
 
 export const app = express();
 
@@ -58,6 +59,9 @@ app.use("/api/v1/auth", authRoutes);
 
 // Admin routes
 app.use("/api/v1/admin", adminRoutes);
+
+// Class routes
+app.use("/api/v1/classes", classRoutes);
 
 // 404 handler
 app.use((_req, res) => {
