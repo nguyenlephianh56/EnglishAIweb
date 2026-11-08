@@ -34,3 +34,4 @@ uploads/
 # Ignore Postman folders
 postman/
 .postman/
+*.tsbuildinfo
