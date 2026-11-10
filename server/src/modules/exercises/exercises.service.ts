@@ -235,6 +235,8 @@ export const updateExercise = async (
     select: EXERCISE_SELECT,
   });
 
+  
+
   if (!existing || !canManageExercise(user, existing)) {
     throw exerciseNotFound();
   }
@@ -336,3 +338,36 @@ export const updateExercise = async (
     select: EXERCISE_SELECT,
   });
 };
+
+//DELETE /api/v1/exercises/:id
+export async function hideExercise(
+  user: CurrentUser,
+  exerciseId: number,
+) {
+  assertActiveTeacherOrAdmin(user);
+
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: EXERCISE_SELECT,
+  });
+
+  if (!exercise || !canManageExercise(user, exercise)) {
+    throw exerciseNotFound();
+  }
+
+  // Nếu bài tập đã ẩn, trả về dữ liệu hiện tại.
+  // Không cập nhật DB lần nữa.
+  if (exercise.status === ExerciseStatus.HIDDEN) {
+    return exercise;
+  }
+
+  // Ẩn bài tập thay vì xóa khỏi database.
+  return prisma.exercise.update({
+    where: { id: exerciseId },
+    data: {
+      status: ExerciseStatus.HIDDEN,
+      inLibrary: false,
+    },
+    select: EXERCISE_SELECT,
+  });
+}

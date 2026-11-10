@@ -116,3 +116,25 @@ export const updateExercise = async (
     handleError(error, res, next);
   }
 };
+// DELETE /api/v1/exercises/:id
+// Ẩn bài tập bằng cách chuyển status thành HIDDEN, không xóa khỏi database.
+export const deleteExercise = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const id = parseExerciseId(req, res);
+    if (id === null) return;
+
+    const hidden = await exercisesService.hideExercise(req.user, id);
+
+    return success(res, hidden, 200);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};

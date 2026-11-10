@@ -33,3 +33,10 @@ exerciseRoutes.patch(
   validate(updateExerciseSchema),
   exercisesController.updateExercise
 );
+// DELETE /api/v1/exercises/:id (TEACHER chủ bài hoặc ADMIN; STUDENT bị 403;
+// GV khác nhận 404 từ service)
+exerciseRoutes.delete(
+  "/:id",
+  requireRole(Role.TEACHER, Role.ADMIN),
+  exercisesController.deleteExercise
+);
