@@ -28,3 +28,20 @@ export function formatUpdatedAt(timestamp: number, now = new Date()): string {
   const d = new Date(timestamp);
   return sameDay(d, now) ? `${formatTime(d)} hôm nay` : `${formatTime(d)}, ${formatDate(d)}`;
 }
+
+/** Lời chào theo giờ trong ngày */
+export function greetingByHour(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Chào buổi sáng";
+  if (hour >= 12 && hour < 18) return "Chào buổi chiều";
+  return "Chào buổi tối";
+}
+
+/** Hạn nộp: "20:00, hôm nay" / "08:00, ngày mai" / "26/06/2025" */
+export function formatDueLabel(iso: string, now = new Date()): string {
+  const d = new Date(iso);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (sameDay(d, now)) return `${formatTime(d)}, hôm nay`;
+  if (sameDay(d, tomorrow)) return `${formatTime(d)}, ngày mai`;
+  return formatDate(d);
+}

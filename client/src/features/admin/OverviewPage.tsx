@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, CircleAlert, CircleCheck, Sparkles, Target, TrendingUp, Users } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import Button from "../../components/ui/Button";
+import StatCard from "../../components/ui/StatCard";
 import { approveTeacher } from "../../api/admin";
 import { getErrorMessage } from "../../api/client";
 import { formatNumber, formatPercent, formatUpdatedAt } from "../../utils/format";
@@ -22,33 +22,6 @@ const RANGES: { value: OverviewRange; label: string; days: number }[] = [
   { value: "7d", label: "7 ngày gần đây", days: 7 },
   { value: "30d", label: "30 ngày gần đây", days: 30 },
 ];
-
-function StatCard({ icon: Icon, tint, label, value, sub, subClass, loading }: {
-  icon: LucideIcon;
-  tint: string;
-  label: string;
-  value: string;
-  sub: string;
-  subClass: string;
-  loading?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <span className={`grid size-14 shrink-0 place-items-center rounded-2xl ${tint}`} aria-hidden="true">
-        <Icon className="size-6" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-xs text-slate-500">{label}</p>
-        {loading ? (
-          <div className="mt-1 h-9 w-24 animate-pulse rounded-lg bg-slate-200" role="status" aria-label="Đang tải" />
-        ) : (
-          <p className="font-heading text-3xl font-extrabold tracking-tight text-slate-900">{value}</p>
-        )}
-        <p className={`mt-0.5 text-xs font-semibold ${subClass}`}>{loading ? "\u00A0" : sub}</p>
-      </div>
-    </div>
-  );
-}
 
 export default function OverviewPage() {
   const queryClient = useQueryClient();
