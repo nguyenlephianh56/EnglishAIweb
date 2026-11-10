@@ -98,3 +98,104 @@ export const createExerciseSchema = z
   });
 
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
+
+// ---------------------------------------------------------------------------
+// Tham số đường dẫn :id (dùng cho GET/PATCH/DELETE /api/v1/exercises/:id)
+// ---------------------------------------------------------------------------
+// Số nguyên lớn nhất của cột INT trong PostgreSQL; vượt quá thì Prisma sẽ báo lỗi 500.
+const MAX_EXERCISE_ID = 2147483647;
+
+// Dùng regex chỉ cho phép chữ số để loại "abc", "-1", "1.5", "1e3", "" (z.coerce.number()
+// sẽ nhận nhầm "" thành 0 và "1e3" thành 1000).
+export const exerciseIdParamSchema = z.object({
+  id: z
+    .string({ required_error: "id: Mã bài tập là bắt buộc" })
+    .regex(/^\d+$/, "id: Mã bài tập phải là số nguyên dương")
+    .transform(Number)
+    .refine(
+      (value) => value >= 1 && value <= MAX_EXERCISE_ID,
+      "id: Mã bài tập không hợp lệ"
+    ),
+});
+
+export type ExerciseIdParam = z.infer<typeof exerciseIdParamSchema>;
+
+// ---------------------------------------------------------------------------
+// Schema body của PATCH /api/v1/exercises/:id (sửa bài)
+// ---------------------------------------------------------------------------
+// Chỉ 6 field này được sửa. Mọi field khác client gửi (type, status, inLibrary, source,
+// createdById, id, createdAt...) bị Zod tự BỎ khỏi kết quả parse -> không bao giờ vào DB.
+// (Thống nhất với POST: field thừa bị bỏ qua, không báo lỗi.)
+//
+// Field KHÔNG gửi = giữ nguyên giá trị cũ. Vì vậy ở đây không có giá trị mặc định,
+// và explanation giữ nguyên undefined (khác POST: POST đổi undefined thành null).
+//
+// content/answer chỉ là z.unknown(): service sẽ GỘP với dữ liệu cũ rồi kiểm bằng T1.
+export const UPDATABLE_FIELDS = [
+  "topic",
+  "skill",
+  "level",
+  "content",
+  "answer",
+  "explanation",
+] as const;
+
+export const updateExerciseSchema = z
+  .object(
+    {
+      topic: z
+        .string({ invalid_type_error: "topic: Chủ đề phải là chuỗi ký tự" })
+        .trim()
+        .min(1, "topic: Chủ đề không được để trống")
+        .max(TOPIC_MAX_LENGTH, `topic: Chủ đề không được vượt quá ${TOPIC_MAX_LENGTH} ký tự`)
+        .optional(),
+
+      skill: z
+        .nativeEnum(Skill, {
+          errorMap: () => ({
+            message: `skill: Kỹ năng không hợp lệ. Chỉ chấp nhận: ${Object.values(Skill).join(", ")}`,
+          }),
+        })
+        .optional(),
+
+      level: z
+        .nativeEnum(Level, {
+          errorMap: () => ({
+            message: `level: Cấp độ không hợp lệ. Chỉ chấp nhận: ${Object.values(Level).join(", ")}`,
+          }),
+        })
+        .optional(),
+
+      content: z.unknown().optional(),
+      answer: z.unknown().optional(),
+
+      // null hoặc chuỗi rỗng (sau trim) = xóa giải thích; không gửi = giữ nguyên
+      explanation: z
+        .string({ invalid_type_error: "explanation: Giải thích phải là chuỗi ký tự" })
+        .trim()
+        .max(
+          EXPLANATION_MAX_LENGTH,
+          `explanation: Giải thích không được vượt quá ${EXPLANATION_MAX_LENGTH} ký tự`
+        )
+        .nullable()
+        .optional()
+        .transform((value): string | null | undefined =>
+          value === undefined ? undefined : value ? value : null
+        ),
+    },
+    {
+      required_error: "Body là bắt buộc",
+      invalid_type_error: "Body phải là một object JSON",
+    }
+  )
+  .superRefine((data, ctx) => {
+    const hasAnyField = UPDATABLE_FIELDS.some((key) => data[key] !== undefined);
+    if (!hasAnyField) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Cần gửi ít nhất một trường để sửa: ${UPDATABLE_FIELDS.join(", ")}`,
+      });
+    }
+  });
+
+export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
