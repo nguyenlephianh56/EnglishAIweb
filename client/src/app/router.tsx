@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { PublicOnlyRoute, RequireRole } from "./guards";
 import StudentLayout from "../components/layout/StudentLayout";
+import AdminLayout from "../components/layout/AdminLayout";
 import LandingPage from "../features/landing/LandingPage";
 import LoginPage from "../features/auth/LoginPage";
 import RegisterPage from "../features/auth/RegisterPage";
@@ -8,7 +9,8 @@ import PendingPage from "../features/auth/PendingPage";
 import HomePage from "../features/student/HomePage";
 import { AssignedPage, LibraryPage, NotificationsPage, PathPage, ProfilePage } from "../features/student/placeholders";
 import TeacherPage from "../features/teacher/TeacherPage";
-import AdminPage from "../features/admin/AdminPage";
+import OverviewPage from "../features/admin/OverviewPage";
+import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
 
 export const router = createBrowserRouter([
   {
@@ -38,6 +40,24 @@ export const router = createBrowserRouter([
     ],
   },
   { element: <RequireRole role="TEACHER" />, children: [{ path: "/teacher", element: <TeacherPage /> }] },
-  { element: <RequireRole role="ADMIN" />, children: [{ path: "/admin", element: <AdminPage /> }] },
+  {
+    element: <RequireRole role="ADMIN" />,
+    children: [
+      {
+        path: "/admin",
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <OverviewPage /> },
+          { path: "users", element: <UsersPage /> },
+          { path: "library", element: <AdminLibraryPage /> },
+          { path: "proposals", element: <ProposalsPage /> },
+          { path: "reports", element: <ReportsPage /> },
+          { path: "ai-config", element: <AiConfigPage /> },
+          { path: "stats", element: <StatsPage /> },
+          { path: "logs", element: <LogsPage /> },
+        ],
+      },
+    ],
+  },
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
