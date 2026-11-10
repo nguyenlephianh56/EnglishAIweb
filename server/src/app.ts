@@ -7,6 +7,7 @@ import { authRoutes } from "./modules/auth/auth.routes";
 import { adminRoutes } from "./modules/admin/admin.routes";
 import { classRoutes } from "./modules/classes/classes.routes";
 import { exerciseRoutes } from "./modules/exercises/exercises.routes";
+import { attemptRoutes } from "./modules/attempts/attempts.routes";
 
 export const app = express();
 
@@ -65,6 +66,9 @@ app.use("/api/v1/classes", classRoutes);
 
 // Exercise routes
 app.use("/api/v1/exercises", exerciseRoutes);
+
+// Attempt routes (nộp bài)
+app.use("/api/v1/attempts", attemptRoutes);
 
 // 404 handler
 app.use((_req, res) => {
