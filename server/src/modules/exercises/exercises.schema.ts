@@ -199,3 +199,23 @@ export const updateExerciseSchema = z
   });
 
 export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
+
+// Schema body của POST /api/v1/exercises/:id/reject (admin từ chối đề xuất)
+export const REJECT_REASON_MAX_LENGTH = 1000;
+
+export const rejectExerciseSchema = z
+  .object({
+    reason: z
+      .string({ invalid_type_error: "reason: Lý do phải là chuỗi ký tự" })
+      .trim()
+      .max(
+        REJECT_REASON_MAX_LENGTH,
+        `reason: Lý do không được vượt quá ${REJECT_REASON_MAX_LENGTH} ký tự`
+      )
+      .nullable()
+      .optional()
+      .transform((value): string | undefined => (value ? value : undefined)),
+  })
+  .default({});
+
+export type RejectExerciseInput = z.infer<typeof rejectExerciseSchema>;

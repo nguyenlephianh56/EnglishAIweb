@@ -138,3 +138,75 @@ export const deleteExercise = async (
     handleError(error, res, next);
   }
 };
+// POST /api/v1/exercises/:id/propose
+// GV đề xuất bài DRAFT của mình: DRAFT -> PROPOSED. Không có body.
+export const proposeExercise = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const id = parseExerciseId(req, res);
+    if (id === null) return;
+
+    const proposed = await exercisesService.proposeExercise(req.user, id);
+
+    return success(res, proposed, 200);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+// POST /api/v1/exercises/:id/approve
+// ADMIN duyệt bài PROPOSED: -> PUBLISHED + inLibrary = true. Không có body.
+export const approveExercise = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const id = parseExerciseId(req, res);
+    if (id === null) return;
+
+    const approved = await exercisesService.approveExercise(req.user, id);
+
+    return success(res, approved, 200);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// POST /api/v1/exercises/:id/reject
+// ADMIN từ chối đề xuất: PROPOSED -> DRAFT. Body tùy chọn { reason? } đã qua
+// validate(rejectExerciseSchema): đã trim, field thừa đã bị bỏ.
+export const rejectExercise = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const id = parseExerciseId(req, res);
+    if (id === null) return;
+
+    const rejected = await exercisesService.rejectExercise(
+      req.user,
+      id,
+      req.body?.reason
+    );
+
+    return success(res, rejected, 200);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};

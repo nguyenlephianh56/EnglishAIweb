@@ -371,3 +371,214 @@ export async function hideExercise(
     select: EXERCISE_SELECT,
   });
 }
+// POST /api/v1/exercises/:id/propose  (GV đề xuất bài của mình lên thư viện)
+export const proposeExercise = async (user: CurrentUser, id: number) => {
+  if (user.role !== Role.TEACHER) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Bạn không có quyền truy cập chức năng này"
+    );
+  }
+
+  if (user.status !== UserStatus.ACTIVE) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Tài khoản chưa được kích hoạt hoặc đã bị khóa"
+    );
+  }
+
+  // $transaction: đổi status và ghi audit_logs cùng thành công hoặc cùng thất bại.
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.exercise.updateMany({
+      where: {
+        id,
+        createdById: user.id,
+        status: ExerciseStatus.DRAFT,
+      },
+      data: {
+        status: ExerciseStatus.PROPOSED,
+        inLibrary: false,
+        updatedAt: new Date(),
+      },
+    });
+
+    if (result.count === 0) {
+      // Không đổi được: là "không có bài của mình" (404) hay "sai status" (409)?
+      const existing = await tx.exercise.findFirst({
+        where: { id, createdById: user.id },
+        select: { status: true },
+      });
+
+      if (!existing) {
+        throw exerciseNotFound();
+      }
+
+      const reason: Record<string, string> = {
+        [ExerciseStatus.PROPOSED]: "Bài đã được đề xuất và đang chờ duyệt",
+        [ExerciseStatus.PUBLISHED]: "Bài đã được công bố, không cần đề xuất",
+        [ExerciseStatus.HIDDEN]: "Bài đã bị ẩn, không thể đề xuất",
+      };
+
+      throw businessError(
+        409,
+        "CONFLICT",
+        reason[existing.status] ?? "Chỉ bài ở trạng thái DRAFT mới đề xuất được"
+      );
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "exercise.propose",
+        detail: { exercise_id: id, from: "DRAFT", to: "PROPOSED" },
+      },
+    });
+
+    return tx.exercise.findUniqueOrThrow({
+      where: { id },
+      select: EXERCISE_SELECT,
+    });
+  });
+};
+// POST /api/v1/exercises/:id/approve  (ADMIN duyệt bài đang PROPOSED)
+export const approveExercise = async (user: CurrentUser, id: number) => {
+  if (user.role !== Role.ADMIN) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Bạn không có quyền truy cập chức năng này"
+    );
+  }
+
+  if (user.status !== UserStatus.ACTIVE) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Tài khoản chưa được kích hoạt hoặc đã bị khóa"
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.exercise.updateMany({
+      where: { id, status: ExerciseStatus.PROPOSED },
+      data: {
+        status: ExerciseStatus.PUBLISHED,
+        inLibrary: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    if (result.count === 0) {
+      const existing = await tx.exercise.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+
+      if (!existing) {
+        throw exerciseNotFound();
+      }
+
+      const reason: Record<string, string> = {
+        [ExerciseStatus.DRAFT]: "Bài chưa được giáo viên đề xuất nên chưa thể duyệt",
+        [ExerciseStatus.PUBLISHED]: "Bài đã được duyệt và công bố trước đó",
+        [ExerciseStatus.HIDDEN]: "Bài đã bị ẩn, không thể duyệt",
+      };
+
+      throw businessError(
+        409,
+        "CONFLICT",
+        reason[existing.status] ?? "Chỉ bài đang ở trạng thái PROPOSED mới duyệt được"
+      );
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "exercise.approve",
+        detail: { exercise_id: id, from: "PROPOSED", to: "PUBLISHED" },
+      },
+    });
+
+    return tx.exercise.findUniqueOrThrow({
+      where: { id },
+      select: EXERCISE_SELECT,
+    });
+  });
+};
+
+// POST /api/v1/exercises/:id/reject  (ADMIN từ chối đề xuất, trả bài về DRAFT)
+export const rejectExercise = async (
+  user: CurrentUser,
+  id: number,
+  reason?: string
+) => {
+  if (user.role !== Role.ADMIN) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Bạn không có quyền truy cập chức năng này"
+    );
+  }
+
+  if (user.status !== UserStatus.ACTIVE) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Tài khoản chưa được kích hoạt hoặc đã bị khóa"
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const result = await tx.exercise.updateMany({
+      where: { id, status: ExerciseStatus.PROPOSED },
+      data: {
+        status: ExerciseStatus.DRAFT,
+        inLibrary: false,
+        updatedAt: new Date(),
+      },
+    });
+
+    if (result.count === 0) {
+      const existing = await tx.exercise.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+
+      if (!existing) {
+        throw exerciseNotFound();
+      }
+
+      const message: Record<string, string> = {
+        [ExerciseStatus.DRAFT]: "Bài đang ở trạng thái nháp, không có đề xuất để từ chối",
+        [ExerciseStatus.PUBLISHED]: "Bài đã được duyệt và công bố, không thể từ chối",
+        [ExerciseStatus.HIDDEN]: "Bài đã bị ẩn, không thể từ chối",
+      };
+
+      throw businessError(
+        409,
+        "CONFLICT",
+        message[existing.status] ?? "Chỉ bài đang ở trạng thái PROPOSED mới từ chối được"
+      );
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "exercise.reject",
+        detail: {
+          exercise_id: id,
+          from: "PROPOSED",
+          to: "DRAFT",
+          reason: reason ?? null,
+        },
+      },
+    });
+
+    return tx.exercise.findUniqueOrThrow({
+      where: { id },
+      select: EXERCISE_SELECT,
+    });
+  });
+};

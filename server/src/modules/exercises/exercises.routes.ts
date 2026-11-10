@@ -2,9 +2,7 @@ import { Router } from "express";
 import { Role } from "@prisma/client";
 import * as exercisesController from "./exercises.controller";
 import {
-  createExerciseSchema,
-  updateExerciseSchema,
-} from "./exercises.schema";
+  createExerciseSchema,updateExerciseSchema,rejectExerciseSchema,} from "./exercises.schema";
 import { validate } from "../../middlewares/validate";
 import { authenticate } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
@@ -39,4 +37,27 @@ exerciseRoutes.delete(
   "/:id",
   requireRole(Role.TEACHER, Role.ADMIN),
   exercisesController.deleteExercise
+);
+// POST /api/v1/exercises/:id/propose (chỉ TEACHER; ADMIN và STUDENT bị 403;
+// bài của GV khác hoặc không tồn tại -> 404; status không phải DRAFT -> 409)
+exerciseRoutes.post(
+  "/:id/propose",
+  requireRole(Role.TEACHER),
+  exercisesController.proposeExercise
+);
+// POST /api/v1/exercises/:id/approve (chỉ ADMIN; GV và HS bị 403;
+// không tồn tại -> 404; status không phải PROPOSED -> 409)
+exerciseRoutes.post(
+  "/:id/approve",
+  requireRole(Role.ADMIN),
+  exercisesController.approveExercise
+);
+
+// POST /api/v1/exercises/:id/reject (chỉ ADMIN; GV và HS bị 403; body tùy chọn { reason? };
+// không tồn tại -> 404; status không phải PROPOSED -> 409)
+exerciseRoutes.post(
+  "/:id/reject",
+  requireRole(Role.ADMIN),
+  validate(rejectExerciseSchema),
+  exercisesController.rejectExercise
 );
