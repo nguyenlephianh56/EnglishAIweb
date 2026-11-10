@@ -29,7 +29,7 @@ export const createAttempt = async (
       return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
     }
 
-    const result = await attemptsService.submitPracticeAttempt(
+   const result = await attemptsService.submitAttempt(
 
       req.user,
       req.body
