@@ -1,24 +1,17 @@
 import type { Grader } from "../types";
-import { MAX_SCORE } from "../types";
+import { gradeBlanks } from "../utils/gradeBlanks";
+
+/** Nhóm lỗi của fill_blank (quy tắc "nhóm:chi_tiết", Project.md 4b). */
+export const FILL_BLANK_ERROR_TYPE = "foundation:wrong_blank";
 
 /**
- * TODO (việc con sau): chấm điền từ thật.
- * So khớp từng chỗ trống: trim đầu/cuối, KHÔNG phân biệt hoa/thường (Project.md 4c.1);
- * bỏ trống (null hoặc "") tính sai; điểm = đúng/tổng × 10.
- *
- * Dùng chung cho fill_blank và listening_fill (cùng cách chấm, chỉ dùng answer
- * nên không phụ thuộc content).
- *
- * STUB: hiện luôn trả điểm 0, chưa cài đặt.
+ * Chấm điền từ: so từng chỗ trống với answer cùng vị trí, trim đầu/cuối,
+ * gộp khoảng trắng giữa, không phân biệt hoa/thường (xem utils/normalize.ts).
+ * Bỏ trống (null, "" hoặc thiếu phần tử) tính sai. Điểm = đúng/tổng × 10.
+ * Chỉ dùng `answer`, không phụ thuộc `content`.
  */
-export const gradeFillBlank: Grader<"fill_blank" | "listening_fill"> = (
+export const gradeFillBlank: Grader<"fill_blank"> = (
   _content,
   answer,
-  _studentAnswer
-) => ({
-  score: 0,
-  maxScore: MAX_SCORE,
-  correct: 0,
-  total: answer.length,
-  errors: [],
-});
+  studentAnswer
+) => gradeBlanks(answer, studentAnswer, FILL_BLANK_ERROR_TYPE);

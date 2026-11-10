@@ -14,6 +14,7 @@ import {
 } from "./student-answer.schema";
 import { gradeMultipleChoice } from "./auto/multipleChoice.grader";
 import { gradeFillBlank } from "./auto/fillBlank.grader";
+import { gradeListeningFill } from "./auto/listeningFill.grader";
 import { gradeMatching } from "./auto/matching.grader";
 import { gradeErrorCorrection } from "./auto/errorCorrection.grader";
 
@@ -89,9 +90,9 @@ const builtInEntries: Record<AutoGradedType, AnyRegistryEntry> = {
     grade: gradeErrorCorrection,
     parseStudentAnswer: parseTextAnswer,
   }),
-  // listening_fill dùng lại hàm chấm của fill_blank (cùng cách chấm)
+  // listening_fill: cùng cách chấm với fill_blank (chung gradeBlanks), khác errors[].type
   listening_fill: defineEntry<"listening_fill">({
-    grade: gradeFillBlank,
+    grade: gradeListeningFill,
     parseStudentAnswer: parseTextAnswer,
   }),
 };

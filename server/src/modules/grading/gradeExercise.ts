@@ -1,6 +1,7 @@
 import type { GradeResult } from "./types";
 import { MAX_SCORE } from "./types";
 import { getGrader } from "./registry";
+import { round2 } from "./utils/score";
 
 /**
  * gradeExercise: hàm vào duy nhất của chấm tự động (hàm thuần, không async, không DB).
@@ -22,9 +23,8 @@ export const INVALID_EXERCISE_DATA_CODE = "INVALID_EXERCISE_DATA";
 const gradingError = (statusCode: number, code: string, message: string) =>
   Object.assign(new Error(message), { statusCode, code });
 
-/** Làm tròn 2 chữ số thập phân. */
-export const round2 = (value: number): number =>
-  Math.round((value + Number.EPSILON) * 100) / 100;
+/** Làm tròn 2 chữ số thập phân (định nghĩa ở utils/score.ts, export lại để không đổi import cũ). */
+export { round2 };
 
 const describeType = (type: unknown): string =>
   typeof type === "string" ? type.slice(0, 50) : "không xác định";

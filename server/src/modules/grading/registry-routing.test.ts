@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * Kiểm registry định tuyến đúng hàm chấm: thay 4 hàm chấm bằng mock, mỗi mock
- * trả một điểm riêng (1, 2, 3, 4) để biết hàm nào được gọi.
+ * Kiểm registry định tuyến đúng hàm chấm: thay 5 hàm chấm bằng mock, mỗi mock
+ * trả một điểm riêng (1..5) để biết hàm nào được gọi.
  * File này tách riêng vì vi.mock áp dụng cho cả file.
  */
 const mocks = vi.hoisted(() => {
@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     fillBlank: make(2),
     matching: make(3),
     errorCorrection: make(4),
+    listeningFill: make(5),
   };
 });
 
@@ -20,6 +21,9 @@ vi.mock("./auto/multipleChoice.grader", () => ({
   gradeMultipleChoice: mocks.multipleChoice,
 }));
 vi.mock("./auto/fillBlank.grader", () => ({ gradeFillBlank: mocks.fillBlank }));
+vi.mock("./auto/listeningFill.grader", () => ({
+  gradeListeningFill: mocks.listeningFill,
+}));
 vi.mock("./auto/matching.grader", () => ({ gradeMatching: mocks.matching }));
 vi.mock("./auto/errorCorrection.grader", () => ({
   gradeErrorCorrection: mocks.errorCorrection,
@@ -40,8 +44,8 @@ const CASES: {
   { type: "fill_blank", expected: "fillBlank", score: 2, answer: ["goes"], student: ["goes"] },
   { type: "matching", expected: "matching", score: 3, answer: [[0, 0], [1, 1]], student: [[0, 0]] },
   { type: "error_correction", expected: "errorCorrection", score: 4, answer: ["goes"], student: ["go"] },
-  // listening_fill dùng lại hàm chấm của fill_blank
-  { type: "listening_fill", expected: "fillBlank", score: 2, answer: ["a", "b"], student: ["a", ""] },
+  // listening_fill có hàm chấm riêng (cùng logic với fill_blank, khác errors[].type)
+  { type: "listening_fill", expected: "listeningFill", score: 5, answer: ["a", "b"], student: ["a", ""] },
 ];
 
 describe("registry định tuyến đúng hàm chấm", () => {
