@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import { env } from "./config/env";
@@ -7,6 +6,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { adminRoutes } from "./modules/admin/admin.routes";
 import { classRoutes } from "./modules/classes/classes.routes";
+import { exerciseRoutes } from "./modules/exercises/exercises.routes";
 
 export const app = express();
 
@@ -63,6 +63,9 @@ app.use("/api/v1/admin", adminRoutes);
 // Class routes
 app.use("/api/v1/classes", classRoutes);
 
+// Exercise routes
+app.use("/api/v1/exercises", exerciseRoutes);
+
 // 404 handler
 app.use((_req, res) => {
   res.status(404).json({
@@ -76,4 +79,3 @@ app.use((_req, res) => {
 
 // Error handler: Phải đặt cuối cùng
 app.use(errorHandler);
-
