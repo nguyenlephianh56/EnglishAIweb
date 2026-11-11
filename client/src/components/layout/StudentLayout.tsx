@@ -1,5 +1,5 @@
-import { ChartColumn, ClipboardList, Flame, House, Library, Route, Sparkles, Bell } from "lucide-react";
-import AppLayout, { BellLink, UserAvatar } from "./AppLayout";
+import { Bell, ChartNoAxesColumn, ClipboardList, Flame, Home, Library, Route, Sparkles } from "lucide-react";
+import AppLayout, { BellLink } from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import Button from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
@@ -14,10 +14,10 @@ export default function StudentLayout() {
   const level = data?.skillProfile.level;
 
   const items: NavItem[] = [
-    { to: "/student", label: "Trang chủ", icon: House, end: true },
+    { to: "/student", label: "Trang chủ", icon: Home, end: true },
     { to: "/student/assigned", label: "Bài được giao", icon: ClipboardList },
     { to: "/student/library", label: "Thư viện luyện tập", icon: Library },
-    { to: "/student/profile", label: "Hồ sơ kỹ năng", icon: ChartColumn },
+    { to: "/student/profile", label: "Hồ sơ kỹ năng", icon: ChartNoAxesColumn },
     { to: "/student/path", label: "Lộ trình học", icon: Route },
     { to: "/student/notifications", label: "Thông báo", icon: Bell, badge: unread },
   ];
@@ -27,6 +27,7 @@ export default function StudentLayout() {
       navLabel="Menu học sinh"
       items={items}
       userName={name}
+      accountPath="/student/account"
       userSubtitle={`Học sinh${level ? ` • ${level}` : ""}`}
       topbar={
         <>
@@ -39,7 +40,6 @@ export default function StudentLayout() {
             </span>
           )}
           <BellLink to="/student/notifications" ariaLabel={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"} dot={unread > 0} />
-          <UserAvatar name={name} />
         </>
       }
       sidebarExtra={

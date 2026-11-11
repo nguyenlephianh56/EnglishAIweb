@@ -8,10 +8,12 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   error?: string;
   leftIcon?: ReactNode;
   id?: string;
+  /** Ẩn nhãn khỏi giao diện nhưng vẫn giữ cho trình đọc màn hình (ô tìm kiếm...) */
+  hideLabel?: boolean;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, leftIcon, type = "text", id, className, ...rest },
+  { label, error, leftIcon, hideLabel, type = "text", id, className, ...rest },
   ref
 ) {
   const autoId = useId();
@@ -21,7 +23,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const isPassword = type === "password";
 
   const inputClasses = [
-    "h-12 w-full rounded-xl border bg-white text-sm text-slate-900 outline-none transition-colors duration-150 placeholder:text-slate-400 focus:ring-4",
+    "h-12 w-full rounded-xl border bg-white text-sm text-slate-900 outline-none transition-colors duration-150 placeholder:text-slate-400 focus:ring-4 read-only:bg-slate-50 read-only:text-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
     leftIcon ? "pl-11" : "pl-4",
     isPassword ? "pr-12" : "pr-4",
     error ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : "border-slate-200 focus:border-brand focus:ring-brand/20",
@@ -29,7 +31,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
   return (
     <div className={className}>
-      <label htmlFor={inputId} className="mb-1.5 block text-sm font-bold text-slate-900">
+      <label htmlFor={inputId} className={hideLabel ? "sr-only" : "mb-1.5 block text-sm font-bold text-slate-900"}>
         {label}
       </label>
       <div className="relative">

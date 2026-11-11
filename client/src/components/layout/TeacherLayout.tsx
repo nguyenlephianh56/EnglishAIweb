@@ -1,5 +1,5 @@
 import { Bell, ChartColumn, ClipboardList, House, Library, PenLine, Sparkles, Users } from "lucide-react";
-import AppLayout, { BellLink, UserAvatar } from "./AppLayout";
+import AppLayout, { BellLink } from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import Button from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
@@ -26,12 +26,12 @@ export default function TeacherLayout() {
       navLabel="Menu giáo viên"
       items={items}
       userName={name}
+      accountPath="/teacher/account"
       userSubtitle="Giáo viên"
       topbar={
         <>
           <span className="text-sm font-bold text-slate-500">Không gian giáo viên</span>
           <BellLink to="/teacher/notifications" ariaLabel={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"} dot={unread > 0} />
-          <UserAvatar name={name} />
         </>
       }
       sidebarExtra={
