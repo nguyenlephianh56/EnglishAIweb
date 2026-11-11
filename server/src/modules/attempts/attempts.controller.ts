@@ -4,13 +4,14 @@ import { success, failure } from "../../utils/response";
 
 // Lỗi nghiệp vụ (có statusCode + code) -> response chuẩn; lỗi lạ -> errorHandler (500)
 const handleError = (error: unknown, res: Response, next: NextFunction) => {
-  const err = error as Error & {
+    const err = error as Error & {
     statusCode?: number;
     code?: string;
+    details?: unknown;     
   };
 
   if (err.statusCode && err.code) {
-    return failure(res, err.code, err.message, err.statusCode);
+    return failure(res, err.code, err.message, err.statusCode, err.details); 
   }
 
   next(error);

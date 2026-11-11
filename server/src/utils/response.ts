@@ -16,13 +16,15 @@ export const failure = (
   res: Response,
   code: string,
   message: string,
-  status = 400
+  status = 400,
+  details?: unknown
 ) => {
   return res.status(status).json({
     data: null,
     error: {
       code,
       message,
+      ...(details !== undefined ? { details } : {}),
     },
   });
 };

@@ -3,10 +3,15 @@ import { prisma } from "../../config/prisma";
 import { gradeExercise } from "../grading/gradeExercise";
 import { buildAttemptResult } from "./attempt-result";
 import type { CreateAttemptInput } from "./attempts.schema";
+import { MAX_ATTEMPTS_PER_ASSIGNMENT } from "./attempts.constants";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
-const businessError = (statusCode: number, code: string, message: string) =>
-  Object.assign(new Error(message), { statusCode, code });
+const businessError = (
+  statusCode: number,
+  code: string,
+  message: string,
+  details?: unknown
+) => Object.assign(new Error(message), { statusCode, code, details });
 
 // Chỉ lấy đúng các field cần để chấm và dựng kết quả.
 const EXERCISE_FOR_ATTEMPT_SELECT = {
@@ -47,6 +52,29 @@ const resolvePracticeTarget = async (
     throw businessError(404, "NOT_FOUND", "Không tìm thấy bài tập");
   }
   return { exercise, assignment: null };
+};
+
+/**
+ * Chặn nếu HS đã dùng hết lượt nộp của bài giao này (409 ATTEMPT_LIMIT_REACHED).
+ * Đếm MỌI dòng attempts của (student_id, assignment_id), kể cả nộp trễ hạn.
+ * Gọi TRƯỚC khi chấm, nên lần nộp bị từ chối không bị chấm và không lưu dòng mới.
+ * Đây mới là kiểm tra nhanh (chưa có khóa); bước sau sẽ đếm lại trong transaction.
+ */
+const assertAttemptsLeft = async (
+  db: Pick<typeof prisma, "attempt">,
+  studentId: number,
+  assignmentId: number
+): Promise<number> => {
+  const used = await db.attempt.count({ where: { studentId, assignmentId } });
+  if (used >= MAX_ATTEMPTS_PER_ASSIGNMENT) {
+    throw businessError(
+      409,
+      "ATTEMPT_LIMIT_REACHED",
+      `Bạn đã dùng hết ${MAX_ATTEMPTS_PER_ASSIGNMENT} lần nộp cho bài này`,
+      { attemptsUsed: used, max: MAX_ATTEMPTS_PER_ASSIGNMENT }
+    );
+  }
+  return used;
 };
 
 /**
@@ -133,6 +161,11 @@ export const submitAttempt = async (
       ? await resolvePracticeTarget(input)
       : await resolveAssignmentTarget(user, input.assignmentId, input.exerciseId);
 
+  // Bài giao: hết lượt thì dừng ngay, chưa chấm, chưa lưu gì.
+   if (assignment !== null) {
+    await assertAttemptsLeft(prisma, user.id, assignment.id);
+  }
+
   // Một mốc thời gian duy nhất cho cả lần nộp (giờ server).
   const now = new Date();
   // Đã quá hạn nộp? Tự luyện không có hạn nên luôn false.
@@ -148,23 +181,43 @@ export const submitAttempt = async (
     input.answer
   );
 
-  const attempt = await prisma.attempt.create({
-    data: {
-      studentId: user.id,
-      exerciseId: exercise.id,
-      assignmentId: assignment ? assignment.id : null,
-      mode: input.mode,
-      answer: input.answer as Prisma.InputJsonValue,
-      score: grade.score,
-      maxScore: grade.maxScore,
-      errors: grade.errors as unknown as Prisma.InputJsonValue,
-      isLate,
-      submittedAt: now,
-    },
-    select: { id: true, score: true, maxScore: true, errors: true },
+  const { attempt, usedBefore } = await prisma.$transaction(async (tx) => {
+    let usedBefore = 0;
+    if (assignment !== null) {
+      // ::int bắt buộc để Postgres chọn đúng hàm pg_advisory_xact_lock(int, int).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${user.id}::int, ${assignment.id}::int)`;
+      usedBefore = await assertAttemptsLeft(tx, user.id, assignment.id);
+    }
+
+    const attempt = await tx.attempt.create({
+      data: {
+        studentId: user.id,
+        exerciseId: exercise.id,
+        assignmentId: assignment ? assignment.id : null,
+        mode: input.mode,
+        answer: input.answer as Prisma.InputJsonValue,
+        score: grade.score,
+        maxScore: grade.maxScore,
+        errors: grade.errors as unknown as Prisma.InputJsonValue,
+        isLate,
+        submittedAt: now,
+      },
+      select: { id: true, score: true, maxScore: true, errors: true },
+    });
+    return { attempt, usedBefore };
   });
 
   // Tự luyện (assignment === null): lộ ngay. Bài giao: chỉ lộ khi đã quá hạn.
   const reveal = assignment === null || pastDue;
-  return buildAttemptResult(attempt, exercise, { reveal });
+  const result = buildAttemptResult(attempt, exercise, { reveal });
+
+  // Tự luyện không giới hạn nên response giữ nguyên. Bài giao thêm lượt nộp:
+  // attemptNo = lần thứ mấy (1..tối đa), attemptsLeft = còn mấy lần.
+  if (assignment === null) return result;
+  const attemptNo = usedBefore + 1;
+  return {
+    ...result,
+    attemptNo,
+    attemptsLeft: MAX_ATTEMPTS_PER_ASSIGNMENT - attemptNo,
+  };
 };

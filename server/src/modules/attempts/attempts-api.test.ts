@@ -96,12 +96,15 @@ beforeAll(async () => {
       "Không kết nối được database. Kiểm tra DATABASE_URL trong server/.env và PostgreSQL đang chạy."
     );
   }
-
-  // Dọn rác của lần chạy trước bị dừng giữa chừng (chỉ động vào user có tiền tố t4a_)
   const leftovers = await prisma.user.findMany({
     where: { email: { startsWith: PREFIX } },
-    select: { id: true },
+    select: { id: true, email: true },
   });
+  await cleanup(
+    leftovers
+      .filter((u: { email: string }) => u.email.startsWith(PREFIX))
+      .map((u: { id: number }) => u.id)
+  );
   await cleanup(leftovers.map((u: { id: number }) => u.id));
 
   users.admin = await createUser("admin", "ADMIN");
