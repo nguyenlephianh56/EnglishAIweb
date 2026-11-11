@@ -8,7 +8,8 @@
     "start": "node dist/src/server.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "ai:ping": "tsx src/ai/ping.ts"
   },
   "prisma": { "seed": "tsx prisma/seed.ts" },
   "dependencies": {

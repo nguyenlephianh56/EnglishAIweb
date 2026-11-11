@@ -10,8 +10,22 @@ const envSchema = z.object({
 
   CLIENT_ORIGIN: z.string().default("http://localhost:5173"),
 
-  GEMINI_API_KEY: z.string().default(""),
-  GEMINI_MODEL: z.string().default(""),
+  // Cho phép thiếu key khi khởi động; provider kiểm tra khi gọi AI.
+  GEMINI_API_KEY: z.string().trim().default(""),
+
+  // Thiếu hoặc để trống thì dùng model mặc định.
+  GEMINI_MODEL: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().trim().min(1).default("gemini-3.6-flash")
+  ),
+
+  // Đơn vị mili-giây; mặc định 30 giây.
+  AI_TIMEOUT_MS: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.coerce.number().int().positive().max(2_147_483_647).default(30000)
+  ),
 
   AI_DAILY_LIMIT_STUDENT: z.coerce.number().default(10),
   AI_DAILY_LIMIT_TEACHER: z.coerce.number().default(50),
