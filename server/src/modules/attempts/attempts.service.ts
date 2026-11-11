@@ -2,7 +2,18 @@ import { ExerciseStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { gradeExercise } from "../grading/gradeExercise";
 import { buildAttemptResult } from "./attempt-result";
-import type { CreateAttemptInput } from "./attempts.schema";
+import {
+  buildAttemptDetail,
+  isAnswerRevealed,
+  type AttemptDetail,
+} from "./attempts-detail";
+import type { CreateAttemptInput, ListAttemptsQuery } from "./attempts.schema";
+import {
+  buildAttemptListResponse,
+  hasHistoryFilter,
+  toAttemptListItem,
+  type AttemptListResponse,
+} from "./attempt-list";
 import { MAX_ATTEMPTS_PER_ASSIGNMENT } from "./attempts.constants";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
@@ -220,4 +231,179 @@ export const submitAttempt = async (
     attemptNo,
     attemptsLeft: MAX_ATTEMPTS_PER_ASSIGNMENT - attemptNo,
   };
+};
+
+/**
+ * Số thứ tự lần nộp (attemptNo) của các lần nộp `attemptIds` thuộc HS `studentId`.
+ * ROW_NUMBER() chạy trên TOÀN BỘ lần nộp của HS trong cùng nhóm (cùng assignment_id;
+ * tự luyện: cùng exercise_id), xếp theo submitted_at rồi id, nên số thứ tự không đổi
+ * theo bộ lọc hay trang. Không thêm cột, không sửa DB. Dùng chung cho danh sách và chi tiết.
+ */
+const loadAttemptNumbers = async (
+  studentId: number,
+  attemptIds: number[]
+): Promise<Map<number, number>> => {
+  const result = new Map<number, number>();
+  if (attemptIds.length === 0) return result; // Prisma.join không nhận mảng rỗng
+
+  const numbered = await prisma.$queryRaw<{ id: number; attempt_no: number }[]>(
+    Prisma.sql`
+      SELECT t.id, t.attempt_no
+      FROM (
+        SELECT a.id,
+               ROW_NUMBER() OVER (
+                 PARTITION BY a.assignment_id,
+                              CASE WHEN a.assignment_id IS NULL THEN a.exercise_id END
+                 ORDER BY a.submitted_at, a.id
+               )::int AS attempt_no
+        FROM attempts a
+        WHERE a.student_id = ${studentId}
+      ) t
+      WHERE t.id IN (${Prisma.join(attemptIds)})
+    `
+  );
+  for (const item of numbered) result.set(item.id, item.attempt_no);
+  return result;
+};
+
+/**
+ * GET /api/v1/attempts: lịch sử nộp bài CỦA CHÍNH HS đang đăng nhập.
+ *
+ * - student_id luôn lấy từ JWT (user.id); query không có cách nào đổi nó.
+ * - Sắp xếp submitted_at giảm dần (id giảm dần để ổn định khi trùng giờ).
+ * - total / bestScore / attemptsCount tính trên TOÀN BỘ kết quả khớp lọc bằng MỘT câu SQL
+ *   tổng hợp (không phụ thuộc trang hiện tại). bestScore dùng COALESCE(teacher_score, score).
+ * - attemptNo tính bằng ROW_NUMBER() trên TOÀN BỘ lần nộp của HS trong cùng nhóm
+ *   (cùng assignment_id; tự luyện: cùng exercise_id), xếp theo submitted_at, id.
+ *   Tính trước khi lọc/phân trang nên số thứ tự không đổi theo bộ lọc hay trang.
+ *   Không thêm cột, không sửa DB.
+ * - Không trả answer đúng / explanation / errors / bài làm: xem toAttemptListItem.
+ */
+export const listAttempts = async (
+  user: { id: number },
+  query: ListAttemptsQuery
+): Promise<AttemptListResponse> => {
+  const { assignmentId, exerciseId, mode, page, limit } = query;
+
+  // Điều kiện lọc cho Prisma (findMany) ...
+  const where: Prisma.AttemptWhereInput = {
+    studentId: user.id,
+    assignmentId,
+    exerciseId,
+    mode,
+  };
+
+  // ... và cùng điều kiện đó cho SQL tổng hợp. Giá trị luôn đi qua tham số (${...}),
+  // không nối chuỗi nên không có SQL injection.
+  const conditions: Prisma.Sql[] = [Prisma.sql`student_id = ${user.id}`];
+  if (assignmentId !== undefined) {
+    conditions.push(Prisma.sql`assignment_id = ${assignmentId}`);
+  }
+  if (exerciseId !== undefined) {
+    conditions.push(Prisma.sql`exercise_id = ${exerciseId}`);
+  }
+  if (mode !== undefined) {
+    conditions.push(Prisma.sql`mode = ${mode}`);
+  }
+
+  const [aggregate, rows] = await Promise.all([
+    prisma.$queryRaw<{ total: number; best: number | null }[]>(Prisma.sql`
+      SELECT COUNT(*)::int AS total,
+             MAX(COALESCE(teacher_score, score)) AS best
+      FROM attempts
+      WHERE ${Prisma.join(conditions, " AND ")}
+    `),
+    prisma.attempt.findMany({
+      where,
+      orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        exerciseId: true,
+        assignmentId: true,
+        mode: true,
+        score: true,
+        maxScore: true,
+        teacherScore: true,
+        isLate: true,
+        submittedAt: true,
+      },
+    }),
+  ]);
+
+  // Số thứ tự lần nộp cho đúng các dòng của trang này.
+  const attemptNoById = await loadAttemptNumbers(
+    user.id,
+    rows.map((row) => row.id)
+  );
+
+  const { total, best } = aggregate[0] ?? { total: 0, best: null };
+
+  return buildAttemptListResponse({
+    items: rows.map((row) =>
+      toAttemptListItem(row, attemptNoById.get(row.id) ?? 1)
+    ),
+    page,
+    limit,
+    total,
+    best,
+    filtered: hasHistoryFilter(query),
+  });
+};
+
+
+/**
+ * GET /api/v1/attempts/:id: chi tiết MỘT lần nộp của CHÍNH HS đang đăng nhập.
+ *
+ * - Tìm theo (id, student_id từ JWT): bài nộp của HS khác và bài nộp không tồn tại cho
+ *   CÙNG một lỗi 404, nên không ai dò được id của người khác.
+ * - Kết quả dựng bằng buildAttemptResult (hàm dùng chung với POST), không viết lại logic lộ.
+ * - Lộ đáp án (4c.4): tự luyện lộ ngay; bài giao chỉ lộ khi now > due_at. Chưa lộ thì
+ *   response không có answer / explanation / correction (do buildAttemptResult lo).
+ * - Bài làm của HS trả ở `submittedAnswer` (key `answer` dành cho đáp án đúng).
+ * - `now` là giờ server, lấy một lần.
+ */
+export const getAttemptDetail = async (
+  user: { id: number },
+  attemptId: number
+): Promise<AttemptDetail> => {
+  const attempt = await prisma.attempt.findFirst({
+    where: { id: attemptId, studentId: user.id },
+    select: {
+      id: true,
+      exerciseId: true,
+      assignmentId: true,
+      mode: true,
+      answer: true,
+      score: true,
+      maxScore: true,
+      errors: true,
+      teacherScore: true,
+      teacherComment: true,
+      isLate: true,
+      submittedAt: true,
+      assignment: { select: { dueAt: true } },
+      exercise: { select: EXERCISE_FOR_ATTEMPT_SELECT },
+    },
+  });
+
+  if (!attempt) {
+    throw businessError(404, "NOT_FOUND", "Không tìm thấy bài nộp");
+  }
+
+  const now = new Date();
+  const reveal = isAnswerRevealed(
+    attempt.assignmentId,
+    attempt.assignment ? attempt.assignment.dueAt : null,
+    now
+  );
+  const result = buildAttemptResult(attempt, attempt.exercise, { reveal });
+
+  const numbers = await loadAttemptNumbers(user.id, [attempt.id]);
+  return buildAttemptDetail({
+    attempt,
+    result,
+    attemptNo: numbers.get(attempt.id) ?? 1,
+  });
 };
