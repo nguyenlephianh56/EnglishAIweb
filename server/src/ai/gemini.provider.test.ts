@@ -150,6 +150,26 @@ describe("GeminiProvider", () => {
     expect(JSON.stringify(error)).not.toContain(FAKE_KEY);
   });
 
+    it("output = phản hồi + token suy nghĩ khi provider có báo thoughtsTokenCount", async () => {
+    mocks.generate.mockResolvedValue({
+      ...success(),
+      usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 8, thoughtsTokenCount: 30 },
+    });
+    expect(await provider.generate(request)).toEqual({
+      text: "Xin chào", model: "test-flash-actual", tokens: { input: 12, output: 38 },
+    });
+  });
+
+  it("chỉ có token suy nghĩ (không có candidatesTokenCount) thì output = token suy nghĩ", async () => {
+    mocks.generate.mockResolvedValue({
+      ...success(),
+      usageMetadata: { promptTokenCount: 12, thoughtsTokenCount: 30 },
+    });
+    expect(await provider.generate(request)).toEqual({
+      text: "Xin chào", model: "test-flash-actual", tokens: { input: 12, output: 30 },
+    });
+  });
+
   it.each([
     { headers: { "retry-after": "2" } },
     { response: { headers: new Headers({ "Retry-After": "2" }) } },

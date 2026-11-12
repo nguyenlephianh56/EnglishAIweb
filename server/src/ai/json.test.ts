@@ -172,6 +172,40 @@ describe("generateJson", () => {
   });
 });
 
+  it("sai định dạng sau 2 lần -> lỗi mang tổng token của cả 2 lần", async () => {
+    const { provider } = fakeProvider(["không phải json", "vẫn không phải json"]);
+
+    const error = await generateJson(provider, PROMPT, schema).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(AIInvalidFormatError);
+    expect((error as AIInvalidFormatError).tokens).toEqual({ input: 20, output: 10 });
+  });
+
+  it("token trên lỗi không lộ ra JSON/keys/spread/log; provider không báo token thì không có", async () => {
+    const withTokens = await generateJson(
+      fakeProvider(["sai", "sai"]).provider, PROMPT, schema
+    ).catch((e: unknown) => e) as AIInvalidFormatError;
+
+    expect(withTokens.tokens).toEqual({ input: 20, output: 10 });
+    expect(Object.keys(withTokens)).not.toContain("tokens");
+    expect({ ...withTokens }).not.toHaveProperty("tokens");
+    expect(JSON.stringify(withTokens)).not.toContain("tokens");
+    expect(warnSpy.mock.calls.flat().join("\n")).not.toContain("tokens");
+
+    const noTokenProvider: AIProvider = {
+      name: "mock",
+      async generate(): Promise<AIResponse> {
+        return { text: "sai", model: "mock-1" };
+      },
+    };
+    const without = await generateJson(noTokenProvider, PROMPT, schema)
+      .catch((e: unknown) => e) as AIInvalidFormatError;
+
+    expect(without).toBeInstanceOf(AIInvalidFormatError);
+    expect(without.tokens).toBeUndefined();
+    expect("tokens" in without).toBe(false);
+  });
+
 describe("stripCodeFence", () => {
   it("bóc rào có/không ghi json; giữ nguyên khi không bọc trọn", () => {
     expect(stripCodeFence("```json\n{\"a\":1}\n```")).toBe("{\"a\":1}");

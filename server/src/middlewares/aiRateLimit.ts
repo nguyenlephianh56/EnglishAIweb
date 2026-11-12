@@ -1,18 +1,11 @@
 // middlewares/aiRateLimit.ts — Chặn SỚM (trước controller) khi user đã hết lượt AI trong ngày (T9).
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import {
-  AIQuotaExceededError,
-  AIUsageCheckError,
-  aiTaskSchema,
-} from "../ai/ai.types";
+import {AIQuotaExceededError,AIUsageCheckError,aiTaskSchema,} from "../ai/ai.types";
 import type { AiTask, AiUsageCounter, AiUsageLogger } from "../ai/ai.types";
-import {
-  createPrismaUsageCounter,
-  createPrismaUsageLogger,
-  dailyLimitForRole,
-} from "../ai/ai.usage";
+import {createPrismaUsageCounter,createPrismaUsageLogger,dailyLimitForRole,} from "../ai/ai.usage";
 import type { AiDailyLimits } from "../ai/ai.usage";
 import { failure } from "../utils/response";
+import { logAiUsage } from "../ai/ai.log";
 
 /** Các phụ thuộc, truyền vào được để test bằng đối tượng giả. Không truyền thì dùng bản thật. */
 export interface AiRateLimitDeps {
@@ -64,18 +57,13 @@ export function aiRateLimit(
       return next(new AIUsageCheckError());
     }
 
-    if (used >= limit) {
-      try {
-        await logger.log({
-          userId: user.id,
-          task: safeTask,
-          status: "rate_limited",
-          tokens: null,
-        });
-      } catch (error) {
-        // Log lỗi thì vẫn chặn như thường.
-        console.error(`[ai/rateLimit] log_failed task=${safeTask} code=${errorCode(error)}`);
-      }
+        if (used >= limit) {
+      await logAiUsage(logger, {
+        userId: user.id,
+        task: safeTask,
+        status: "rate_limited",
+        tokens: null,
+      });
       return next(new AIQuotaExceededError());
     }
 

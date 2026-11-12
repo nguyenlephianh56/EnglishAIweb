@@ -199,13 +199,15 @@ export class GeminiProvider implements AIProvider {
         );
       }
 
-      const usage = response.usageMetadata;
+            const usage = response.usageMetadata;
       const tokens: NonNullable<AIResponse["tokens"]> = {};
       if (usage?.promptTokenCount !== undefined) {
         tokens.input = usage.promptTokenCount;
       }
-      if (usage?.candidatesTokenCount !== undefined) {
-        tokens.output = usage.candidatesTokenCount;
+      const candidates = usage?.candidatesTokenCount;
+      const thoughts = usage?.thoughtsTokenCount;
+      if (candidates !== undefined || thoughts !== undefined) {
+        tokens.output = (candidates ?? 0) + (thoughts ?? 0);
       }
 
       return {

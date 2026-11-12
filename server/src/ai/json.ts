@@ -44,11 +44,25 @@ export class AIInvalidFormatError extends Error {
   readonly statusCode = AI_INVALID_FORMAT_STATUS;
   /** Số lần đã gọi provider. */
   readonly attempts: number;
+  /**
+   * Tổng token của các lần đã gọi (chỉ để ghi ai_usage_logs). Thuộc tính KHÔNG
+   * enumerable nên không lọt vào JSON.stringify / Object.keys / spread.
+   * `declare`: không sinh trường enumerable rỗng khi không có token.
+   */
+  declare readonly tokens?: { input?: number; output?: number };
 
-  constructor(attempts: number) {
+  constructor(attempts: number, tokens?: { input?: number; output?: number }) {
     super("AI trả về kết quả chưa đúng định dạng. Bạn vui lòng thử lại sau.");
     this.name = "AIInvalidFormatError";
     this.attempts = attempts;
+    if (tokens) {
+      Object.defineProperty(this, "tokens", {
+        value: { ...tokens },
+        enumerable: false,
+        writable: false,
+        configurable: false,
+      });
+    }
   }
 }
 
@@ -176,5 +190,5 @@ export async function generateJson<S extends z.ZodTypeAny>(
   }
 
   console.warn(`[ai/json] schema=${schemaName} code=${AI_INVALID_FORMAT_CODE}`);
-  throw new AIInvalidFormatError(MAX_ATTEMPTS);
+   throw new AIInvalidFormatError(MAX_ATTEMPTS, tokens);
 }

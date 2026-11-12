@@ -11,18 +11,13 @@
 import type { z } from "zod";
 import { buildAiCacheKey } from "./ai.cache";
 import { AIQuotaExceededError, aiTaskSchema } from "./ai.types";
-import type {
-  AiCache,
-  AiTask,
-  AiUsageCounter,
-  AiUsageLogger,
-  AiUsageStatus,
-} from "./ai.types";
+import type {AiCache,AiTask,AiUsageCounter,AiUsageLogger,AiUsageStatus,} from "./ai.types";
 import { dailyLimitForRole, sumTokens } from "./ai.usage";
 import type { AiDailyLimits, AiRole } from "./ai.usage";
-import { generateJson } from "./json";
+import { AIInvalidFormatError, generateJson } from "./json";
 import type { AIProvider } from "./provider";
 import { AIServiceError } from "./resilience";
+import { logAiUsage } from "./ai.log";
 
 /** Mã lỗi khi `task` ngoài danh sách (lỗi lập trình phía server, không phải lỗi người dùng). */
 export const AI_INVALID_TASK_CODE = "AI_INVALID_TASK";
@@ -116,14 +111,9 @@ export async function runAiTask<S extends z.ZodTypeAny>(
 
    const { provider, cache, counter, logger, limits, model, cacheableTasks, now } = await resolveDeps(deps);
 
-  /** Ghi đúng 1 dòng log; log lỗi thì chỉ báo mã, không làm hỏng kết quả. */
-  const writeLog = async (status: AiUsageStatus, tokens: number | null = null) => {
-    try {
-      await logger.log({ userId, task, status, tokens });
-    } catch (error) {
-      console.error(`[ai/service] log_failed status=${status} code=${errorCode(error)}`);
-    }
-  };
+    /** Ghi đúng 1 dòng log qua cổng chung; cổng này không bao giờ ném lỗi. */
+  const writeLog = (status: AiUsageStatus, tokens: number | null = null) =>
+  logAiUsage(logger, { userId, task, status, tokens });
 
   // (1) Giới hạn lượt/ngày. Hết lượt: không gọi model, không đụng cache.
   const limit = dailyLimitForRole(role, limits);
@@ -158,7 +148,8 @@ export async function runAiTask<S extends z.ZodTypeAny>(
     result = await generateJson(provider, prompt, schema, { schemaName: task });
   } catch (error) {
     const gemini429 = error instanceof AIServiceError && error.code === "RATE_LIMITED";
-    await writeLog(gemini429 ? "rate_limited" : "error");
+    const spent = error instanceof AIInvalidFormatError ? sumTokens(error.tokens) : null;
+    await writeLog(gemini429 ? "rate_limited" : "error", spent);
     throw error;
   }
 

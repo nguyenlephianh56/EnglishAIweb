@@ -341,6 +341,43 @@ describe("runAiTask - lỗi khi gọi AI", () => {
     expect(t.statuses()).toEqual(["error", "ok"]);
   });
 
+    it("sai định dạng sau retry -> dòng error mang tổng token của cả 2 lần; 1 yêu cầu = 1 dòng", async () => {
+    const t = setup({ steps: ["không phải json", "vẫn không phải json"] });
+    await getError(t.run());
+
+    expect(t.generate).toHaveBeenCalledTimes(2);
+    expect(t.rows).toHaveLength(1);
+    expect(t.rows[0]).toMatchObject({ userId: 1, task: "grade_writing", status: "error", tokens: 30 });
+  });
+
+  it("sai định dạng mà provider không báo token -> dòng error có tokens = null", async () => {
+    const t = setup({
+      steps: [
+        { text: "không phải json", model: "m" },
+        { text: "vẫn không phải json", model: "m" },
+      ],
+    });
+    await getError(t.run());
+
+    expect(t.rows).toHaveLength(1);
+    expect(t.rows[0]).toMatchObject({ status: "error", tokens: null });
+  });
+
+  it("provider lỗi (không phải sai định dạng) -> dòng error có tokens = null; token không lộ ra lỗi trả về", async () => {
+    const t = setup({ steps: [new AIProviderError("NETWORK", "mạng lỗi")] });
+    const providerErr = await getError(t.run());
+    expect(t.rows).toHaveLength(1);
+    expect(t.rows[0]).toMatchObject({ status: "error", tokens: null });
+    expect(providerErr).toBeInstanceOf(AIProviderError);
+
+    const t2 = setup({ steps: ["sai", "sai"] });
+    const formatErr = await getError(t2.run());
+    expect(t2.rows[0].tokens).toBe(30);
+
+    expect(JSON.stringify(formatErr)).not.toContain("tokens");
+    expect(consoleText()).not.toContain("tokens=");
+  });
+
   it("Gemini 429 hết lượt thử -> RATE_LIMITED, log rate_limited, không tính lượt, không cache", async () => {
     const raw: AIProvider = {
       name: "raw",

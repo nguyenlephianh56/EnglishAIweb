@@ -28,9 +28,9 @@ export const AI_TASKS = [
 export const aiTaskSchema = z.enum(AI_TASKS);
 export type AiTask = z.infer<typeof aiTaskSchema>;
 
-/** Trạng thái ghi vào ai_usage_logs.status. */
-export type AiUsageStatus = "ok" | "error" | "cached" | "rate_limited";
-
+export const AI_USAGE_STATUSES = ["ok", "error", "cached", "rate_limited"] as const;
+export const aiUsageStatusSchema = z.enum(AI_USAGE_STATUSES);
+export type AiUsageStatus = z.infer<typeof aiUsageStatusSchema>;
 // ---------------------------------------------------------------------
 // Lỗi hết lượt/ngày (khác RATE_LIMITED của Gemini để FE phân biệt)
 // ---------------------------------------------------------------------
