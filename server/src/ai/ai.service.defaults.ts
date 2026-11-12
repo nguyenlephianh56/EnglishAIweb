@@ -14,6 +14,8 @@ import { dailyLimitsFromEnv } from "./ai.usage.config";
 import { GeminiProvider } from "./gemini.provider";
 import { withResilience } from "./resilience";
 import { resilienceOptionsFromEnv } from "./resilience.config";
+import { env } from "../config/env"
+import { cacheableTasksFromEnv } from "./ai.cache.config";
 
 let instance: Omit<AiServiceDeps, "now"> | undefined;
 
@@ -21,10 +23,15 @@ export function getDefaultAiDeps(): Omit<AiServiceDeps, "now"> {
   if (!instance) {
     instance = {
       provider: withResilience(new GeminiProvider(), resilienceOptionsFromEnv()),
-      cache: new InMemoryAiCache(),
+      cache: new InMemoryAiCache({
+        ttlMs: env.AI_CACHE_TTL_SECONDS * 1000,
+        maxEntries: env.AI_CACHE_MAX_ENTRIES,
+      }),
       counter: createPrismaUsageCounter(),
       logger: createPrismaUsageLogger(),
       limits: dailyLimitsFromEnv(),
+    model: env.GEMINI_MODEL,
+    cacheableTasks: cacheableTasksFromEnv(),
     };
   }
   return instance;

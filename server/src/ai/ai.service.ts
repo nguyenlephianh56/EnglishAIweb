@@ -34,14 +34,15 @@ export interface AiServiceDeps {
   counter: AiUsageCounter;
   logger: AiUsageLogger;
   limits: AiDailyLimits;
-  /** Đồng hồ (test truyền giờ giả để thử mốc sang ngày mới). */
+  model: string;
+  cacheableTasks: ReadonlySet<AiTask>;
   now: () => Date;
 }
 
 export interface RunAiTaskInput<S extends z.ZodTypeAny> {
   /** Id người dùng, do server lấy từ token. */
   userId: number;
-  /** Vai trò, do server lấy từ token; quyết định mức giới hạn lượt. */
+  /** Vai trò, do server lấy từ token; quyết định mức giới hạn lượt. */ 
   role: AiRole;
   /** Loại việc (được kiểm lại bằng Zod ở đây). */
   task: AiTask;
@@ -69,7 +70,10 @@ async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<AiServiceDe
     partial.cache &&
     partial.counter &&
     partial.logger &&
-    partial.limits
+    partial.logger &&
+    partial.limits &&
+    partial.model &&
+    partial.cacheableTasks
   );
   // Nạp muộn: chỉ khi thật sự thiếu cổng mới kéo env/Gemini/Prisma thật vào.
   const d = needDefaults
@@ -81,6 +85,8 @@ async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<AiServiceDe
     cache: partial.cache ?? d!.cache,
     counter: partial.counter ?? d!.counter,
     logger: partial.logger ?? d!.logger,
+    model: partial.model ?? d!.model,
+    cacheableTasks: partial.cacheableTasks ?? d!.cacheableTasks,
     limits: partial.limits ?? d!.limits,
     now: partial.now ?? (() => new Date()),
   };
@@ -108,7 +114,7 @@ export async function runAiTask<S extends z.ZodTypeAny>(
   const task = parsedTask.data;
   const { userId, role, prompt, schema } = input;
 
-  const { provider, cache, counter, logger, limits, now } = await resolveDeps(deps);
+   const { provider, cache, counter, logger, limits, model, cacheableTasks, now } = await resolveDeps(deps);
 
   /** Ghi đúng 1 dòng log; log lỗi thì chỉ báo mã, không làm hỏng kết quả. */
   const writeLog = async (status: AiUsageStatus, tokens: number | null = null) => {
@@ -127,23 +133,25 @@ export async function runAiTask<S extends z.ZodTypeAny>(
     throw new AIQuotaExceededError();
   }
 
-  // (2) Tra cache. Khóa = hash(task + prompt đã trim), không phải prompt thô.
-  const key = buildAiCacheKey(task, prompt);
-  let hit: unknown;
-  try {
-    hit = await cache.get(key);
-  } catch (error) {
-    console.error(`[ai/service] cache_get_failed code=${errorCode(error)}`);
-  }
-  if (hit !== undefined) {
-    // Kiểm lại bằng schema của lượt này: cùng task+prompt nhưng khác khuôn thì coi là không trúng.
-    const again = schema.safeParse(hit);
-    if (again.success) {
-      await writeLog("cached");
-      return { data: again.data as z.output<S>, cached: true };
+   // (2) Tra cache, chỉ với task cache được. Khóa = hash(task + model + prompt đã chuẩn hóa),
+  //     không phải prompt thô. `key` là undefined nghĩa là task này không dùng cache.
+  const key = cacheableTasks.has(task) ? buildAiCacheKey(task, model, prompt) : undefined;
+  if (key !== undefined) {
+    let hit: unknown;
+    try {
+      hit = await cache.get(key);
+    } catch (error) {
+      console.error(`[ai/service] cache_get_failed code=${errorCode(error)}`);
+    }
+    if (hit !== undefined) {
+      // Kiểm lại bằng schema của lượt này: cùng task+prompt nhưng khác khuôn thì coi là không trúng.
+      const again = schema.safeParse(hit);
+      if (again.success) {
+        await writeLog("cached");
+        return { data: again.data as z.output<S>, cached: true };
+      }
     }
   }
-
   // (3) Gọi AI. Lỗi: log rồi ném lại NGUYÊN VẸN (không bọc, không đổi message).
   let result: Awaited<ReturnType<typeof generateJson<S>>>;
   try {
@@ -154,11 +162,13 @@ export async function runAiTask<S extends z.ZodTypeAny>(
     throw error;
   }
 
-  // (4) Chỉ tới đây (đã qua Zod) mới lưu cache + log ok.
-  try {
-    await cache.set(key, result.data);
-  } catch (error) {
-    console.error(`[ai/service] cache_set_failed code=${errorCode(error)}`);
+  // (4) Chỉ tới đây (đã qua Zod) mới lưu cache (nếu task cache được) + log ok.
+  if (key !== undefined) {
+    try {
+      await cache.set(key, result.data);
+    } catch (error) {
+      console.error(`[ai/service] cache_set_failed code=${errorCode(error)}`);
+    }
   }
   await writeLog("ok", sumTokens(result.tokens));
 

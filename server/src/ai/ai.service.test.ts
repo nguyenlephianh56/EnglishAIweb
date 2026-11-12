@@ -6,7 +6,7 @@ import { z } from "zod";
 vi.mock("../config/prisma", () => ({ prisma: {} }));
 vi.mock("./ai.service.defaults", () => ({ getDefaultAiDeps: vi.fn() }));
 
-import { buildAiCacheKey, InMemoryAiCache } from "./ai.cache";
+import { buildAiCacheKey, DEFAULT_CACHEABLE_TASKS, InMemoryAiCache } from "./ai.cache";
 import { AI_INVALID_TASK_CODE, runAiTask } from "./ai.service";
 import { getDefaultAiDeps } from "./ai.service.defaults";
 import type { AiServiceDeps } from "./ai.service";
@@ -23,7 +23,7 @@ const schema = z.object({ score: z.number(), comment: z.string() });
 const VALID = JSON.stringify({ score: 7, comment: "Tốt" });
 const SECRET_PROMPT = "BÀI LÀM BÍ MẬT: I goes to school every days.";
 const SECRET_RAW = "PHẢN_HỒI_THÔ_RÒ_RỈ";
-
+const MODEL = "mock-model";
 // ---------------------------------------------------------------------
 // Dựng môi trường giả
 // ---------------------------------------------------------------------
@@ -79,6 +79,8 @@ function setup(
     counter: createPrismaUsageCounter(db),
     logger: createPrismaUsageLogger(db),
     limits: options.limits ?? { student: 3, teacher: 5 },
+    model: MODEL,
+    cacheableTasks: new Set(DEFAULT_CACHEABLE_TASKS),
     now: clock.now,
   };
 
@@ -87,7 +89,7 @@ function setup(
     depsOver: Partial<AiServiceDeps> = {}
   ) =>
     runAiTask(
-      { userId: 1, role: "STUDENT", task: "generate", prompt: "p1", schema, ...over },
+      { userId: 1, role: "STUDENT", task: "grade_writing", prompt: "p1", schema, ...over },
       { ...deps, ...depsOver }
     );
 
@@ -126,9 +128,9 @@ describe("runAiTask - cache miss rồi cache hit", () => {
 
     expect(result).toEqual({ data: { score: 7, comment: "Tốt" }, cached: false });
     expect(t.generate).toHaveBeenCalledTimes(1);
-    expect(await t.cache.get(buildAiCacheKey("generate", "p1"))).toEqual({ score: 7, comment: "Tốt" });
+    expect(await t.cache.get(buildAiCacheKey("grade_writing", MODEL, "p1"))).toEqual({ score: 7, comment: "Tốt" });
     expect(t.rows).toHaveLength(1);
-    expect(t.rows[0]).toMatchObject({ userId: 1, task: "generate", status: "ok", tokens: 15 });
+    expect(t.rows[0]).toMatchObject({ userId: 1, task: "grade_writing", status: "ok", tokens: 15 });
   });
 
   it("gọi lần 2 cùng task+prompt -> {cached:true}, provider KHÔNG gọi thêm, log cached, không tính lượt", async () => {
@@ -151,11 +153,40 @@ describe("runAiTask - cache miss rồi cache hit", () => {
     expect(t.generate).toHaveBeenCalledTimes(1);
   });
 
+    it("prompt chỉ khác khoảng trắng giữa chữ / kiểu xuống dòng -> vẫn trúng cache", async () => {
+    const t = setup();
+    await t.run({ prompt: "Dòng 1\nDòng 2" });
+    const r = await t.run({ prompt: "Dòng   1 \r\nDòng\t2" });
+    expect(r.cached).toBe(true);
+    expect(t.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("đổi model (cùng task + prompt) -> không trúng cache, gọi provider lại", async () => {
+    const t = setup();
+    await t.run({ prompt: "p1" });
+    const r = await t.run({ prompt: "p1" }, { model: "model-khac" });
+    expect(r.cached).toBe(false);
+    expect(t.generate).toHaveBeenCalledTimes(2);
+  });
+  
+    it("xóa toàn bộ cache -> yêu cầu giống hệt trước đó thành miss, gọi provider lại", async () => {
+    const t = setup({ limits: { student: 10, teacher: 10 } }); // đủ lượt cho 4 lần gọi thật
+    await t.run({ prompt: "p1" });
+    await t.run({ prompt: "p2" });
+    expect((await t.run({ prompt: "p1" })).cached).toBe(true);
+
+    await t.cache.clear();
+
+    expect((await t.run({ prompt: "p1" })).cached).toBe(false);
+    expect((await t.run({ prompt: "p2" })).cached).toBe(false);
+    expect(t.generate).toHaveBeenCalledTimes(4);
+  });
+
   it("khác task hoặc khác prompt -> khóa khác, gọi provider lại", async () => {
     const t = setup({ limits: { student: 10, teacher: 10 } });
-    await t.run({ task: "generate", prompt: "p1" });
-    const diffTask = await t.run({ task: "grade_writing", prompt: "p1" });
-    const diffPrompt = await t.run({ task: "generate", prompt: "p2" });
+    await t.run({ task: "grade_writing", prompt: "p1" });
+    const diffTask = await t.run({ task: "grade_speaking", prompt: "p1" });
+    const diffPrompt = await t.run({ task: "grade_writing", prompt: "p2" });
 
     expect(diffTask.cached).toBe(false);
     expect(diffPrompt.cached).toBe(false);
@@ -191,7 +222,7 @@ describe("runAiTask - cache miss rồi cache hit", () => {
 
   it("cache có dữ liệu sai khuôn so với schema lượt này -> coi như không trúng, gọi lại", async () => {
     const t = setup();
-    await t.cache.set(buildAiCacheKey("generate", "p1"), { score: "không phải số" });
+    await t.cache.set(buildAiCacheKey("grade_writing", MODEL, "p1"), { score: "không phải số" });
     const r = await t.run();
     expect(r.cached).toBe(false);
     expect(t.generate).toHaveBeenCalledTimes(1);
@@ -405,9 +436,10 @@ describe("runAiTask - cổng phụ bị lỗi", () => {
 
   it("cache.get lỗi -> coi như không trúng, vẫn gọi AI; cache.set lỗi -> vẫn trả kết quả", async () => {
     const t = setup();
-    const cache = {
+       const cache = {
       get: vi.fn(async () => { throw dbError(); }),
       set: vi.fn(async () => { throw dbError(); }),
+      clear: vi.fn(async () => {}),
     };
     const result = await t.run({}, { cache });
 
@@ -424,6 +456,92 @@ describe("runAiTask - cổng phụ bị lỗi", () => {
     const counter = { countUsedToday: vi.fn(async () => { throw dbError(); }) };
     expect(await getError(t.run({}, { counter }))).toMatchObject({ code: "P1001" });
     expect(t.generate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------
+// Task nào được cache
+// ---------------------------------------------------------------------
+describe("runAiTask - chỉ task trong danh sách mới dùng cache", () => {
+  it.each(["grade_writing", "grade_speaking", "analysis", "path"] as const)(
+    "%s: lần 2 cùng yêu cầu -> cached:true, provider không gọi thêm",
+    async (task) => {
+      const t = setup();
+      const first = await t.run({ task });
+      const second = await t.run({ task });
+      expect(first.cached).toBe(false);
+      expect(second.cached).toBe(true);
+      expect(t.generate).toHaveBeenCalledTimes(1);
+      expect(t.statuses()).toEqual(["ok", "cached"]);
+    }
+  );
+
+  it("generate: luôn gọi provider, không lưu cache (cùng tham số vẫn ra bài khác nhau)", async () => {
+    const t = setup({ steps: [VALID, JSON.stringify({ score: 9, comment: "Bài khác" })] });
+    const first = await t.run({ task: "generate" });
+    const second = await t.run({ task: "generate" });
+
+    expect(first).toEqual({ data: { score: 7, comment: "Tốt" }, cached: false });
+    expect(second).toEqual({ data: { score: 9, comment: "Bài khác" }, cached: false });
+    expect(t.generate).toHaveBeenCalledTimes(2);
+    expect(t.cache.size).toBe(0);
+    expect(t.statuses()).toEqual(["ok", "ok"]);
+  });
+
+  it("generate không đọc cũng không ghi cache (kể cả khi cache có sẵn mục cùng khóa)", async () => {
+    const t = setup();
+    await t.cache.set(buildAiCacheKey("generate", MODEL, "p1"), { score: 1, comment: "cũ" });
+
+    const cache = {
+      get: vi.fn(t.cache.get.bind(t.cache)),
+      set: vi.fn(t.cache.set.bind(t.cache)),
+      clear: vi.fn(t.cache.clear.bind(t.cache)),
+    };
+    const r = await t.run({ task: "generate" }, { cache });
+
+    expect(r).toEqual({ data: { score: 7, comment: "Tốt" }, cached: false });
+    expect(cache.get).not.toHaveBeenCalled();
+    expect(cache.set).not.toHaveBeenCalled();
+    expect(t.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("danh sách tùy chỉnh: chỉ task trong danh sách mới được cache", async () => {
+    const t = setup({ limits: { student: 10, teacher: 10 } });
+    const cacheableTasks = new Set<AiTask>(["generate"]);
+    await t.run({ task: "generate" }, { cacheableTasks });
+    const hitGenerate = await t.run({ task: "generate" }, { cacheableTasks });
+    await t.run({ task: "grade_writing" }, { cacheableTasks });
+    const missWriting = await t.run({ task: "grade_writing" }, { cacheableTasks });
+
+    expect(hitGenerate.cached).toBe(true);
+    expect(missWriting.cached).toBe(false);
+    expect(t.generate).toHaveBeenCalledTimes(3);
+  });
+
+  it("danh sách rỗng -> không task nào được cache", async () => {
+    const t = setup({ limits: { student: 10, teacher: 10 } });
+    const cacheableTasks = new Set<AiTask>();
+    await t.run({}, { cacheableTasks });
+    const second = await t.run({}, { cacheableTasks });
+    expect(second.cached).toBe(false);
+
+    expect(t.generate).toHaveBeenCalledTimes(2);
+    expect(t.cache.size).toBe(0);
+  });
+
+  it("task cache được mà lỗi / sai định dạng -> không lưu cache, lần sau gọi lại provider", async () => {
+    const t = setup({
+      limits: { student: 10, teacher: 10 },
+      steps: [new Error("mạng đứt"), "không phải JSON", "vẫn không phải JSON", "lại hỏng", VALID],
+    });
+    await getError(t.run());
+    expect(t.cache.size).toBe(0);
+    await getError(t.run());
+    expect(t.cache.size).toBe(0);
+
+    const ok = await t.run();
+    expect(ok.cached).toBe(false);
+    expect(t.cache.size).toBe(1);
   });
 });
 

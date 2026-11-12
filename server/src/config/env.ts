@@ -46,9 +46,17 @@ const envSchema = z.object({
   // Thử lại khi lỗi mạng.
   AI_RETRY_NETWORK_MAX: nonNegativeInt(1, 5),
   AI_RETRY_NETWORK_DELAY_MS: nonNegativeInt(2000, 60000),
+  
 
   AI_DAILY_LIMIT_STUDENT: z.coerce.number().default(10),
   AI_DAILY_LIMIT_TEACHER: z.coerce.number().default(50),
+
+  AI_CACHE_TTL_SECONDS: nonNegativeInt(86400, 2_592_000),
+  AI_CACHE_MAX_ENTRIES: nonNegativeInt(500, 100000),
+  AI_CACHE_TASKS: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().default("grade_writing,grade_speaking,analysis,path")
+  ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

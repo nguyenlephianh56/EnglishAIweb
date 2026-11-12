@@ -75,6 +75,7 @@ export interface AiUsageCounter {
 export interface AiCache {
   get(key: string): Promise<unknown | undefined>;
   set(key: string, value: unknown): Promise<void>;
+  clear(): Promise<void>;
 }
 
 /** Một dòng ai_usage_logs. Chỉ 4 thông tin này, tuyệt đối không có prompt/bài làm/phản hồi. */
