@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Search, SearchX, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, CircleAlert, Search, SearchX, SlidersHorizontal } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
+import Pagination from "../../components/ui/Pagination";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useHomeData } from "./useHomeData";
 import { useLibrary } from "./useLibrary";
@@ -34,32 +35,6 @@ function ChipRow({ label, children }: { label: string; children: ReactNode }) {
       <span className="mr-1 w-16 shrink-0 text-sm font-bold text-slate-900">{label}</span>
       {children}
     </div>
-  );
-}
-
-function Pagination({ page, pageCount, onChange }: { page: number; pageCount: number; onChange: (page: number) => void }) {
-  if (pageCount <= 1) return null;
-  const numbers = pageCount <= 7 ? Array.from({ length: pageCount }, (_, i) => i + 1) : null;
-  return (
-    <nav className="mt-8 flex flex-wrap items-center justify-center gap-2" aria-label="Phân trang">
-      <Button variant="outline" size="sm" leftIcon={<ChevronLeft />} disabled={page <= 1} onClick={() => onChange(page - 1)}>
-        Trước
-      </Button>
-      {numbers ? (
-        numbers.map((n) => (
-          <Button key={n} size="sm" variant={n === page ? "primary" : "outline"} aria-current={n === page ? "page" : undefined} aria-label={`Trang ${n}`} onClick={() => onChange(n)}>
-            {n}
-          </Button>
-        ))
-      ) : (
-        <span className="px-2 text-sm font-semibold text-slate-600">
-          Trang {page}/{pageCount}
-        </span>
-      )}
-      <Button variant="outline" size="sm" rightIcon={<ChevronRight />} disabled={page >= pageCount} onClick={() => onChange(page + 1)}>
-        Sau
-      </Button>
-    </nav>
   );
 }
 
