@@ -2,6 +2,17 @@
 import "dotenv/config";
 import { z } from "zod";
 
+// Biến để trống ("") thì coi như không đặt -> dùng giá trị mặc định.
+const emptyToUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
+
+// Số nguyên >= 0 (0 = tắt), có trần để cấu hình nhầm không gây chờ quá lâu.
+const nonNegativeInt = (defaultValue: number, max: number) =>
+  z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(0).max(max).default(defaultValue)
+  );
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
 
@@ -26,6 +37,15 @@ const envSchema = z.object({
       typeof value === "string" && value.trim() === "" ? undefined : value,
     z.coerce.number().int().positive().max(2_147_483_647).default(30000)
   ),
+
+    // Thử lại khi AI báo 429 (hết hạn mức). MAX = số lần thử lại thêm, 0 = không thử lại.
+  AI_RETRY_429_MAX: nonNegativeInt(1, 5),
+  // Chờ mặc định (ms) khi AI không gợi ý thời gian chờ. Nếu AI gợi ý thì ưu tiên gợi ý (xem resilience.ts).
+  AI_RETRY_429_DELAY_MS: nonNegativeInt(3000, 60000),
+
+  // Thử lại khi lỗi mạng.
+  AI_RETRY_NETWORK_MAX: nonNegativeInt(1, 5),
+  AI_RETRY_NETWORK_DELAY_MS: nonNegativeInt(2000, 60000),
 
   AI_DAILY_LIMIT_STUDENT: z.coerce.number().default(10),
   AI_DAILY_LIMIT_TEACHER: z.coerce.number().default(50),
