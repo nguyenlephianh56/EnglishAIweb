@@ -54,6 +54,23 @@ export class AIQuotaExceededError extends Error {
   }
 }
 
+/**
+ * Không kiểm tra được số lượt đã dùng (ví dụ lỗi DB khi đếm) -> chặn yêu cầu để không vượt quota Gemini.
+ * Message cố định, tuyệt đối không chứa chi tiết lỗi DB.
+ */
+export const AI_USAGE_CHECK_FAILED_CODE = "AI_USAGE_CHECK_FAILED";
+export const AI_USAGE_CHECK_FAILED_STATUS = 503;
+
+export class AIUsageCheckError extends Error {
+  readonly code = AI_USAGE_CHECK_FAILED_CODE;
+  readonly statusCode = AI_USAGE_CHECK_FAILED_STATUS;
+
+  constructor() {
+    super("Hệ thống tạm thời chưa kiểm tra được lượt dùng AI. Vui lòng thử lại sau.");
+    this.name = "AIUsageCheckError";
+  }
+}
+
 // ---------------------------------------------------------------------
 // 3 cổng
 // ---------------------------------------------------------------------
