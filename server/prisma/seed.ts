@@ -1,7 +1,6 @@
-// TODO: tai khoan mau + bai mau
-
 import { PrismaClient, Role, UserStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedPromptTemplates } from "../src/ai/prompts/seed-prompts";
 
 const prisma = new PrismaClient();
 
@@ -70,6 +69,10 @@ async function main() {
       `Seeded: ${result.email} | ${result.role} | ${result.status}`
     );
   }
+
+  // Mau prompt mac dinh (chi tao mau con thieu, khong ghi de mau da co)
+  const promptKeys = await seedPromptTemplates(prisma);
+  console.log(`Seeded prompt templates: ${promptKeys.join(", ")}`);
 
   // Kiem tra so luong tai khoan sau khi seed
   const totalUsers = await prisma.user.count();
