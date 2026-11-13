@@ -6,8 +6,13 @@ import {
 import { validate } from "../../middlewares/validate";
 import { authenticate } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
+import { aiRateLimit } from "../../middlewares/aiRateLimit";
+import { generateExerciseSchema } from "./exercises.generate.schema";
+import * as generateController from "./exercises.generate.controller";
 
 export const exerciseRoutes = Router();
+
+
 
 // Mọi route bài tập đều yêu cầu đăng nhập (authenticate đã chặn PENDING/LOCKED bằng 401)
 exerciseRoutes.use(authenticate);
@@ -18,6 +23,15 @@ exerciseRoutes.post(
   requireRole(Role.TEACHER, Role.ADMIN),
   validate(createExerciseSchema),
   exercisesController.createExercise
+);
+
+// Đăng ký trước /:id; body sai bị chặn trước khi kiểm tra/ghi log quota AI.
+exerciseRoutes.post(
+  "/generate",
+  requireRole(Role.TEACHER, Role.ADMIN),
+  validate(generateExerciseSchema),
+  aiRateLimit("generate"),
+  generateController.generateExercise
 );
 
 // GET /api/v1/exercises/:id  (mọi vai trò đã đăng nhập; quyền xem từng bài do service quyết định)
