@@ -2,7 +2,7 @@ import { ArrowRight, Calendar } from "lucide-react";
 import Button from "../../components/ui/Button";
 import { ANY_SKILL_META } from "./skillMeta";
 import { classLabel, describeTimeLeft, formatDueShort, formatScore } from "./assignmentTime";
-import type { AssignmentItem } from "../../types/assignment";
+import type { AssignmentItem } from "../../types/assignments";
 
 const BADGE = "rounded-full px-3 py-1.5 text-xs font-bold";
 const TONE = { sky: "bg-sky-50 text-sky-700", amber: "bg-amber-50 text-amber-700", green: "bg-green-50 text-green-700", red: "bg-red-50 text-red-700" };

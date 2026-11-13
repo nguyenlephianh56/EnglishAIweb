@@ -4,8 +4,8 @@ import { fetchHomeData } from "./mock/homeData";
 export const HOME_KEY = ["student", "home"] as const;
 
 /**
- * Dữ liệu trang Trang chủ học sinh: { streak, assignments, skillProfile, recommendation, unreadCount }.
- * Dùng chung cho layout (chuỗi ngày, badge thông báo, cấp độ) và trang, nhờ cache của TanStack Query.
+ * Dữ liệu trang Trang chủ học sinh: { streak, assignments, skillProfile, recommendation }.
+ * Dùng chung cho layout (chuỗi ngày, cấp độ) và trang, nhờ cache của TanStack Query.
  * TODO: đổi fetchHomeData sang API thật (xem mock/homeData.ts).
  */
 export function useHomeData() {

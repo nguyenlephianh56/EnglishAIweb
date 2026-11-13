@@ -1,4 +1,4 @@
-import type { AssignmentStatus } from "../../types/assignment";
+import type { AssignmentStatus } from "../../types/assignments";
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;

@@ -1,6 +1,6 @@
 import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { listAssignments } from "../../api/assignments";
-import type { AssignmentStatus } from "../../types/assignment";
+import type { AssignmentStatus } from "../../types/assignments";
 import type { AssignmentFilters } from "./assignmentFilters";
 
 export const ASSIGNMENTS_KEY = ["student", "assignments"] as const;

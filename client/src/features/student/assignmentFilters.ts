@@ -1,4 +1,4 @@
-import type { AssignmentStatus } from "../../types/assignment";
+import type { AssignmentStatus } from "../../types/assignments";
 
 export interface AssignmentFilters {
   status?: AssignmentStatus;

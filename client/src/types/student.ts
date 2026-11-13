@@ -49,7 +49,6 @@ export interface HomeData {
   assignments: Assignment[];
   skillProfile: SkillProfileSummary;
   recommendation: Recommendation | null;
-  unreadCount: number;
 }
 
 /** Kết quả POST /classes/join */
