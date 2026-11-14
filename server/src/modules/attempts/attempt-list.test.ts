@@ -59,6 +59,7 @@ describe("toAttemptListItem", () => {
       maxScore: 10,
       teacherScore: 4,
       finalScore: 4,
+       graded: true,
       isLate: true,
       submittedAt: new Date("2026-11-01T10:00:00.000Z"),
     });
@@ -94,6 +95,7 @@ describe("toAttemptListItem", () => {
         "attemptNo",
         "exerciseId",
         "finalScore",
+         "graded",
         "id",
         "isLate",
         "maxScore",

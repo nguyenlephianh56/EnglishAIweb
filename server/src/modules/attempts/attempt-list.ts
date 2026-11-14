@@ -36,6 +36,7 @@ export interface AttemptListItem {
   teacherScore: number | null;
   /** COALESCE(teacher_score, score). */
   finalScore: number | null;
+    graded: boolean;
   isLate: boolean;
   submittedAt: Date;
 }
@@ -81,6 +82,7 @@ export const toAttemptListItem = (
   maxScore: row.maxScore,
   teacherScore: roundOrNull(row.teacherScore),
   finalScore: roundOrNull(finalScoreOf(row.score, row.teacherScore)),
+  graded: finalScoreOf(row.score, row.teacherScore) !== null,
   isLate: row.isLate,
   submittedAt: row.submittedAt,
 });

@@ -1,9 +1,9 @@
 /**
- * Dạng bài CHƯA cho giao (chấm AI làm ở Sprint 3-4).
+ * Dạng bài CHƯA cho giao.
+ * writing đã mở lại ở T13 (nộp bài lưu chờ chấm); speaking chờ Sprint 4.
  * Muốn mở lại: xóa tên dạng bài khỏi danh sách này, không cần sửa chỗ khác.
  */
-export const NON_ASSIGNABLE_TYPES: readonly string[] = ["writing", "speaking"];
-
+export const NON_ASSIGNABLE_TYPES: readonly string[] = ["speaking"];
 /** remindBeforeHours: tối đa bao nhiêu mốc nhắc, và mỗi mốc tối đa bao nhiêu giờ (7 ngày). */
 export const MAX_REMIND_ITEMS = 5;
 export const MAX_REMIND_HOURS = 168;

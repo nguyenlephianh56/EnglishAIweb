@@ -239,6 +239,7 @@ const RESULT_KEYS = [
   "correct",
   "errors",
   "explanation",
+  "graded",
   "maxScore",
   "score",
   "total",
@@ -518,7 +519,8 @@ describe("POST /api/v1/attempts - dữ liệu sai (400 / 422)", () => {
     });
   }
 
-  for (const key of ["writing", "speaking"] as const) {
+    // writing đã mở lại ở T13 (lưu chờ chấm); speaking vẫn chặn đến Sprint 4.
+  for (const key of ["speaking"] as const) {
     it(`${key} -> 422 NOT_AUTO_GRADABLE, không tạo attempt`, async () => {
       const before = await countAttempts();
       const res = await submitAsStudent({ exerciseId: ex[key], answer: { text: "Hello" } });
@@ -529,6 +531,34 @@ describe("POST /api/v1/attempts - dữ liệu sai (400 / 422)", () => {
       expect(await countAttempts()).toBe(before);
     });
   }
+
+    it("writing hợp lệ -> 201, lưu chờ chấm (score NULL), response không có answer", async () => {
+    const before = await countAttempts();
+    const res = await submitAsStudent({ exerciseId: ex.writing, answer: { text: "  Hello  " } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.error).toBeNull();
+
+    const data = res.body.data!;
+    expect(data.score).toBeNull();
+    expect(data.maxScore).toBe(10);
+    expect(data.errors).toEqual([]);
+    expect("answer" in data).toBe(false);
+    expect(await countAttempts()).toBe(before + 1);
+
+    const row = await prisma.attempt.findUnique({ where: { id: data.attemptId as number } });
+    expect(row).toMatchObject({
+      studentId: users.student,
+      exerciseId: ex.writing,
+      assignmentId: null,
+      score: null,
+      maxScore: 10,
+      errors: [],
+      aiFeedback: null,
+      isLate: false,
+    });
+    expect(row!.answer).toEqual({ text: "Hello" });
+  });
 });
 
 // ---------------------------------------------------------------------------

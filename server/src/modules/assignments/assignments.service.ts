@@ -35,7 +35,7 @@ const businessError = (statusCode: number, code: string, message: string) =>
  *     để không lộ lớp đó có tồn tại. (ADMIN đã bị requireRole chặn từ route.)
  *  2. Bài phải tồn tại VÀ (đã PUBLISHED, hoặc do chính GV này tạo và không HIDDEN).
  *     Không thỏa -> 404 (không lộ bài DRAFT của GV khác).
- *  3. Dạng bài phải cho giao (writing/speaking chặn tạm) -> 422.
+ *  3. Dạng bài phải cho giao (speaking chặn tạm đến Sprint 4; writing đã mở) -> 422.
  *
  * assigned_by_id lấy từ JWT (user.id), không nhận từ body.
  * Không chặn giao trùng (cùng bài, cùng lớp): GV có thể giao lại với hạn khác.

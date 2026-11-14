@@ -20,6 +20,7 @@ export interface AttemptForResult {
   score: number | null;
   maxScore: number;
   errors: unknown;
+  teacherScore?: number | null;
 }
 
 export interface ExerciseForResult {
@@ -46,6 +47,7 @@ export interface AttemptResult {
   score: number | null;
   maxScore: number;
   /** Số câu/cặp đúng. */
+  graded: boolean;
   correct: number;
   /** Tổng số câu/cặp. */
   total: number;
@@ -124,6 +126,7 @@ export function buildAttemptResult(
     attemptId: attempt.id,
     score: attempt.score === null ? null : round2(attempt.score),
     maxScore: attempt.maxScore,
+    graded: (attempt.teacherScore ?? attempt.score) !== null,
     correct,
     total,
     errors: readErrors(attempt.errors, reveal),
@@ -131,8 +134,9 @@ export function buildAttemptResult(
 
 
   if (reveal) {
+     if (exercise.answer !== null && exercise.answer !== undefined) {
     result.answer = exercise.answer;
-    // explanation đi qua toStudentView để dùng chung một quy tắc với phần xem bài
+  }
     result.explanation =
       toStudentView(exercise, { revealExplanation: true }).explanation ?? null;
   }

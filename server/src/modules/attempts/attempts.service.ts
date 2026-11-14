@@ -7,14 +7,14 @@ import {
   isAnswerRevealed,
   type AttemptDetail,
 } from "./attempts-detail";
-import type { CreateAttemptInput, ListAttemptsQuery } from "./attempts.schema";
+import {writingAnswerSchema,type CreateAttemptInput,type ListAttemptsQuery,} from "./attempts.schema";
 import {
   buildAttemptListResponse,
   hasHistoryFilter,
   toAttemptListItem,
   type AttemptListResponse,
 } from "./attempt-list";
-import { MAX_ATTEMPTS_PER_ASSIGNMENT } from "./attempts.constants";
+import {MAX_ATTEMPTS_PER_ASSIGNMENT,WRITING_MAX_SCORE,} from "./attempts.constants";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
 const businessError = (
@@ -145,6 +145,57 @@ const resolveAssignmentTarget = async (
   };
 };
 
+/** Điều sẽ lưu vào attempts cho một lần nộp: bài làm đã chuẩn hóa + điểm + lỗi. */
+interface PreparedAttempt {
+  answer: unknown;
+  score: number | null;
+  maxScore: number;
+  errors: unknown[];
+}
+
+/**
+ * Dạng writing: chỉ kiểm hình dạng { text } rồi lưu CHỜ CHẤM (score = NULL, errors = []).
+ * ai_feedback không đặt nên là NULL. Chấm AI làm ở dòng sau của T13.
+ * Lỗi 400 chỉ nêu field sai, không chép lại nội dung bài viết.
+ */
+const prepareWritingAttempt = (studentAnswer: unknown): PreparedAttempt => {
+  const parsed = writingAnswerSchema.safeParse(studentAnswer);
+  if (!parsed.success) {
+    const detail = parsed.error.issues
+      .slice(0, 3)
+      .map((issue) => issue.message)
+      .join("; ");
+    throw businessError(400, "VALIDATION_ERROR", `Bài làm không hợp lệ: ${detail}`);
+  }
+  return {
+    answer: parsed.data,
+    score: null,
+    maxScore: WRITING_MAX_SCORE,
+    errors: [],
+  };
+};
+
+/** 6 dạng chấm tự động qua registry; writing lưu chờ chấm; speaking vẫn 422 (Sprint 4). */
+const prepareAttempt = (
+  exercise: ExerciseForAttempt,
+  studentAnswer: unknown
+): PreparedAttempt => {
+  if (exercise.type === "writing") return prepareWritingAttempt(studentAnswer);
+
+  const grade = gradeExercise(
+    exercise.type,
+    exercise.content,
+    exercise.answer,
+    studentAnswer
+  );
+  return {
+    answer: studentAnswer,
+    score: grade.score,
+    maxScore: grade.maxScore,
+    errors: grade.errors,
+  };
+};
+
 /**
  * POST /api/v1/attempts: nộp bài. Có assignmentId -> bài giao, không có -> tự luyện.
  *
@@ -185,12 +236,7 @@ export const submitAttempt = async (
   const isLate = pastDue;
 
   // Ném lỗi có statusCode + code (422 NOT_AUTO_GRADABLE, 400 VALIDATION_ERROR, ...)
-  const grade = gradeExercise(
-    exercise.type,
-    exercise.content,
-    exercise.answer,
-    input.answer
-  );
+ const prepared = prepareAttempt(exercise, input.answer);
 
   const { attempt, usedBefore } = await prisma.$transaction(async (tx) => {
     let usedBefore = 0;
@@ -206,10 +252,10 @@ export const submitAttempt = async (
         exerciseId: exercise.id,
         assignmentId: assignment ? assignment.id : null,
         mode: input.mode,
-        answer: input.answer as Prisma.InputJsonValue,
-        score: grade.score,
-        maxScore: grade.maxScore,
-        errors: grade.errors as unknown as Prisma.InputJsonValue,
+       answer: prepared.answer as Prisma.InputJsonValue,
+       score: prepared.score,
+       maxScore: prepared.maxScore,
+       errors: prepared.errors as unknown as Prisma.InputJsonValue,
         isLate,
         submittedAt: now,
       },

@@ -352,6 +352,7 @@ describe("Sắp xếp + hình dạng dữ liệu", () => {
       "attemptNo",
       "exerciseId",
       "finalScore",
+      "graded",
       "id",
       "isLate",
       "maxScore",

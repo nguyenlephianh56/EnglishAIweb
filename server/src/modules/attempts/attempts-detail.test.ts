@@ -270,6 +270,7 @@ const REVEALED_KEYS = [
   "exerciseId",
   "explanation",
   "finalScore",
+  "graded",
   "isLate",
   "maxScore",
   "mode",

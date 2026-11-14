@@ -27,7 +27,10 @@ const ids = {
   ownHidden: 0, // HIDDEN do teacher tạo
   otherDraft: 0, // DRAFT do teacher2 tạo
   otherHidden: 0, // HIDDEN do teacher2 tạo
-  writingPublished: 0, // PUBLISHED, dạng writing (chưa cho giao)
+  writingPublished: 0, // PUBLISHED, dạng writing do teacher2 tạo (đã cho giao)
+  ownWritingDraft: 0, // DRAFT, dạng writing do teacher tạo
+  otherWritingDraft: 0, // DRAFT, dạng writing do teacher2 tạo
+  speakingPublished: 0, // PUBLISHED, dạng speaking (vẫn chưa cho giao)
 };
 
 let server: Server;
@@ -108,6 +111,25 @@ const newWriting = async (createdById: number, status: Status) => {
   return row.id;
 };
 
+const newSpeaking = async (createdById: number, status: Status) => {
+  const row = await prisma.exercise.create({
+    data: {
+      type: "speaking",
+      skill: "SPEAKING",
+      level: "A2",
+      topic: `${RUN_ID} speaking`,
+      content: { prompt: "Talk about your day" },
+      answer: undefined,
+      status,
+      source: "TEACHER",
+      inLibrary: status === "PUBLISHED",
+      createdById,
+    },
+    select: { id: true },
+  });
+  return row.id;
+};
+
 const cleanup = async (userIds: number[]) => {
   if (userIds.length === 0) return;
   // Lớp bị xóa kéo theo assignments + class_members (cascade); sau đó xóa bài, rồi user.
@@ -139,6 +161,9 @@ beforeAll(async () => {
   ids.otherDraft = await newFillBlank(users.teacher2, "DRAFT");
   ids.otherHidden = await newFillBlank(users.teacher2, "HIDDEN");
   ids.writingPublished = await newWriting(users.teacher2, "PUBLISHED");
+  ids.ownWritingDraft = await newWriting(users.teacher, "DRAFT");
+  ids.otherWritingDraft = await newWriting(users.teacher2, "DRAFT");
+  ids.speakingPublished = await newSpeaking(users.teacher2, "PUBLISHED");
 
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
@@ -317,16 +342,93 @@ describe("POST /api/v1/assignments - bài không hợp lệ -> 404/422", () => {
     expect(res.status).toBe(404);
   });
 
-  it("bài writing (PUBLISHED) -> 422 TYPE_NOT_ASSIGNABLE, không tạo assignment", async () => {
+  it("bài speaking (PUBLISHED) -> 422 TYPE_NOT_ASSIGNABLE, không tạo assignment", async () => {
+    const before = await prisma.assignment.count({
+      where: { exerciseId: ids.speakingPublished },
+    });
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.speakingPublished }),
+      users.teacher
+    );
+    expect(res.status).toBe(422);
+    expect(res.body.error?.code).toBe("TYPE_NOT_ASSIGNABLE");
+    const after = await prisma.assignment.count({
+      where: { exerciseId: ids.speakingPublished },
+    });
+    expect(after).toBe(before);
+  });
+});
+
+// writing đã mở lại ở T13: các điều kiện cũ (quyền, trạng thái bài, lớp) vẫn nguyên.
+describe("POST /api/v1/assignments - bài writing", () => {
+  it("GV giao bài writing PUBLISHED cho lớp mình -> 201, lưu đúng vào DB", async () => {
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.writingPublished, remindBeforeHours: [24] }),
+      users.teacher
+    );
+    expect(res.status).toBe(201);
+    expect(res.body.error).toBeNull();
+    const data = res.body.data!;
+    expect(data.exerciseId).toBe(ids.writingPublished);
+    expect(data.classId).toBe(ids.classOwn);
+    expect(data.assignedById).toBe(users.teacher);
+    expect(data.remindBeforeHours).toEqual([24]);
+
+    const row = await prisma.assignment.findUnique({
+      where: { id: data.id as number },
+    });
+    expect(row?.exerciseId).toBe(ids.writingPublished);
+    expect(row?.classId).toBe(ids.classOwn);
+  });
+
+  it("GV giao bài writing DRAFT do chính mình tạo -> 201", async () => {
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.ownWritingDraft }),
+      users.teacher
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("bài writing DRAFT của GV khác -> 404, không tạo assignment", async () => {
+    const before = await prisma.assignment.count({
+      where: { exerciseId: ids.otherWritingDraft },
+    });
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.otherWritingDraft }),
+      users.teacher
+    );
+    expect(res.status).toBe(404);
+    expect(res.body.error?.code).toBe("NOT_FOUND");
+    const after = await prisma.assignment.count({
+      where: { exerciseId: ids.otherWritingDraft },
+    });
+    expect(after).toBe(before);
+  });
+
+  it("GV giao bài writing cho lớp của GV khác -> 404, không tạo assignment", async () => {
+    const before = await prisma.assignment.count({
+      where: { classId: ids.classOther },
+    });
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.writingPublished, classId: ids.classOther }),
+      users.teacher
+    );
+    expect(res.status).toBe(404);
+    const after = await prisma.assignment.count({
+      where: { classId: ids.classOther },
+    });
+    expect(after).toBe(before);
+  });
+
+  it("HS gọi giao bài writing -> 403, không tạo assignment", async () => {
     const before = await prisma.assignment.count({
       where: { exerciseId: ids.writingPublished },
     });
     const res = await postAssignment(
       validBody({ exerciseId: ids.writingPublished }),
-      users.teacher
+      users.student
     );
-    expect(res.status).toBe(422);
-    expect(res.body.error?.code).toBe("TYPE_NOT_ASSIGNABLE");
+    expect(res.status).toBe(403);
     const after = await prisma.assignment.count({
       where: { exerciseId: ids.writingPublished },
     });

@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
   ATTEMPT_LIST_DEFAULT_LIMIT,
   ATTEMPT_LIST_MAX_LIMIT,
+  WRITING_TEXT_MAX,
 } from "./attempts.constants";
-
 // Số nguyên lớn nhất của cột INT trong PostgreSQL; vượt quá thì Prisma sẽ báo lỗi 500.
 const MAX_EXERCISE_ID = 2147483647;
 
@@ -62,6 +62,36 @@ export const createAttemptSchema = z
   });
 
 export type CreateAttemptInput = z.infer<typeof createAttemptSchema>;
+
+/**
+ * Bài làm dạng writing: đúng một field `text`. `.strict()` nên field thừa
+ * (score, is_late, student_id...) BÊN TRONG answer bị từ chối (400).
+ * trim chạy trước min/max nên "   " bị coi là rỗng và trần đếm sau khi trim.
+ * Thông báo lỗi không chép lại nội dung bài viết (bài làm là dữ liệu riêng tư).
+ */
+export const writingAnswerSchema = z
+  .object(
+    {
+      text: z
+        .string({
+          required_error: "text: Nội dung bài viết là bắt buộc",
+          invalid_type_error: "text: Nội dung bài viết phải là chuỗi",
+        })
+        .trim()
+        .min(1, "text: Nội dung bài viết không được để trống")
+        .max(
+          WRITING_TEXT_MAX,
+          `text: Bài viết tối đa ${WRITING_TEXT_MAX} ký tự`
+        ),
+    },
+    {
+      required_error: "Bài làm là bắt buộc",
+      invalid_type_error: "Bài làm phải là một object dạng { text }",
+    }
+  )
+  .strict("Bài làm chỉ được có field text");
+
+export type WritingAnswer = z.infer<typeof writingAnswerSchema>;
 
 
 // ---------------------------------------------------------------------------
