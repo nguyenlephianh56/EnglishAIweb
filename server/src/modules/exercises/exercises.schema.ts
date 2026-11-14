@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Level, Skill } from "@prisma/client";
+import { ExerciseStatus, Level, Skill } from "@prisma/client";
 import { EXERCISE_TYPES, type ExerciseType } from "./exercise-content.schema";
 
 /**
@@ -119,6 +119,55 @@ export const exerciseIdParamSchema = z.object({
 });
 
 export type ExerciseIdParam = z.infer<typeof exerciseIdParamSchema>;
+// GET /api/v1/exercises: query luôn là chuỗi; không ép mảng/object thành số.
+// Giới hạn phân trang giống assignments/attempts (20 dòng mặc định, tối đa 50).
+const listIntQuery = (name: string, max: number, defaultValue: number) => {
+  const message = `${name}: Phải là số nguyên từ 1 đến ${max}`;
+  return z
+    .string({ invalid_type_error: message })
+    .regex(/^\d+$/, message)
+    .transform(Number)
+    .pipe(z.number().int(message).min(1, message).max(max, message))
+    .optional()
+    .transform((value) => value ?? defaultValue);
+};
+
+export const listExercisesQuerySchema = z.object({
+  skill: z
+    .nativeEnum(Skill, {
+      errorMap: () => ({ message: "skill: Kỹ năng không hợp lệ" }),
+    })
+    .optional(),
+  level: z
+    .nativeEnum(Level, {
+      errorMap: () => ({ message: "level: Cấp độ không hợp lệ" }),
+    })
+    .optional(),
+  type: z
+    .enum(EXERCISE_TYPES, {
+      errorMap: () => ({ message: "type: Dạng bài không hợp lệ" }),
+    })
+    .optional(),
+  topic: z
+    .string({ invalid_type_error: "topic: Chủ đề phải là chuỗi ký tự" })
+    .trim()
+    .min(1, "topic: Chủ đề không được để trống")
+    .max(
+      TOPIC_MAX_LENGTH,
+      `topic: Chủ đề không được vượt quá ${TOPIC_MAX_LENGTH} ký tự`
+    )
+    .optional(),
+  // HS gửi status hợp lệ thì service bỏ qua; giá trị sai vẫn trả 400.
+  status: z
+    .nativeEnum(ExerciseStatus, {
+      errorMap: () => ({ message: "status: Trạng thái không hợp lệ" }),
+    })
+    .optional(),
+  page: listIntQuery("page", 100000, 1),
+  pageSize: listIntQuery("pageSize", 50, 20),
+});
+
+export type ListExercisesQuery = z.infer<typeof listExercisesQuerySchema>;
 
 // ---------------------------------------------------------------------------
 // Schema body của PATCH /api/v1/exercises/:id (sửa bài)

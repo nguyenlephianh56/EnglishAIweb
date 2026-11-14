@@ -8,16 +8,10 @@ import {
 import { prisma } from "../../config/prisma";
 import { isDeepStrictEqual } from "node:util";
 import { SKILL_BY_TYPE } from "./exercises.schema";
-import type {
-  CreateExerciseInput,
-  UpdateExerciseInput,
-} from "./exercises.schema";
+import type {CreateExerciseInput,ListExercisesQuery,UpdateExerciseInput,} from "./exercises.schema";
 import type { ExerciseType } from "./exercise-content.schema";
 import { validateExercise } from "./validate-exercise";
-import {
-  EXERCISE_VALIDATION_ERROR_CODE,
-  formatValidationErrors,
-} from "./exercise-errors";
+import {EXERCISE_VALIDATION_ERROR_CODE,formatValidationErrors,} from "./exercise-errors";
 import { toStudentView } from "./exercise-view";
 
 // Người dùng hiện tại (lấy từ req.user do middleware authenticate gắn vào)
@@ -119,7 +113,75 @@ export const createExercise = async (
 // ---------------------------------------------------------------------------
 // GET /api/v1/exercises/:id
 // ---------------------------------------------------------------------------
+export const listExercises = async (
+  user: CurrentUser,
+  query: ListExercisesQuery
+) => {
+  if (user.status !== UserStatus.ACTIVE) {
+    throw businessError(
+      403,
+      "FORBIDDEN",
+      "Tài khoản chưa được kích hoạt hoặc đã bị khóa"
+    );
+  }
 
+  const { skill, level, type, topic, status, page, pageSize } = query;
+  const where: Prisma.ExerciseWhereInput = {
+    skill,
+    level,
+    type,
+    topic:
+      topic === undefined
+        ? undefined
+        : { contains: topic, mode: "insensitive" },
+  };
+  const library = {
+    status: ExerciseStatus.PUBLISHED,
+    inLibrary: true,
+  };
+
+  // Cùng phạm vi với canViewExercise; bộ lọc không được mở rộng phạm vi này.
+  switch (user.role) {
+    case Role.STUDENT:
+      Object.assign(where, library);
+      break;
+    case Role.TEACHER:
+      where.OR = [{ createdById: user.id }, library];
+      where.status = status;
+      break;
+    case Role.ADMIN:
+      where.status = status;
+      break;
+    default:
+      throw businessError(
+        403,
+        "FORBIDDEN",
+        "Bạn không có quyền truy cập chức năng này"
+      );
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.exercise.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: EXERCISE_SELECT,
+    }),
+    prisma.exercise.count({ where }),
+  ]);
+
+  // Giữ khuôn phân trang assignments/attempts; pageSize tương ứng limit.
+  return {
+    items:
+      user.role === Role.STUDENT
+        ? rows.map((row) => toStudentView(row))
+        : rows,
+    page,
+    limit: pageSize,
+    total,
+  };
+};
 // Bài không tồn tại và bài không có quyền xem dùng CHUNG một lỗi 404,
 // để người ngoài không dò được "bài id này có tồn tại hay không".
 const exerciseNotFound = () =>

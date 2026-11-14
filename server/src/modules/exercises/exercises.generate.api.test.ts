@@ -65,6 +65,7 @@ vi.mock("../../middlewares/aiRateLimit", async (importOriginal) => {
 // Không kéo service CRUD/DB thật vào test dành riêng cho generate.
 vi.mock("./exercises.controller", () => ({
   createExercise: vi.fn(),
+  listExercises: vi.fn(),
   getExercise: fake.getExercise,
   updateExercise: vi.fn(),
   deleteExercise: vi.fn(),

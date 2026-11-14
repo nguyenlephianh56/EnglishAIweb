@@ -35,6 +35,7 @@ exerciseRoutes.post(
 );
 
 // GET /api/v1/exercises/:id  (mọi vai trò đã đăng nhập; quyền xem từng bài do service quyết định)
+exerciseRoutes.get("/", exercisesController.listExercises);
 exerciseRoutes.get("/:id", exercisesController.getExercise);
 
 // PATCH /api/v1/exercises/:id  (TEACHER chủ bài hoặc ADMIN; STUDENT bị 403;

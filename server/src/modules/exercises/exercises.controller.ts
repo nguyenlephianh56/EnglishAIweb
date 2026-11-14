@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as exercisesService from "./exercises.service";
-import { exerciseIdParamSchema } from "./exercises.schema";
+import {exerciseIdParamSchema,listExercisesQuerySchema,} from "./exercises.schema";
 import { success, failure } from "../../utils/response";
 
 // Lỗi nghiệp vụ (có statusCode + code) -> response chuẩn; lỗi lạ -> errorHandler (500)
@@ -33,6 +33,38 @@ export const createExercise = async (
     const created = await exercisesService.createExercise(req.user, req.body);
 
     return success(res, created, 201);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// GET /api/v1/exercises: kiểm req.query tại controller.
+export const listExercises = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const parsedQuery = listExercisesQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      return failure(
+        res,
+        "VALIDATION_ERROR",
+        parsedQuery.error.issues.map((issue) => issue.message).join(", "),
+        400
+      );
+    }
+
+    const result = await exercisesService.listExercises(
+      req.user,
+      parsedQuery.data
+    );
+
+    return success(res, result);
   } catch (error) {
     handleError(error, res, next);
   }
