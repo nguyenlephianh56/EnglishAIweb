@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Bell, LogOut, Menu } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import AvatarMenu from "./AvatarMenu";
 import Logo from "./Logo";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -23,6 +24,8 @@ interface AppLayoutProps {
   topbar: ReactNode;
   userName: string;
   userSubtitle: string;
+  /** Đường dẫn Trang cá nhân của vai trò này, ví dụ "/student/account" */
+  accountPath: string;
   /** Khung phụ đặt phía trên thẻ người dùng cuối sidebar (tùy chọn) */
   sidebarExtra?: ReactNode;
 }
@@ -58,8 +61,8 @@ export function BellLink({ to, ariaLabel, dot }: { to: string; ariaLabel: string
 }
 
 /** Khung chung: sidebar (menu trượt trên màn hình nhỏ) + thanh trên + <Outlet/>. Dùng cho học sinh và quản trị. */
-export default function AppLayout({ navLabel, items, topbar, userName, userSubtitle, sidebarExtra }: AppLayoutProps) {
-  const { logout } = useAuth();
+export default function AppLayout({ navLabel, items, topbar, userName, userSubtitle, accountPath, sidebarExtra }: AppLayoutProps) {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -119,11 +122,18 @@ export default function AppLayout({ navLabel, items, topbar, userName, userSubti
           {sidebarExtra}
 
           <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
-            <UserAvatar name={userName} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-slate-900">{userName}</p>
-              <p className="truncate text-xs text-slate-500">{userSubtitle}</p>
-            </div>
+            <Link
+              to={accountPath}
+              onClick={() => setMenuOpen(false)}
+              aria-label={`Trang cá nhân của ${userName}`}
+              className="-m-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-1.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
+            >
+              <UserAvatar name={userName} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-slate-900">{userName}</span>
+                <span className="block truncate text-xs text-slate-500">{userSubtitle}</span>
+              </span>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
@@ -154,7 +164,10 @@ export default function AppLayout({ navLabel, items, topbar, userName, userSubti
               <Logo />
             </span>
           </div>
-          <div className="flex items-center gap-3">{topbar}</div>
+          <div className="flex items-center gap-3">
+            {topbar}
+            <AvatarMenu name={userName} email={user?.email} accountPath={accountPath} onLogout={handleLogout} />
+          </div>
         </header>
 
         <main>

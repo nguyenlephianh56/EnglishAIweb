@@ -1,14 +1,15 @@
 import { Bell, ChartColumn, ClipboardList, House, Library, PenLine, Sparkles, Users } from "lucide-react";
-import AppLayout, { BellLink, UserAvatar } from "./AppLayout";
+import AppLayout from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import Button from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
-import { useTeacherUnread } from "../../features/teacher/useTeacherData";
+import NotificationBell from "../../features/teacher/NotificationBell";
+import { useTeacherNotifications } from "../../features/teacher/useTeacherNotifications";
 
 /** Khung giáo viên: dùng chung AppLayout, chỉ khai báo menu và các phần riêng. */
 export default function TeacherLayout() {
   const { user } = useAuth();
-  const { data: unread = 0 } = useTeacherUnread();
+  const { unread } = useTeacherNotifications(); // dùng chung với chuông và trang Thông báo
   const name = user?.name ?? "";
 
   const items: NavItem[] = [
@@ -26,12 +27,12 @@ export default function TeacherLayout() {
       navLabel="Menu giáo viên"
       items={items}
       userName={name}
+      accountPath="/teacher/account"
       userSubtitle="Giáo viên"
       topbar={
         <>
           <span className="text-sm font-bold text-slate-500">Không gian giáo viên</span>
-          <BellLink to="/teacher/notifications" ariaLabel={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"} dot={unread > 0} />
-          <UserAvatar name={name} />
+          <NotificationBell />
         </>
       }
       sidebarExtra={

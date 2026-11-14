@@ -10,6 +10,26 @@ export interface ClassSummary {
   teacher?: { id: number; name: string };
 }
 
+/** Học sinh trong một lớp (GET /classes/:id và kết quả POST /classes/:id/students) */
+export interface ClassStudent {
+  id: number;
+  name: string;
+  email: string;
+  /** Thời điểm vào lớp, ISO 8601 */
+  joinedAt: string;
+}
+
+/** GET /classes/:id */
+export interface ClassDetail {
+  id: number;
+  name: string;
+  code: string;
+  createdAt: string;
+  teacher: { id: number; name: string };
+  studentCount: number;
+  students: ClassStudent[];
+}
+
 export interface OnTimeStats {
   onTime: number;
   late: number;

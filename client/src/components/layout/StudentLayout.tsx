@@ -1,23 +1,25 @@
-import { ChartColumn, ClipboardList, Flame, House, Library, Route, Sparkles, Bell } from "lucide-react";
-import AppLayout, { BellLink, UserAvatar } from "./AppLayout";
+import { Bell, ChartNoAxesColumn, ClipboardList, Flame, Home, Library, Route, Sparkles } from "lucide-react";
+import AppLayout from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import Button from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
 import { useHomeData } from "../../features/student/useHomeData";
+import NotificationBell from "../../features/student/NotificationBell";
+import { useNotifications } from "../../features/student/useNotifications";
 
 /** Khung học sinh: chỉ khai báo menu và các phần riêng, phần còn lại do AppLayout lo. */
 export default function StudentLayout() {
   const { user } = useAuth();
   const { data } = useHomeData();
   const name = user?.name ?? "";
-  const unread = data?.unreadCount ?? 0;
+  const { unread } = useNotifications(); // dùng chung với chuông và trang Thông báo
   const level = data?.skillProfile.level;
 
   const items: NavItem[] = [
-    { to: "/student", label: "Trang chủ", icon: House, end: true },
+    { to: "/student", label: "Trang chủ", icon: Home, end: true },
     { to: "/student/assigned", label: "Bài được giao", icon: ClipboardList },
     { to: "/student/library", label: "Thư viện luyện tập", icon: Library },
-    { to: "/student/profile", label: "Hồ sơ kỹ năng", icon: ChartColumn },
+    { to: "/student/profile", label: "Hồ sơ kỹ năng", icon: ChartNoAxesColumn },
     { to: "/student/path", label: "Lộ trình học", icon: Route },
     { to: "/student/notifications", label: "Thông báo", icon: Bell, badge: unread },
   ];
@@ -27,6 +29,7 @@ export default function StudentLayout() {
       navLabel="Menu học sinh"
       items={items}
       userName={name}
+      accountPath="/student/account"
       userSubtitle={`Học sinh${level ? ` • ${level}` : ""}`}
       topbar={
         <>
@@ -38,8 +41,7 @@ export default function StudentLayout() {
               </span>
             </span>
           )}
-          <BellLink to="/student/notifications" ariaLabel={unread > 0 ? `Thông báo, ${unread} chưa đọc` : "Thông báo"} dot={unread > 0} />
-          <UserAvatar name={name} />
+          <NotificationBell />
         </>
       }
       sidebarExtra={

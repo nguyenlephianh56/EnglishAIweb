@@ -8,9 +8,18 @@ import LoginPage from "../features/auth/LoginPage";
 import RegisterPage from "../features/auth/RegisterPage";
 import PendingPage from "../features/auth/PendingPage";
 import HomePage from "../features/student/HomePage";
-import { AssignedPage, LibraryPage, NotificationsPage, PathPage, ProfilePage } from "../features/student/placeholders";
+import AccountPage from "../features/account/AccountPage";
+import LibraryPage from "../features/student/LibraryPage";
+import ProfilePage from "../features/student/ProfilePage";
+import AssignedPage from "../features/student/AssignedPage";
+import NotificationsPage from "../features/student/NotificationsPage";
+import PathPage from "../features/student/PathPage";
+import { ExerciseDetailPage } from "../features/student/placeholders";
 import TeacherOverviewPage from "../features/teacher/OverviewPage";
-import { AnalyticsPage, AssignmentsPage, ClassesPage, ExercisesPage, GradingPage, NewExercisePage, NotificationsPage as TeacherNotificationsPage } from "../features/teacher/placeholders";
+import ClassesPage from "../features/teacher/classes/ClassesPage";
+import ClassDetailPage from "../features/teacher/classes/ClassDetailPage";
+import TeacherNotificationsPage from "../features/teacher/NotificationsPage";
+import { AnalyticsPage, AssignmentsPage, ExercisesPage, GradingPage, NewAssignmentPage, NewExercisePage } from "../features/teacher/placeholders";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
 
@@ -33,10 +42,13 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <HomePage /> },
           { path: "assigned", element: <AssignedPage /> },
+          { path: "assigned/:assignmentId", element: <ExerciseDetailPage /> },
           { path: "library", element: <LibraryPage /> },
+          { path: "library/:id", element: <ExerciseDetailPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "path", element: <PathPage /> },
           { path: "notifications", element: <NotificationsPage /> },
+          { path: "account", element: <AccountPage /> },
         ],
       },
     ],
@@ -50,12 +62,15 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <TeacherOverviewPage /> },
           { path: "classes", element: <ClassesPage /> },
+          { path: "classes/:id", element: <ClassDetailPage /> },
           { path: "exercises", element: <ExercisesPage /> },
           { path: "exercises/new", element: <NewExercisePage /> },
           { path: "assignments", element: <AssignmentsPage /> },
+          { path: "assignments/new", element: <NewAssignmentPage /> },
           { path: "grading", element: <GradingPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "notifications", element: <TeacherNotificationsPage /> },
+          { path: "account", element: <AccountPage /> },
         ],
       },
     ],
@@ -75,6 +90,7 @@ export const router = createBrowserRouter([
           { path: "ai-config", element: <AiConfigPage /> },
           { path: "stats", element: <StatsPage /> },
           { path: "logs", element: <LogsPage /> },
+          { path: "account", element: <AccountPage /> },
         ],
       },
     ],

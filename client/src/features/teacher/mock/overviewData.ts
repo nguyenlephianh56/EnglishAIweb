@@ -66,9 +66,3 @@ export function getTeacherOverviewMock(classes: ClassSummary[], classId: number 
       : [],
   };
 }
-
-/** Số thông báo chưa đọc (giả lập độ trễ mạng) */
-export async function fetchTeacherUnread(): Promise<number> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  return 3;
-}

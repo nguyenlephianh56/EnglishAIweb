@@ -1,5 +1,5 @@
 import { BookOpen, Brain, Check, ChartColumn, House, Library, Target, Users } from "lucide-react";
-import AppLayout, { BellLink, UserAvatar } from "./AppLayout";
+import AppLayout, { BellLink } from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import { useAuth } from "../../hooks/useAuth";
 import { usePendingTeachers } from "../../features/admin/useAdminData";
@@ -27,6 +27,7 @@ export default function AdminLayout() {
       navLabel="Menu quản trị"
       items={ITEMS}
       userName={name}
+      accountPath="/admin/account"
       userSubtitle="Quản trị hệ thống"
       topbar={
         <>
@@ -37,7 +38,6 @@ export default function AdminLayout() {
             ariaLabel={pendingCount > 0 ? `${pendingCount} giáo viên chờ duyệt` : "Giáo viên chờ duyệt"}
             dot={pendingCount > 0}
           />
-          <UserAvatar name={name} />
         </>
       }
     />
