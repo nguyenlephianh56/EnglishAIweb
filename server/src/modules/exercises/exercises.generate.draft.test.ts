@@ -76,7 +76,11 @@ const SAMPLES: Sample[] = [
     type: "listening_fill",
     skill: Skill.LISTENING,
     count: 2,
-    content: { script: "Anna goes to the ___ at eight and buys some ___ for lunch.", blanks: 2 },
+    content: {
+      script:
+        "Anna wakes up at seven every morning and eats a small breakfast with her brother. At eight she goes to the ___ near her house, and she buys some ___ for lunch. Then she walks to school with her best friend and they talk about their homework.",
+      blanks: 2,
+    },
     answer: ["market", "bread"],
   },
   {
@@ -433,5 +437,167 @@ describe("generateExerciseDraft", () => {
     expect(logs).not.toContain("LEAKED_RAW_CONTENT_999");
     expect(logs).not.toContain("LEAKED_TOPIC_777");
     expect(logs).not.toContain("You are an experienced English teacher");
+  });
+});
+
+
+// ---------------------------------------------------------------------
+// T12 – bài Nghe (listening_fill): mẫu listening_generate + kiểm riêng, retry đúng 1 lần
+// ---------------------------------------------------------------------
+describe("generateExerciseDraft – listening_fill (T12)", () => {
+  const L = bySample("listening_fill"); // count = 2
+  const requestWith = (count: number): GenerateExerciseDraftInput => ({
+    ...requestFor(L),
+    count,
+  });
+
+  /** Script `totalWords` từ có `blanks` chỗ trống ___ (cách nhau). Từ thứ 9 luôn là từ thường. */
+  const makeScript = (blanks: number, totalWords: number) => {
+    const words = Array.from({ length: totalWords }, (_, i) => `word${i}`);
+    for (let k = 0; k < blanks; k++) words[k * 2] = "___";
+    return words.join(" ");
+  };
+  const makeAnswer = (n: number) => Array.from({ length: n }, (_, i) => `ans${i}`);
+  /** Chèn dấu vết vào script/đáp án để kiểm không bị lộ qua log hoặc lời nhắc retry. */
+  const LEAK_SCRIPT = "LEAK_SCRIPT_42";
+  const LEAK_ANSWER = "LEAK_ANS_42";
+  const withLeak = (script: string, answer: string[]) => ({
+    script: script.replace("word9", LEAK_SCRIPT),
+    answer: [LEAK_ANSWER, ...answer.slice(1)],
+  });
+
+  const listenJson = (script: string, blanks: number, answer: unknown) =>
+    aiJson(L, { content: { script, blanks }, answer });
+
+  const GOOD = listenJson(makeScript(2, 40), 2, makeAnswer(2));
+
+  it("prompt dùng mẫu listening_generate (count = số chỗ trống), không dùng khuôn exercise_generate", async () => {
+    const t = setup({ steps: [GOOD] });
+    await generateExerciseDraft(requestWith(2), t.deps);
+
+    const prompt = t.generate.mock.calls[0][0].prompt;
+    expect(prompt).toContain("fill-in-the-blank listening exercise");
+    expect(prompt).toContain("Replace exactly 2 words");
+    expect(prompt).toMatch(/<topic>[\s\S]*Daily life[\s\S]*<\/topic>/);
+    expect(prompt).not.toContain("EXERCISE SHAPE");
+  });
+
+  it("dạng khác (multiple_choice) vẫn dùng exercise_generate, không dính mẫu Nghe", async () => {
+    const mc = bySample("multiple_choice");
+    const t = setup({ steps: [aiJson(mc)] });
+    await generateExerciseDraft(requestFor(mc), t.deps);
+
+    const prompt = t.generate.mock.calls[0][0].prompt;
+    expect(prompt).toContain("EXERCISE SHAPE");
+    expect(prompt).toContain("type: multiple_choice");
+    expect(prompt).not.toContain("fill-in-the-blank listening exercise");
+  });
+
+  it.each([1, 10])("hợp lệ sát biên count = %i: 1 lần gọi, 1 dòng log ok, không ghi DB bài", async (n) => {
+    const t = setup({ steps: [listenJson(makeScript(n, 60), n, makeAnswer(n))] });
+    const draft = await generateExerciseDraft(requestWith(n), t.deps);
+
+    expect((draft.content as { blanks: number }).blanks).toBe(n);
+    expect(draft.answer as string[]).toHaveLength(n);
+    expect(t.generate).toHaveBeenCalledTimes(1);
+    expect(t.rows).toHaveLength(1);
+    expect(t.rows[0]).toMatchObject({ userId: 1, task: "generate", status: "ok" });
+    expect(fake.createExercise).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["script đúng 30 từ", makeScript(2, 30)],
+    ["script đúng 200 từ", makeScript(2, 200)],
+  ])("sát biên độ dài: %s -> hợp lệ, 1 lần gọi", async (_name, script) => {
+    const t = setup({ steps: [listenJson(script, 2, makeAnswer(2))] });
+    await generateExerciseDraft(requestWith(2), t.deps);
+    expect(t.generate).toHaveBeenCalledTimes(1);
+  });
+
+  // Mỗi chỗ lệch số lượng: [tên, JSON sai]. Yêu cầu luôn là count = 2.
+  const countMismatches = (): [string, string][] => {
+    const a = withLeak(makeScript(3, 40), makeAnswer(2));
+    const b = withLeak(makeScript(2, 40), makeAnswer(3));
+    const c = withLeak(makeScript(3, 40), makeAnswer(3));
+    return [
+      ["số ___ trong script ≠ blanks", listenJson(a.script, 2, a.answer)],
+      ["blanks ≠ answer.length", listenJson(b.script, 2, b.answer)],
+      ["blanks (và answer) ≠ count", listenJson(c.script, 3, c.answer)],
+    ];
+  };
+
+  it.each(countMismatches())(
+    "lệch %s ở lần 1 -> retry, lần 2 hợp lệ -> thành công, đúng 2 lần gọi, lời nhắc retry không chứa nội dung sai",
+    async (_name, bad) => {
+      const t = setup({ steps: [bad, GOOD] });
+      const draft = await generateExerciseDraft(requestWith(2), t.deps);
+
+      expect((draft.content as { blanks: number }).blanks).toBe(2);
+      expect(t.generate).toHaveBeenCalledTimes(2);
+      expect(t.rows).toHaveLength(1);
+      expect(t.rows[0]).toMatchObject({ task: "generate", status: "ok" });
+
+      const retryPrompt = t.generate.mock.calls[1][0].prompt;
+      expect(retryPrompt).toContain("Lần trước phản hồi sai định dạng");
+      expect(retryPrompt).not.toContain(LEAK_SCRIPT);
+      expect(retryPrompt).not.toContain(LEAK_ANSWER);
+    }
+  );
+
+  it.each(countMismatches())(
+    "lệch %s cả 2 lần -> AI_INVALID_FORMAT, đúng 2 lần gọi, log error, không ghi DB, không lộ nội dung",
+    async (_name, bad) => {
+      const t = setup({ steps: [bad, bad] });
+      const error = await getError(generateExerciseDraft(requestWith(2), t.deps));
+
+      expect(error).toBeInstanceOf(AIInvalidFormatError);
+      expect((error as AIInvalidFormatError).code).toBe("AI_INVALID_FORMAT");
+      expect(t.generate).toHaveBeenCalledTimes(2);
+      expect(t.rows).toHaveLength(1);
+      expect(t.rows[0]).toMatchObject({ task: "generate", status: "error" });
+      expect(fake.createExercise).not.toHaveBeenCalled();
+
+      const logged = consoleText() + JSON.stringify(t.rows) + String((error as Error).message);
+      expect(logged).not.toContain(LEAK_SCRIPT);
+      expect(logged).not.toContain(LEAK_ANSWER);
+    }
+  );
+
+  it.each([
+    ["đáp án rỗng", listenJson(makeScript(2, 40), 2, ["ok", ""])],
+    ["đáp án chỉ khoảng trắng", listenJson(makeScript(2, 40), 2, ["ok", "   "])],
+    ["đáp án quá dài (31 ký tự)", listenJson(makeScript(2, 40), 2, ["ok", "a".repeat(31)])],
+    ["đáp án 4 từ", listenJson(makeScript(2, 40), 2, ["ok", "one two three four"])],
+    ["script rỗng", listenJson("", 2, makeAnswer(2))],
+    ["script 29 từ", listenJson(makeScript(2, 29), 2, makeAnswer(2))],
+    ["script 201 từ", listenJson(makeScript(2, 201), 2, makeAnswer(2))],
+  ])("%s cả 2 lần -> AI_INVALID_FORMAT sau đúng 2 lần gọi", async (_name, bad) => {
+    const t = setup({ steps: [bad, bad] });
+    const error = await getError(generateExerciseDraft(requestWith(2), t.deps));
+
+    expect(error).toBeInstanceOf(AIInvalidFormatError);
+    expect(t.generate).toHaveBeenCalledTimes(2);
+    expect(fake.createExercise).not.toHaveBeenCalled();
+  });
+
+  it("đáp án quá dài ở lần 1, lần 2 hợp lệ -> thành công (2 lần gọi)", async () => {
+    const bad = listenJson(makeScript(2, 40), 2, ["ok", "a".repeat(31)]);
+    const t = setup({ steps: [bad, GOOD] });
+    await generateExerciseDraft(requestWith(2), t.deps);
+    expect(t.generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("thành công: log và dòng ai_usage_logs không chứa script/đáp án thô, không lộ GEMINI_API_KEY", async () => {
+    const leaked = withLeak(makeScript(2, 40), makeAnswer(2));
+    const t = setup({ steps: [listenJson(leaked.script, 2, leaked.answer)] });
+    const draft = await generateExerciseDraft(requestWith(2), t.deps);
+
+    // Kết quả trả về cho nơi gọi thì có nội dung (để lưu DRAFT)...
+    expect(JSON.stringify(draft)).toContain(LEAK_SCRIPT);
+    // ...nhưng log thì không.
+    const logged = consoleText() + JSON.stringify(t.rows);
+    expect(logged).not.toContain(LEAK_SCRIPT);
+    expect(logged).not.toContain(LEAK_ANSWER);
+    expect(logged).not.toContain("GEMINI_API_KEY");
   });
 });

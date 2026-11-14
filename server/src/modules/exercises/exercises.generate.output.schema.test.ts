@@ -55,7 +55,11 @@ const SAMPLES: Sample[] = [
     type: "listening_fill",
     skill: Skill.LISTENING,
     count: 2,
-    content: { script: "Anna goes to the ___ at eight and buys some ___ for lunch.", blanks: 2 },
+    content: {
+      script:
+        "Anna wakes up at seven every morning and eats a small breakfast with her brother. At eight she goes to the ___ near her house, and she buys some ___ for lunch. Then she walks to school with her best friend and they talk about their homework.",
+      blanks: 2,
+    },
     answer: ["market", "bread"],
   },
   {
@@ -214,5 +218,122 @@ describe("buildGeneratedExerciseSchema", () => {
     const sample = bySample("fill_blank");
     expect(schemaFor(sample).safeParse("not json object").success).toBe(false);
     expect(schemaFor(sample).safeParse(null).success).toBe(false);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// T12 – kiểm riêng cho listening_fill (số ___ khớp blanks, độ dài script, độ dài đáp án)
+// ---------------------------------------------------------------------------
+describe("buildGeneratedExerciseSchema – listening_fill (T12)", () => {
+  /** Script gồm `totalWords` từ, có `blanks` chỗ trống ___ (cách nhau, không đứng cạnh nhau). */
+  const makeScript = (blanks: number, totalWords: number) => {
+    const words = Array.from({ length: totalWords }, (_, i) => `word${i}`);
+    for (let k = 0; k < blanks; k++) words[k * 2] = "___";
+    return words.join(" ");
+  };
+  const makeAnswer = (n: number) => Array.from({ length: n }, (_, i) => `ans${i}`);
+
+  const listening = bySample("listening_fill");
+  const run = (
+    o: { script?: string; blanks?: number; answer?: unknown; count?: number },
+    base = { script: makeScript(2, 40), blanks: 2, answer: makeAnswer(2), count: 2 }
+  ) => {
+    const v = { ...base, ...o };
+    return schemaFor(listening, { count: v.count }).safeParse(
+      aiOutput(listening, { content: { script: v.script, blanks: v.blanks }, answer: v.answer })
+    );
+  };
+
+  it("hợp lệ: N chỗ trống, blanks = N, answer.length = N", () => {
+    const result = run({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe("listening_fill");
+      expect(result.data.answer).toEqual(makeAnswer(2));
+    }
+  });
+
+  it.each([1, 10])("sát biên count = %i: hợp lệ", (n) => {
+    expect(run({ script: makeScript(n, 60), blanks: n, answer: makeAnswer(n), count: n }).success).toBe(true);
+  });
+
+  it("số ___ trong script lệch blanks -> sai ở content.script (blanks, answer, count vẫn khớp nhau)", () => {
+    const result = run({ script: makeScript(3, 40) });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toContain("content.script");
+  });
+
+  it("blanks lệch answer.length -> sai ở answer (do T1)", () => {
+    const result = run({ answer: makeAnswer(3) });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toContain("answer");
+  });
+
+  it("blanks lệch count -> sai ở content.blanks", () => {
+    const result = run({ count: 3 });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result)).toContain("content.blanks");
+  });
+
+  it.each([
+    ["rỗng", ""],
+    ["chỉ khoảng trắng", "   "],
+  ])("đáp án %s -> sai", (_label, value) => {
+    const result = run({ answer: ["ok", value] });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result).some((p) => p.startsWith("answer"))).toBe(true);
+  });
+
+  it("đáp án 31 ký tự -> sai ở answer.1; đúng 30 ký tự -> hợp lệ", () => {
+    const tooLong = run({ answer: ["ok", "a".repeat(31)] });
+    expect(tooLong.success).toBe(false);
+    expect(issuePaths(tooLong)).toContain("answer.1");
+    expect(run({ answer: ["ok", "a".repeat(30)] }).success).toBe(true);
+  });
+
+  it("đáp án 4 từ -> sai; đúng 3 từ -> hợp lệ", () => {
+    const four = run({ answer: ["ok", "one two three four"] });
+    expect(four.success).toBe(false);
+    expect(issuePaths(four)).toContain("answer.1");
+    expect(run({ answer: ["ok", "one two three"] }).success).toBe(true);
+  });
+
+  it.each([
+    ["rỗng", ""],
+    ["chỉ khoảng trắng", "   "],
+    ["29 từ", makeScript(2, 29)],
+    ["201 từ", makeScript(2, 201)],
+  ])("script %s -> sai", (_label, script) => {
+    const result = run({ script });
+    expect(result.success).toBe(false);
+    expect(issuePaths(result).some((p) => p.startsWith("content"))).toBe(true);
+  });
+
+  it.each([
+    ["30 từ", 30],
+    ["200 từ", 200],
+  ])("script đúng biên %s -> hợp lệ", (_label, words) => {
+    expect(run({ script: makeScript(2, words) }).success).toBe(true);
+  });
+
+  it("thông báo lỗi không chứa script hay đáp án thô", () => {
+    const secretScript = makeScript(3, 40).replace("word5", "TOPSECRETWORD");
+    const result = run({ script: secretScript, answer: ["SECRETANSWER", "x"] });
+    expect(result.success).toBe(false);
+    const text = JSON.stringify(result.error?.issues);
+    expect(text).not.toContain("TOPSECRETWORD");
+    expect(text).not.toContain("SECRETANSWER");
+  });
+
+  it("dạng khác không bị kiểm của Nghe (fill_blank ngắn, đáp án 4 từ vẫn hợp lệ)", () => {
+    const fill = bySample("fill_blank");
+    const result = schemaFor(fill).safeParse(
+      aiOutput(fill, {
+        content: { text: "She ___ to school." },
+        answer: ["one two three four"],
+      })
+    );
+    expect(result.success).toBe(true);
   });
 });

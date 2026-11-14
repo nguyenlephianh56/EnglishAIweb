@@ -39,7 +39,8 @@ export interface GenerateExerciseDraftInput extends GenerateExerciseInput {
  * T11: nhờ AI sinh MỘT bài nháp và trả về object bài ĐÃ HỢP LỆ. CHƯA lưu DB.
  *
  * Các bước:
- *   1. dựng prompt từ mẫu T10 (key exercise_generate) + khuôn của dạng bài;
+ *   1. dựng prompt từ mẫu T10 (key exercise_generate + khuôn của dạng bài; riêng listening_fill
+ *      dùng key listening_generate);
  *   2. gọi runAiTask (task "generate": kiểm lượt/ngày, không cache, ghi 1 dòng ai_usage_logs);
  *   3. kết quả đi qua schema đầu ra (validateExercise + khớp type/skill/level/count).
  *      Sai thì generateJson (T8) thử lại đúng 1 lần, tức tối đa 2 lần gọi model.
@@ -55,11 +56,17 @@ export async function generateExerciseDraft(
 ): Promise<GeneratedExerciseDraft> {
   const { userId, role, skill, level, topic, type, count } = input;
 
-  const prompt = await buildPrompt(
-    "exercise_generate",
-    { skill, level, topic, type, count, exercise_shape: buildExerciseShape(type) },
-    promptDb
-  );
+  // T12: bài Nghe dùng mẫu riêng listening_generate (count = số chỗ trống = blanks);
+  // các dạng khác vẫn dùng exercise_generate. Cả hai trả cùng một object 7 field nên dùng
+  // chung schema đầu ra bên dưới (phần kiểm riêng cho Nghe nằm trong buildGeneratedExerciseSchema).
+  const prompt =
+    type === "listening_fill"
+      ? await buildPrompt("listening_generate", { level, topic, blanks: count }, promptDb)
+      : await buildPrompt(
+          "exercise_generate",
+          { skill, level, topic, type, count, exercise_shape: buildExerciseShape(type) },
+          promptDb
+        );
 
   const schema = buildGeneratedExerciseSchema({ type, skill, level, count });
   const result = await runAiTask({ userId, role, task: "generate", prompt, schema }, deps);

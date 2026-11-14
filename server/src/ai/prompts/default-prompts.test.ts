@@ -174,22 +174,44 @@ describe("exercise_generate — sinh MỘT bài", () => {
 describe("listening_generate — kịch bản bài Nghe (listening_fill)", () => {
   const { template } = DEFAULT_PROMPTS.listening_generate;
 
-  it("có từ khóa khuôn: script, blanks, answer; chỗ trống là ___", () => {
-    for (const word of ["script", "blanks", "answer"]) expect(template).toContain(`"${word}"`);
+  it("có từ khóa khuôn: type, skill, content, script, blanks, answer, explanation; chỗ trống là ___", () => {
+    for (const word of ["type", "skill", "content", "script", "blanks", "answer", "explanation"]) {
+      expect(template).toContain(`"${word}"`);
+    }
     expect(template).toContain("___");
     expect(template).toMatch(/text-to-speech/);
   });
 
-  it("render đủ; số chỗ trống khớp {{blanks}} ở mọi nơi; khối JSON đúng 3 field", async () => {
+  it("render đủ; số chỗ trống khớp {{blanks}} ở mọi nơi; khối JSON đúng 7 field của bài", async () => {
     const prompt = await buildPrompt("listening_generate", listeningVars, emptyDb);
     expect(prompt).not.toContain("{{");
     expect(prompt).toContain("Replace exactly 4 words");
     expect(prompt).toContain("equal to 4");
     expect(prompt).toContain("<topic>\nAt the market\n</topic>");
     const block = parseOutputBlock(prompt);
-    expect(Object.keys(block)).toEqual(["script", "blanks", "answer"]);
-    expect(block.blanks).toBe(4);
+    expect(Object.keys(block)).toEqual([
+      "type",
+      "skill",
+      "level",
+      "topic",
+      "content",
+      "answer",
+      "explanation",
+    ]);
+    expect(block.type).toBe("listening_fill");
+    expect(block.skill).toBe("LISTENING");
+    expect(block.level).toBe("A2");
+    const content = block.content as Record<string, unknown>;
+    expect(Object.keys(content)).toEqual(["script", "blanks"]);
+    expect(content.blanks).toBe(4);
     expect(Array.isArray(block.answer)).toBe(true);
+  });
+
+  it("dặn độ dài script 30-200 từ, đáp án tối đa 3 từ/30 ký tự, giải thích tiếng Việt", async () => {
+    const prompt = await buildPrompt("listening_generate", listeningVars, emptyDb);
+    expect(prompt).toContain("between 30 and 200 words");
+    expect(prompt).toContain("never more than 3 words or 30 characters");
+    expect(prompt).toMatch(/explanation.*VIETNAMESE/i);
   });
 
   it("chủ đề chứa lệnh/đóng thẻ không làm thêm thẻ nào", async () => {

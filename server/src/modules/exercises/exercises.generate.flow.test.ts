@@ -370,3 +370,100 @@ describe("POST /exercises/generate - quyền và body", () => {
     expect(fake.createExercise).not.toHaveBeenCalled();
   });
 });
+
+
+describe("POST /exercises/generate - bài Nghe listening_fill (T12)", () => {
+  const listeningBody = (overrides: Record<string, unknown> = {}) => ({
+    skill: "LISTENING",
+    level: "A2",
+    topic: "  At the market  ",
+    type: "listening_fill",
+    count: 2,
+    ...overrides,
+  });
+
+  const SCRIPT = Array.from({ length: 40 }, (_, i) => `word${i}`)
+    .map((w, i) => (i === 0 || i === 2 ? "___" : w))
+    .join(" ");
+
+  const listeningDraft = {
+    type: "listening_fill",
+    skill: "LISTENING",
+    level: "A2",
+    topic: "AI tự đổi chủ đề",
+    content: { script: SCRIPT, blanks: 2 },
+    answer: ["market", "bread"],
+    explanation: "Giải thích mẫu",
+  };
+
+  it("201: dùng mẫu listening_generate với blanks = count, lưu 1 bài DRAFT source=AI, in_library=false", async () => {
+    fake.runAiTask.mockResolvedValueOnce({ data: listeningDraft, cached: false });
+
+    const result = await post(listeningBody(), 4);
+
+    expect(result.status).toBe(201);
+    expect(result.json.error).toBeNull();
+
+    // Mẫu Nghe được chọn, biến đúng: level, topic (đã trim), blanks = count.
+    expect(fake.buildPrompt).toHaveBeenCalledTimes(1);
+    expect(fake.buildPrompt.mock.calls[0]?.[0]).toBe("listening_generate");
+    expect(fake.buildPrompt.mock.calls[0]?.[1]).toEqual({
+      level: "A2",
+      topic: "At the market",
+      blanks: 2,
+    });
+
+    expect(fake.createExercise).toHaveBeenCalledTimes(1);
+    expect(fake.createExercise.mock.calls[0]?.[0].data).toEqual({
+      type: "listening_fill",
+      skill: "LISTENING",
+      level: "A2",
+      topic: "At the market",
+      content: listeningDraft.content,
+      answer: ["market", "bread"],
+      explanation: "Giải thích mẫu",
+      source: "AI",
+      status: "DRAFT",
+      inLibrary: false,
+      createdById: 4,
+    });
+    expect(result.json.data).toMatchObject({
+      id: 101,
+      type: "listening_fill",
+      source: "AI",
+      status: "DRAFT",
+      inLibrary: false,
+    });
+  });
+
+  it("schema truyền cho lớp AI có kiểm riêng của Nghe (số ___ lệch blanks -> bị từ chối)", async () => {
+    fake.runAiTask.mockResolvedValueOnce({ data: listeningDraft, cached: false });
+    await post(listeningBody(), 4);
+
+    const schema = fake.runAiTask.mock.calls[0]?.[0].schema;
+    expect(schema.safeParse(listeningDraft).success).toBe(true);
+    // 3 chỗ trống thật trong script nhưng blanks = 2 và answer có 2 phần tử.
+    const threeBlanks = SCRIPT.replace("word4", "___");
+    const bad = { ...listeningDraft, content: { script: threeBlanks, blanks: 2 } };
+    expect(schema.safeParse(bad).success).toBe(false);
+  });
+
+  it("dạng khác không dùng mẫu Nghe: multiple_choice vẫn gọi exercise_generate", async () => {
+    fake.runAiTask.mockResolvedValueOnce({ data: mcDraft, cached: false });
+    await post(mcBody(), 4);
+
+    expect(fake.buildPrompt.mock.calls[0]?.[0]).toBe("exercise_generate");
+  });
+
+  it("AI sai khuôn sau retry (AI_INVALID_FORMAT) -> 502, không tạo bản ghi, response không lộ nội dung", async () => {
+    fake.runAiTask.mockRejectedValueOnce(new AIInvalidFormatError(2));
+
+    const result = await post(listeningBody(), 4);
+
+    expect(result.status).toBe(502);
+    expect(result.json.data).toBeNull();
+    expect(result.json.error?.code).toBe("AI_INVALID_FORMAT");
+    expect(fake.createExercise).not.toHaveBeenCalled();
+    expect(result.raw).not.toContain("word1");
+  });
+});
