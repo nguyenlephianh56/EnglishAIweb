@@ -7,32 +7,25 @@ import type { PromptTemplateDb } from "../../ai/prompts/prompt-templates";
 import { buildGeneratedExerciseSchema } from "./exercises.generate.output.schema";
 import type { GeneratedExerciseDraft } from "./exercises.generate.output.schema";
 import type { GenerateExerciseInput } from "./exercises.generate.schema";
+import { saveGeneratedDraft } from "./exercises.generate.save";
 
-export class GenerateExerciseNotImplementedError extends Error {
-  readonly code = "NOT_IMPLEMENTED";
-  readonly statusCode = 501;
-
-  constructor() {
-    super("Chức năng sinh bài bằng AI chưa được triển khai");
-    this.name = "GenerateExerciseNotImplementedError";
-  }
-}
-
-/** Stub T11: chỉ nhận user từ token và body đã được route kiểm tra. */
+/**
+ * T11: luồng thật của POST /exercises/generate.
+ *   1. generateExerciseDraft: gọi AI + kiểm hợp lệ (lỗi thì ném, CHƯA ghi gì vào DB);
+ *   2. saveGeneratedDraft: lưu 1 bản ghi DRAFT rồi trả về.
+ * Lưu DB lỗi thì ném nguyên; KHÔNG gọi lại AI (đã tốn 1 lượt, log `ok` đã ghi ở lớp AI).
+ */
 export async function generateExercise(
-  _user: { id: number; role: Role },
-  _input: GenerateExerciseInput
-): Promise<never> {
-  // TODO(T11): Dùng T10 dựng prompt key exercise_generate với skill, level, topic,
-  // type, count, exercise_shape; nối runAiTask với userId/role từ _user.
+  user: { id: number; role: Role },
+  input: GenerateExerciseInput
+) {
+  const draft = await generateExerciseDraft({
+    ...input,
+    userId: user.id,
+    role: user.role,
+  });
 
-  // TODO(T11): Kiểm kết quả bằng validateExercise (T1); sai thì thử lại 1 lần.
-  // Phối hợp với retry của lớp AI hiện có để không thử lại nhiều lần ngoài ý muốn.
-
-  // TODO(T11): Lưu bài qua Prisma: createdById = _user.id, source = "AI",
-  // status = "DRAFT", inLibrary = false. Không nhận các field này từ client.
-
-  throw new GenerateExerciseNotImplementedError();
+  return saveGeneratedDraft(user.id, input, draft);
 }
 
 /** Đầu vào đã được route kiểm + userId/role do server lấy từ token (không nhận từ client). */

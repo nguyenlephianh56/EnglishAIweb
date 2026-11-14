@@ -88,6 +88,24 @@ const users: Record<
   5: { id: 5, role: Role.ADMIN, status: UserStatus.ACTIVE },
 };
 
+// Bài trả về giả (service đã được mock trong file này).
+const createdExercise = {
+  id: 101,
+  type: "multiple_choice",
+  skill: "READING",
+  level: "A1",
+  topic: "Daily routines",
+  content: { questions: [{ q: "Q?", options: ["a", "b"] }] },
+  answer: [0],
+  explanation: "Giải thích mẫu",
+  status: "DRAFT",
+  source: "AI",
+  inLibrary: false,
+  createdById: 4,
+  createdAt: "2026-11-14T00:00:00.000Z",
+  updatedAt: "2026-11-14T00:00:00.000Z",
+};
+
 const validBody = (overrides: Record<string, unknown> = {}) => ({
   skill: "READING",
   level: "A1",
@@ -134,6 +152,10 @@ beforeEach(() => {
   fake.findUser.mockImplementation(
     async ({ where }: { where: { id: number } }) =>
       users[where.id] ?? null
+  );
+    // Mặc định service trả bài giả; test nào cần lỗi thì tự mockRejectedValueOnce.
+  vi.spyOn(generateService, "generateExercise").mockResolvedValue(
+    createdExercise as never
   );
 });
 
@@ -188,7 +210,6 @@ async function post(
   };
 
   expect(Object.keys(json).sort()).toEqual(["data", "error"]);
-  expect(json.data).toBeNull();
 
   expect(JSON.stringify(json)).not.toMatch(
     /passwordHash|JWT_SECRET|GEMINI_API_KEY/
@@ -241,7 +262,7 @@ describe("POST /api/v1/exercises/generate - nối route và stub", () => {
     ["TEACHER ACTIVE", 4],
     ["ADMIN", 5],
   ] as const)(
-    "%s qua kiểm tra, nhận 501 và không ghi bài/gọi AI",
+    "%s qua kiểm tra, nhận 201 và không ghi bài/gọi AI",
     async (_name, userId) => {
       const spy = vi.spyOn(generateService, "generateExercise");
 
@@ -250,15 +271,8 @@ describe("POST /api/v1/exercises/generate - nối route và stub", () => {
         userId
       );
 
-      expect(result.status).toBe(501);
-      expect(result.json).toEqual({
-        data: null,
-        error: {
-          code: "NOT_IMPLEMENTED",
-          message: "Chức năng sinh bài bằng AI chưa được triển khai",
-        },
-      });
-
+      expect(result.status).toBe(201);
+      expect(result.json).toEqual({ data: createdExercise, error: null });
       expect(fake.quotaCheck).toHaveBeenCalledExactlyOnceWith(
         userId,
         expect.any(Date)
@@ -408,10 +422,10 @@ describe("POST generate - ma trận đầu vào qua HTTP", () => {
     }
   );
 
-  it.each([1, 10])("count ở biên %i → 501", async (count) => {
+  it.each([1, 10])("count ở biên %i → 201", async (count) => {
     expect(
       (await post(validBody({ count }), 4)).status
-    ).toBe(501);
+    ).toBe(201);
 
     expect(fake.usageLog).not.toHaveBeenCalled();
   });
@@ -441,7 +455,7 @@ describe("POST generate - ma trận đầu vào qua HTTP", () => {
     for (const count of [2, 10]) {
       expect(
         (await post({ ...body, count }, 4)).status
-      ).toBe(501);
+      ).toBe(201);
     }
 
     expect(fake.usageLog).not.toHaveBeenCalled();
@@ -462,13 +476,13 @@ describe("POST generate - ma trận đầu vào qua HTTP", () => {
     await expectInvalid(validBody({ topic }));
   });
 
-  it("topic 100 ký tự, có khoảng trắng đầu/cuối → trim và nhận 501", async () => {
+  it("topic 100 ký tự, có khoảng trắng đầu/cuối → trim và nhận 201", async () => {
     const topic = "a".repeat(100);
     const spy = vi.spyOn(generateService, "generateExercise");
 
     expect(
       (await post(validBody({ topic: `  ${topic}  ` }), 4)).status
-    ).toBe(501);
+    ).toBe(201);
 
     expect(spy).toHaveBeenCalledExactlyOnceWith(
       users[4],
@@ -477,22 +491,22 @@ describe("POST generate - ma trận đầu vào qua HTTP", () => {
   });
 
   it.each(["A1", "A2", "B1", "B2"])(
-    "nhận level %s → 501",
+    "nhận level %s → 201",
     async (level) => {
       expect(
         (await post(validBody({ level }), 4)).status
-      ).toBe(501);
+      ).toBe(201);
     }
   );
 
   it.each(validPairs)(
-    "nhận cặp %s + %s → 501",
+    "nhận cặp %s + %s → 201",
     async (type, skill) => {
       const count = type === "matching" ? 2 : 1;
 
       expect(
         (await post(validBody({ type, skill, count }), 4)).status
-      ).toBe(501);
+      ).toBe(201);
     }
   );
 
@@ -559,12 +573,12 @@ describe("POST generate - ma trận đầu vào qua HTTP", () => {
     expect(fake.usageLog).not.toHaveBeenCalled();
   });
 
-  it("49/50 lượt → 501; 50/50 lượt → 429, chỉ ghi log rate_limited", async () => {
+  it("49/50 lượt → 201; 50/50 lượt → 429, chỉ ghi log rate_limited", async () => {
     fake.quotaCheck
       .mockResolvedValueOnce(49)
       .mockResolvedValueOnce(50);
 
-    expect((await post(validBody(), 4)).status).toBe(501);
+    expect((await post(validBody(), 4)).status).toBe(201);
     expect(fake.usageLog).not.toHaveBeenCalled();
 
     expect((await post(validBody(), 4)).status).toBe(429);
@@ -585,7 +599,7 @@ describe("POST generate - ma trận đầu vào qua HTTP", () => {
         .mockImplementation(() => {})
     );
 
-    expect((await post(validBody({ topic }), 4)).status).toBe(501);
+    expect((await post(validBody({ topic }), 4)).status).toBe(201);
 
     for (const spy of spies) {
       expect(spy).not.toHaveBeenCalled();

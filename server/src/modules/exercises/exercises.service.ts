@@ -33,7 +33,7 @@ const businessError = (statusCode: number, code: string, message: string) =>
 
 // Chỉ trả đúng các field này cho client (không trả field thừa).
 // Người tạo được xem đáp án nên có đủ content/answer/explanation.
-const EXERCISE_SELECT = {
+export const EXERCISE_SELECT = {
   id: true,
   type: true,
   skill: true,
