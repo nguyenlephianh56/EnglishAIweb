@@ -49,7 +49,6 @@ export interface HomeData {
   assignments: Assignment[];
   skillProfile: SkillProfileSummary;
   recommendation: Recommendation | null;
-  unreadCount: number;
 }
 
 /** Kết quả POST /classes/join */
@@ -58,4 +57,14 @@ export interface JoinedClass {
   name: string;
   teacher: { id: number; name: string };
   joinedAt: string;
+}
+
+/** Phần tử của GET /classes khi đăng nhập là học sinh */
+export interface StudentClassItem {
+  id: number;
+  name: string;
+  createdAt: string;
+  teacher?: { id: number; name: string };
+  /** Backend chưa trả trường này cho học sinh; có thì hiện, không có thì ẩn */
+  studentCount?: number;
 }

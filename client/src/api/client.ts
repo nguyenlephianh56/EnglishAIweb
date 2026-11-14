@@ -37,9 +37,10 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
-// Đăng nhập/đăng ký sai thông tin cũng trả 401 nhưng KHÔNG phải phiên hết hạn:
+
+// Đăng nhập/đăng ký/đổi mật khẩu sai thông tin cũng có thể trả 401 nhưng KHÔNG phải phiên hết hạn:
 // bỏ qua để không xóa token hay phát sự kiện, trang chỉ cần hiện thông báo lỗi.
-const isAuthAttempt = (url = "") => url.startsWith("/auth/login") || url.startsWith("/auth/register");
+const isAuthAttempt = (url = "") => url.startsWith("/auth/login") || url.startsWith("/auth/register") || url.startsWith("/users/me/password");
 
 // 401 = token hết hạn/không hợp lệ: xóa token và báo cho useAuth
 api.interceptors.response.use(
@@ -67,6 +68,7 @@ export function getErrorMessage(error: unknown, fallback = "Đã có lỗi xảy
   }
   return error instanceof Error ? error.message : fallback;
 }
+
 /** Mã lỗi của backend (ví dụ INVALID_CREDENTIALS, ACCOUNT_PENDING), hoặc undefined nếu không có. */
 export function getErrorCode(error: unknown): string | undefined {
   if (axios.isAxiosError<ApiResponse<unknown>>(error)) return error.response?.data?.error?.code;
