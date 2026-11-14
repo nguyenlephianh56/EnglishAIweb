@@ -16,7 +16,10 @@ import NotificationsPage from "../features/student/NotificationsPage";
 import PathPage from "../features/student/PathPage";
 import { ExerciseDetailPage } from "../features/student/placeholders";
 import TeacherOverviewPage from "../features/teacher/OverviewPage";
-import { AnalyticsPage, AssignmentsPage, ClassesPage, ExercisesPage, GradingPage, NewExercisePage, NotificationsPage as TeacherNotificationsPage } from "../features/teacher/placeholders";
+import ClassesPage from "../features/teacher/classes/ClassesPage";
+import ClassDetailPage from "../features/teacher/classes/ClassDetailPage";
+import TeacherNotificationsPage from "../features/teacher/NotificationsPage";
+import { AnalyticsPage, AssignmentsPage, ExercisesPage, GradingPage, NewAssignmentPage, NewExercisePage } from "../features/teacher/placeholders";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
 
@@ -59,9 +62,11 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <TeacherOverviewPage /> },
           { path: "classes", element: <ClassesPage /> },
+          { path: "classes/:id", element: <ClassDetailPage /> },
           { path: "exercises", element: <ExercisesPage /> },
           { path: "exercises/new", element: <NewExercisePage /> },
           { path: "assignments", element: <AssignmentsPage /> },
+          { path: "assignments/new", element: <NewAssignmentPage /> },
           { path: "grading", element: <GradingPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "notifications", element: <TeacherNotificationsPage /> },

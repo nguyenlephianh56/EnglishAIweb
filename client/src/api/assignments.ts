@@ -1,5 +1,5 @@
 import { api, unwrap } from "./client";
-import type { AssignmentListParams, AssignmentListResult } from "../types/assignment";
+import type { AssignmentListParams, AssignmentListResult } from "../types/assignments";
 
 /**
  * GET /assignments?status=&classId=&page=&limit=

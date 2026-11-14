@@ -1,16 +1,19 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listClasses } from "../../api/classes";
-import { fetchTeacherUnread, getTeacherOverviewMock } from "./mock/overviewData";
+import { getClass, listClasses } from "../../api/classes";
+import { getTeacherOverviewMock } from "./mock/overviewData";
 
 export const TEACHER_CLASSES_KEY = ["teacher", "classes"] as const;
 const DAY = 24 * 60 * 60 * 1000;
 
+export const teacherClassKey = (id: number) => ["teacher", "classes", id] as const;
+
+/** Chi tiết một lớp + danh sách học sinh (GET /classes/:id), dữ liệu THẬT. Tắt khi id không hợp lệ. */
+export const useClassDetail = (id: number) =>
+  useQuery({ queryKey: teacherClassKey(id), queryFn: () => getClass(id), enabled: Number.isInteger(id) && id > 0, staleTime: 30 * 1000, retry: false });
+
 /** Lớp của giáo viên (GET /classes), dữ liệu THẬT */
 export const useTeacherClasses = () => useQuery({ queryKey: TEACHER_CLASSES_KEY, queryFn: listClasses, staleTime: 30 * 1000 });
-
-/** Số thông báo chưa đọc. TODO: nối API thông báo thật. */
-export const useTeacherUnread = () => useQuery({ queryKey: ["teacher", "unread"], queryFn: fetchTeacherUnread, staleTime: 60 * 1000 });
 
 /**
  * Dữ liệu trang Tổng quan giáo viên: phần THẬT từ GET /classes, phần GIẢ do getTeacherOverviewMock()
