@@ -17,6 +17,28 @@ import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
 import { MAX_ATTEMPTS_PER_ASSIGNMENT, WRITING_TEXT_MAX } from "./attempts.constants";
 
+// T13: POST writing giờ gọi AI chấm. Test này KHÔNG gọi AI thật: gradeWriting luôn trả kết quả cố định.
+// (7+7+7+8)/4 = 7.25. Ca AI lỗi / chấm song song nằm ở attempts-writing-grade.test.ts.
+const { FAKE_GRADE } = vi.hoisted(() => ({
+  FAKE_GRADE: {
+    criteria: { content: 7, coherence: 7, vocabulary: 7, grammar: 8 },
+    comment: "Bài viết khá tốt.",
+    errors: [
+      {
+        type: "grammar:tense",
+        text: "I goes",
+        correction: "I go",
+        explanation: "Chủ ngữ I dùng động từ nguyên mẫu.",
+      },
+    ],
+  },
+}));
+vi.mock("../../ai/writingGrader", () => ({
+  gradeWriting: async () => structuredClone(FAKE_GRADE),
+}));
+const FAKE_SCORE = 7.25;
+const FAKE_AI_FEEDBACK = { criteria: FAKE_GRADE.criteria, comment: FAKE_GRADE.comment };
+
 const PREFIX = "t13w_";
 const RUN_ID = `${PREFIX}${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 const HOUR = 60 * 60 * 1000;
@@ -174,6 +196,25 @@ const submitAsg = (assignmentId: number, text: string, userId: number) =>
 const submitPractice = (text: string, userId: number, exerciseId = ids.writingLib) =>
   postAttempt({ exerciseId, answer: { text } }, userId);
 
+// Dòng "chưa chấm" (score NULL) tạo thẳng bằng Prisma: POST giờ luôn chấm xong,
+// còn các ca dưới đây kiểm cách GET/trạng thái bài giao xử lý điểm NULL.
+const insertUngraded = async (assignmentId: number, studentId: number, text: string) =>
+  (
+    await prisma.attempt.create({
+      data: {
+        studentId,
+        exerciseId: ids.writingLib,
+        assignmentId,
+        mode: "practice",
+        answer: { text },
+        score: null,
+        maxScore: 10,
+        errors: [],
+      },
+      select: { id: true },
+    })
+  ).id;
+
 const countFor = (studentId: number) => prisma.attempt.count({ where: { studentId } });
 
 // ---------------------------------------------------------------------------
@@ -210,10 +251,10 @@ describe("POST /attempts - writing tự luyện", () => {
     expect(res.body.error).toBeNull();
 
     const data = res.body.data!;
-    expect(data.score).toBeNull();
-    expect(data.graded).toBe(false);
+    expect(data.score).toBe(FAKE_SCORE); // điểm do server tính, không lấy score 9.5 của client
+    expect(data.graded).toBe(true);
     expect(data.maxScore).toBe(10);
-    expect(data.errors).toEqual([]);
+    expect(data.errors).toEqual(FAKE_GRADE.errors); // tự luyện: lộ đủ correction/explanation
     expect("answer" in data).toBe(false); // writing không có đáp án
     expect(data.explanation).toBe(EXPLANATION); // tự luyện: lộ ngay
 
@@ -223,10 +264,10 @@ describe("POST /attempts - writing tự luyện", () => {
       exerciseId: ids.writingLib,
       assignmentId: null,
       mode: "practice",
-      score: null,
+      score: FAKE_SCORE,
       maxScore: 10,
-      errors: [],
-      aiFeedback: null,
+      errors: FAKE_GRADE.errors,
+      aiFeedback: FAKE_AI_FEEDBACK,
       teacherScore: null,
       isLate: false,
     });
@@ -305,8 +346,10 @@ describe("POST /attempts - writing bài giao", () => {
       const data = res.body.data!;
       expect(data.attemptNo).toBe(n);
       expect(data.attemptsLeft).toBe(MAX_ATTEMPTS_PER_ASSIGNMENT - n);
-      expect(data.score).toBeNull();
-      expect(data.graded).toBe(false);
+      expect(data.score).toBe(FAKE_SCORE);
+      expect(data.graded).toBe(true);
+      // Chưa tới hạn: lỗi chỉ còn { type, text }, không lộ correction/explanation (4c.4)
+      expect(data.errors).toEqual([{ type: "grammar:tense", text: "I goes" }]);
       expect("answer" in data).toBe(false);
       // Chưa tới hạn: che giải thích (4c.4)
       expect("explanation" in data).toBe(false);
@@ -320,10 +363,10 @@ describe("POST /attempts - writing bài giao", () => {
     for (const row of rows) {
       expect(row).toMatchObject({
         exerciseId: ids.writingLib,
-        score: null,
+        score: FAKE_SCORE,
         maxScore: 10,
-        errors: [],
-        aiFeedback: null,
+        errors: FAKE_GRADE.errors, // DB lưu đủ; chỉ response mới che
+        aiFeedback: FAKE_AI_FEEDBACK,
         isLate: false,
       });
     }
@@ -353,7 +396,7 @@ describe("POST /attempts - writing bài giao", () => {
     const asg = await newAssignment(-1 * HOUR);
     const res = await submitAsg(asg.id, "Late essay", users.studentA);
     expect(res.status).toBe(201);
-    expect(res.body.data!.score).toBeNull();
+    expect(res.body.data!.score).toBe(FAKE_SCORE); // trễ hạn vẫn được chấm
     expect(res.body.data!.explanation).toBe(EXPLANATION);
     expect("answer" in res.body.data!).toBe(false);
 
@@ -416,9 +459,7 @@ describe("Điểm NULL: toàn bộ lần nộp chưa chấm", () => {
   beforeAll(async () => {
     asgId = (await newAssignment(24 * HOUR)).id;
     for (let n = 1; n <= 2; n++) {
-      const res = await submitAsg(asgId, `Ungraded ${n}`, users.studentA);
-      expect(res.status).toBe(201);
-      attemptIds.push(res.body.data!.attemptId as number);
+      attemptIds.push(await insertUngraded(asgId, users.studentA, `Ungraded ${n}`));
     }
   });
 
@@ -508,9 +549,9 @@ describe("Điểm NULL lẫn điểm đã có (GV chấm tay)", () => {
 
   beforeAll(async () => {
     asgId = (await newAssignment(24 * HOUR)).id;
-    g1 = (await submitAsg(asgId, "A first", users.studentA)).body.data!.attemptId;
-    g2 = (await submitAsg(asgId, "A second", users.studentA)).body.data!.attemptId;
-    b1 = (await submitAsg(asgId, "B only", users.studentB)).body.data!.attemptId;
+    g1 = await insertUngraded(asgId, users.studentA, "A first");
+    g2 = await insertUngraded(asgId, users.studentA, "A second");
+    b1 = await insertUngraded(asgId, users.studentB, "B only");
     await prisma.attempt.update({ where: { id: g2 }, data: { teacherScore: 7 } });
     await prisma.attempt.update({ where: { id: b1 }, data: { teacherScore: 0 } });
   });

@@ -15,6 +15,8 @@ import {
   type AttemptListResponse,
 } from "./attempt-list";
 import {MAX_ATTEMPTS_PER_ASSIGNMENT,WRITING_MAX_SCORE,} from "./attempts.constants";
+import { gradeWritingAttempt } from "./attempts-writing-grade";
+import type { AiRole } from "../../ai/ai.usage";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
 const businessError = (
@@ -215,7 +217,7 @@ const prepareAttempt = (
  * Chưa quá hạn -> response không có answer/explanation/errors[].correction.
  */
 export const submitAttempt = async (
-  user: { id: number },
+  user: { id: number; role: AiRole },
   input: CreateAttemptInput
 ) => {
   const { exercise, assignment } =
@@ -264,9 +266,24 @@ export const submitAttempt = async (
     return { attempt, usedBefore };
   });
 
+  // Writing: attempt đã lưu (score NULL) NGOÀI transaction, giờ mới gọi AI (chờ vài giây, không
+  // giữ khóa/kết nối DB). Lỗi AI ném thẳng ra: attempt vẫn còn score = NULL, không mất bài.
+  let finalAttempt = attempt;
+  if (exercise.type === "writing") {
+    const { text } = prepared.answer as { text: string };
+    const graded = await gradeWritingAttempt({
+      attemptId: attempt.id,
+      userId: user.id,
+      role: user.role,
+      text,
+      exercise: { level: exercise.level, content: exercise.content },
+    });
+    finalAttempt = { ...attempt, score: graded.score, errors: graded.errors as typeof attempt.errors };
+  }
+
   // Tự luyện (assignment === null): lộ ngay. Bài giao: chỉ lộ khi đã quá hạn.
   const reveal = assignment === null || pastDue;
-  const result = buildAttemptResult(attempt, exercise, { reveal });
+  const result = buildAttemptResult(finalAttempt, exercise, { reveal });
 
   // Tự luyện không giới hạn nên response giữ nguyên. Bài giao thêm lượt nộp:
   // attemptNo = lần thứ mấy (1..tối đa), attemptsLeft = còn mấy lần.

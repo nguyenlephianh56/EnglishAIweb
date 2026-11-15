@@ -1,10 +1,19 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Server } from "http";
 import jwt from "jsonwebtoken";
 import type { Prisma } from "@prisma/client";
 import { app } from "../../app";
 import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
+
+// T13: POST writing giờ gọi AI chấm; test này không gọi AI thật.
+vi.mock("../../ai/writingGrader", () => ({
+  gradeWriting: async () => ({
+    criteria: { content: 8, coherence: 8, vocabulary: 8, grammar: 8 },
+    comment: "Bài viết tốt.",
+    errors: [],
+  }),
+}));
 
 const PREFIX = "t4a_";
 const RUN_ID = `${PREFIX}${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -532,7 +541,7 @@ describe("POST /api/v1/attempts - dữ liệu sai (400 / 422)", () => {
     });
   }
 
-    it("writing hợp lệ -> 201, lưu chờ chấm (score NULL), response không có answer", async () => {
+    it("writing hợp lệ -> 201, được chấm (score = trung bình 4 tiêu chí), response không có answer", async () => {
     const before = await countAttempts();
     const res = await submitAsStudent({ exerciseId: ex.writing, answer: { text: "  Hello  " } });
 
@@ -540,7 +549,7 @@ describe("POST /api/v1/attempts - dữ liệu sai (400 / 422)", () => {
     expect(res.body.error).toBeNull();
 
     const data = res.body.data!;
-    expect(data.score).toBeNull();
+    expect(data.score).toBe(8);
     expect(data.maxScore).toBe(10);
     expect(data.errors).toEqual([]);
     expect("answer" in data).toBe(false);
@@ -551,10 +560,13 @@ describe("POST /api/v1/attempts - dữ liệu sai (400 / 422)", () => {
       studentId: users.student,
       exerciseId: ex.writing,
       assignmentId: null,
-      score: null,
+      score: 8,
       maxScore: 10,
       errors: [],
-      aiFeedback: null,
+      aiFeedback: {
+        criteria: { content: 8, coherence: 8, vocabulary: 8, grammar: 8 },
+        comment: "Bài viết tốt.",
+      },
       isLate: false,
     });
     expect(row!.answer).toEqual({ text: "Hello" });
