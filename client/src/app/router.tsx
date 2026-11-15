@@ -19,7 +19,10 @@ import TeacherOverviewPage from "../features/teacher/OverviewPage";
 import ClassesPage from "../features/teacher/classes/ClassesPage";
 import ClassDetailPage from "../features/teacher/classes/ClassDetailPage";
 import TeacherNotificationsPage from "../features/teacher/NotificationsPage";
-import { AnalyticsPage, AssignmentsPage, ExercisesPage, GradingPage, NewAssignmentPage, NewExercisePage } from "../features/teacher/placeholders";
+import AssignmentsPage from "../features/teacher/assignments/AssignmentsPage";
+import AssignmentDetailPage from "../features/teacher/assignments/AssignmentDetailPage";
+import NewAssignmentPage from "../features/teacher/assignments/NewAssignmentPage";
+import { AnalyticsPage, ExercisesPage, GradingPage, NewExercisePage } from "../features/teacher/placeholders";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
 
@@ -67,6 +70,7 @@ export const router = createBrowserRouter([
           { path: "exercises/new", element: <NewExercisePage /> },
           { path: "assignments", element: <AssignmentsPage /> },
           { path: "assignments/new", element: <NewAssignmentPage /> },
+          { path: "assignments/:assignmentId", element: <AssignmentDetailPage /> },
           { path: "grading", element: <GradingPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "notifications", element: <TeacherNotificationsPage /> },
