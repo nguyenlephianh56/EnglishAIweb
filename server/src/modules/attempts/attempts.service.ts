@@ -268,7 +268,7 @@ export const submitAttempt = async (
 
   // Writing: attempt đã lưu (score NULL) NGOÀI transaction, giờ mới gọi AI (chờ vài giây, không
   // giữ khóa/kết nối DB). Lỗi AI ném thẳng ra: attempt vẫn còn score = NULL, không mất bài.
-  let finalAttempt = attempt;
+   let finalAttempt: typeof attempt & { aiFeedback?: unknown } = attempt;
   if (exercise.type === "writing") {
     const { text } = prepared.answer as { text: string };
     const graded = await gradeWritingAttempt({
@@ -278,7 +278,8 @@ export const submitAttempt = async (
       text,
       exercise: { level: exercise.level, content: exercise.content },
     });
-    finalAttempt = { ...attempt, score: graded.score, errors: graded.errors as typeof attempt.errors };
+        finalAttempt = {...attempt,score: graded.score,errors: graded.errors as typeof attempt.errors,aiFeedback: graded.aiFeedback,
+    };
   }
 
   // Tự luyện (assignment === null): lộ ngay. Bài giao: chỉ lộ khi đã quá hạn.
@@ -442,6 +443,7 @@ export const getAttemptDetail = async (
       score: true,
       maxScore: true,
       errors: true,
+      aiFeedback: true,
       teacherScore: true,
       teacherComment: true,
       isLate: true,

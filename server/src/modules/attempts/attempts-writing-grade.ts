@@ -31,6 +31,8 @@ export interface WritingGradeTarget {
 export interface WritingGradeSaved {
   score: number | null;
   errors: unknown;
+  /** {criteria, comment} đúng như đang lưu trong DB. Đưa cho buildAttemptResult đọc lại an toàn. */
+  aiFeedback: unknown;
 }
 
 /** Đề bài + số từ tối thiểu từ exercise.content ({prompt, minWords}); thiếu thì dùng giá trị an toàn. */
@@ -62,24 +64,23 @@ export const gradeWritingAttempt = async (
 
   const score = computeWritingScore(graded.criteria);
 
+    const aiFeedback = { criteria: graded.criteria, comment: graded.comment };
+
   const written = await prisma.attempt.updateMany({
     where: { id: target.attemptId, score: null }, // score IS NULL: chưa ai chấm
     data: {
       score,
-      aiFeedback: {
-        criteria: graded.criteria,
-        comment: graded.comment,
-      } as unknown as Prisma.InputJsonValue,
+      aiFeedback: aiFeedback as unknown as Prisma.InputJsonValue,
       errors: graded.errors as unknown as Prisma.InputJsonValue,
     },
   });
 
-  if (written.count === 1) return { score, errors: graded.errors };
+  if (written.count === 1) return { score, errors: graded.errors, aiFeedback };
 
   // Đã có lần chấm khác ghi trước: KHÔNG ghi đè, trả đúng dữ liệu đang lưu trong DB.
   const stored = await prisma.attempt.findUniqueOrThrow({
     where: { id: target.attemptId },
-    select: { score: true, errors: true },
+    select: { score: true, errors: true, aiFeedback: true },
   });
-  return { score: stored.score, errors: stored.errors };
+  return { score: stored.score, errors: stored.errors, aiFeedback: stored.aiFeedback };
 };

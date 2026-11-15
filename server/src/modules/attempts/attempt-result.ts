@@ -21,6 +21,7 @@ export interface AttemptForResult {
   maxScore: number;
   errors: unknown;
   teacherScore?: number | null;
+   aiFeedback?: unknown;
 }
 
 export interface ExerciseForResult {
@@ -52,6 +53,10 @@ export interface AttemptResult {
   /** Tổng số câu/cặp. */
   total: number;
   errors: ResultError[];
+  /** Đáp án đúng. Chỉ có khi reveal = true. */
+  criteria?: ResultCriteria;
+  /** Nhận xét tiếng Việt của AI (chỉ writing đã chấm). Luôn hiện, không phụ thuộc reveal. */
+  comment?: string;
   /** Đáp án đúng. Chỉ có khi reveal = true. */
   answer?: unknown;
   /** Giải thích (null nếu bài không có). Chỉ có khi reveal = true. */
@@ -93,6 +98,47 @@ function readErrors(raw: unknown, reveal: boolean): ResultError[] {
   return result;
 }
 
+export interface ResultCriteria {
+  content: number;
+  coherence: number;
+  vocabulary: number;
+  grammar: number;
+}
+
+const CRITERIA_KEYS = ["content", "coherence", "vocabulary", "grammar"] as const;
+
+/**
+ * `ai_feedback` lưu trong DB là JSON lỏng. Đọc lại an toàn bằng danh sách trắng:
+ *  - criteria: chỉ lấy khi ĐỦ 4 tiêu chí đều là số hữu hạn (thiếu/hỏng -> bỏ cả criteria);
+ *  - comment: chỉ lấy khi là chuỗi không rỗng;
+ *  - mọi key khác trong ai_feedback bị bỏ (không lọt ra response).
+ */
+function readAiFeedback(raw: unknown): { criteria?: ResultCriteria; comment?: string } {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
+  const f = raw as Record<string, unknown>;
+  const out: { criteria?: ResultCriteria; comment?: string } = {};
+
+  if (typeof f.criteria === "object" && f.criteria !== null && !Array.isArray(f.criteria)) {
+    const c = f.criteria as Record<string, unknown>;
+    const allValid = CRITERIA_KEYS.every(
+      (k) => typeof c[k] === "number" && Number.isFinite(c[k])
+    );
+    if (allValid) {
+      out.criteria = {
+        content: round2(c.content as number),
+        coherence: round2(c.coherence as number),
+        vocabulary: round2(c.vocabulary as number),
+        grammar: round2(c.grammar as number),
+      };
+    }
+  }
+
+  if (typeof f.comment === "string" && f.comment.trim() !== "") {
+    out.comment = f.comment;
+  }
+  return out;
+}
+
 /**
  * total = số phần tử của `answer` GV (mọi dạng chấm tự động đều là mảng);
  * correct suy ra từ điểm: score = correct/total × 10 nên correct = score/max × total.
@@ -131,6 +177,11 @@ export function buildAttemptResult(
     total,
     errors: readErrors(attempt.errors, reveal),
   };
+
+  // criteria + comment luôn hiện nếu có (4c.4 chỉ ẩn correction/explanation và đáp án).
+  const feedback = readAiFeedback(attempt.aiFeedback);
+  if (feedback.criteria) result.criteria = feedback.criteria;
+  if (feedback.comment !== undefined) result.comment = feedback.comment;
 
 
   if (reveal) {
