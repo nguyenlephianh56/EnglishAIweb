@@ -20,12 +20,21 @@ export interface ExerciseListItem {
   source?: "ADMIN" | "TEACHER" | "AI";
   inLibrary?: boolean;
   createdAt?: string;
+  /** Chỉ giáo viên/admin nhận các field dưới đây */
+  createdById?: number;
+  updatedAt?: string;
+  /** Nội dung đề: dạng khác nhau theo `type` (xem exerciseMeta.countQuestions) */
+  content?: unknown;
+  answer?: unknown;
+  explanation?: string | null;
 }
 
 export interface ExerciseListResult {
   items: ExerciseListItem[];
   page: number;
-  limit: number;
+  /** Backend trả `limit`; một số phiên bản trả `pageSize` nên khai báo cả hai */
+  limit?: number;
+  pageSize?: number;
   total: number;
 }
 
@@ -35,7 +44,20 @@ export interface ExerciseListParams {
   type?: ExerciseTypeKey;
   /** Tìm gần đúng theo chủ đề (không phân biệt hoa/thường) */
   topic?: string;
+  /** Chỉ giáo viên/admin được lọc theo trạng thái */
+  status?: ExerciseStatus;
   page?: number;
   /** Tối đa 50 */
   pageSize?: number;
+}
+
+/** Body của POST /exercises (giáo viên: bài mới luôn ở trạng thái DRAFT) */
+export interface CreateExercisePayload {
+  type: ExerciseTypeKey | string;
+  skill: LibrarySkill;
+  level: CefrLevel;
+  topic: string;
+  content: unknown;
+  answer?: unknown;
+  explanation?: string | null;
 }

@@ -7,6 +7,7 @@ import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import Notice from "../../account/Notice";
 import { createAssignment } from "../../../api/assignments";
+import { getExercise } from "../../../api/exercises";
 import { getErrorMessage } from "../../../api/client";
 import { useTeacherClasses } from "../useTeacherData";
 import ExercisePicker from "./ExercisePicker";
@@ -42,6 +43,20 @@ export default function NewAssignmentPage() {
     if (wanted && teacherClasses.some((c) => String(c.id) === wanted)) setClassId(wanted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes.isSuccess]);
+
+  // Chọn sẵn bài theo ?exerciseId= (từ menu "Giao bài" ở Ngân hàng bài tập). Bài ẩn hoặc dạng Nói không giao được nên bỏ qua.
+  const preExercise = useRef(false);
+  const wantedExerciseId = Number(params.get("exerciseId"));
+  useEffect(() => {
+    if (preExercise.current || !Number.isInteger(wantedExerciseId) || wantedExerciseId <= 0) return;
+    preExercise.current = true;
+    getExercise(wantedExerciseId)
+      .then((e) => {
+        if (e.status !== "HIDDEN" && e.type !== "speaking") setExercise((cur) => cur ?? e);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const mutation = useMutation({
     mutationFn: createAssignment,
