@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { PublicOnlyRoute, RequireRole } from "./guards";
 import StudentLayout from "../components/layout/StudentLayout";
@@ -29,6 +30,9 @@ import AnalyticsPage from "../features/teacher/analytics/AnalyticsPage";
 import { NewExercisePage } from "../features/teacher/placeholders";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
+
+// Trang xem thử thành phần bài tập: chỉ đăng ký khi chạy `npm run dev`, bản build không có
+const DevExercisesPage = import.meta.env.DEV ? lazy(() => import("../features/exercises/DevExercisesPage")) : null;
 
 export const router = createBrowserRouter([
   {
@@ -104,5 +108,17 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  ...(DevExercisesPage
+    ? [
+        {
+          path: "/dev/exercises",
+          element: (
+            <Suspense fallback={null}>
+              <DevExercisesPage />
+            </Suspense>
+          ),
+        },
+      ]
+    : []),
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
