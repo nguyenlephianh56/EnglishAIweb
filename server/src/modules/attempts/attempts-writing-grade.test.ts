@@ -251,21 +251,16 @@ describe("POST /attempts - writing tự luyện được chấm", () => {
   });
 });
 
+// Chi tiết lỗi AI (đủ mã, bài giao, đếm 3 lần) nằm ở attempts-ai-error.test.ts.
 describe("POST /attempts - AI lỗi: attempt vẫn còn với score NULL", () => {
-  const cases: [string, Error & { code: string; statusCode: number }][] = [
-    ["AI_INVALID_FORMAT", new AIInvalidFormatError(2) as never],
-    ["AI_QUOTA_EXCEEDED", new AIQuotaExceededError() as never],
-    ["TIMEOUT", new AIServiceError("TIMEOUT", 1) as never],
-  ];
-
-  it.each(cases)("%s -> trả đúng mã lỗi, bài đã lưu, score/ai_feedback NULL", async (_name, error) => {
-    gradeWritingMock.mockRejectedValue(error);
+  it("AI hết lượt -> 202 + gradingError (bài đã lưu, không mất), score/ai_feedback NULL", async () => {
+    gradeWritingMock.mockRejectedValue(new AIQuotaExceededError());
     const before = await countAttempts();
 
     const res = await post({ exerciseId: ids.writingLib, answer: { text: "Essay kept safe." } }, users.studentA);
-    expect(res.status).toBe(error.statusCode);
-    expect(res.body.data).toBeNull();
-    expect(res.body.error!.code).toBe(error.code);
+    expect(res.status).toBe(202);
+    expect(res.body.error).toBeNull();
+    expect(res.body.data!.gradingError.code).toBe("AI_QUOTA_EXCEEDED");
     expect(res.rawText).not.toContain("Essay kept safe.");
 
     expect(await countAttempts()).toBe(before + 1);
@@ -273,6 +268,7 @@ describe("POST /attempts - AI lỗi: attempt vẫn còn với score NULL", () =>
       where: { studentId: users.studentA },
       orderBy: { id: "desc" },
     });
+    expect(res.body.data!.attemptId).toBe(row!.id);
     expect(row).toMatchObject({ score: null, aiFeedback: null, errors: [], maxScore: 10 });
     expect(row!.answer).toEqual({ text: "Essay kept safe." });
   });

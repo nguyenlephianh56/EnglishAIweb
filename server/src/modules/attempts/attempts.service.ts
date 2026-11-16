@@ -15,10 +15,11 @@ import {
   type AttemptListResponse,
 } from "./attempt-list";
 import {MAX_ATTEMPTS_PER_ASSIGNMENT,WRITING_MAX_SCORE,} from "./attempts.constants";
-import { gradeWritingAttempt } from "./attempts-writing-grade";
+import { gradeWritingAttempt, type WritingGradeSaved } from "./attempts-writing-grade";
 import type { AiRole } from "../../ai/ai.usage";
 import { env } from "../../config/env";
 import { validateWritingLength } from "../grading/writingLength";
+import { toGradingError, type GradingError } from "./attempts-grading-error";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
 const businessError = (
@@ -302,20 +303,33 @@ export const submitAttempt = async (
     return { attempt, usedBefore };
   });
 
-  // Writing: attempt đã lưu (score NULL) NGOÀI transaction, giờ mới gọi AI (chờ vài giây, không
-  // giữ khóa/kết nối DB). Lỗi AI ném thẳng ra: attempt vẫn còn score = NULL, không mất bài.
-   let finalAttempt: typeof attempt & { aiFeedback?: unknown } = attempt;
+    // Writing: attempt đã lưu (score NULL) NGOÀI transaction, giờ mới gọi AI (chờ vài giây, không
+  // giữ khóa/kết nối DB). Lỗi AI (hết lượt, bận, timeout, sai khuôn...) KHÔNG làm mất bài:
+  // attempt giữ nguyên score = NULL (gradeWritingAttempt chỉ ghi SAU khi AI trả kết quả hợp lệ,
+  // nên không có trạng thái nửa vời) và HS nhận phản hồi "đã lưu, chưa chấm". Lỗi không phải AI
+  // (DB...) vẫn ném ra như cũ.
+  let finalAttempt: typeof attempt & { aiFeedback?: unknown } = attempt;
+  let gradingError: GradingError | null = null;
   if (exercise.type === "writing") {
     const { text } = prepared.answer as { text: string };
-    const graded = await gradeWritingAttempt({
-      attemptId: attempt.id,
-      userId: user.id,
-      role: user.role,
-      text,
-      exercise: { level: exercise.level, content: exercise.content },
-    });
-        finalAttempt = {...attempt,score: graded.score,errors: graded.errors as typeof attempt.errors,aiFeedback: graded.aiFeedback,
-    };
+    try {
+      const graded = await gradeWritingAttempt({
+        attemptId: attempt.id,
+        userId: user.id,
+        role: user.role,
+        text,
+        exercise: { level: exercise.level, content: exercise.content },
+      });
+      finalAttempt = {
+        ...attempt,
+        score: graded.score,
+        errors: graded.errors as typeof attempt.errors,
+        aiFeedback: graded.aiFeedback,
+      };
+    } catch (error) {
+      gradingError = toGradingError(error);
+      if (gradingError === null) throw error;
+    }
   }
 
   // Tự luyện (assignment === null): lộ ngay. Bài giao: chỉ lộ khi đã quá hạn.
@@ -324,13 +338,21 @@ export const submitAttempt = async (
 
   // Tự luyện không giới hạn nên response giữ nguyên. Bài giao thêm lượt nộp:
   // attemptNo = lần thứ mấy (1..tối đa), attemptsLeft = còn mấy lần.
-  if (assignment === null) return result;
-  const attemptNo = usedBefore + 1;
-  return {
-    ...result,
-    attemptNo,
-    attemptsLeft: MAX_ATTEMPTS_PER_ASSIGNMENT - attemptNo,
-  };
+  const body =
+    assignment === null
+      ? result
+      : {
+          ...result,
+          attemptNo: usedBefore + 1,
+          attemptsLeft: MAX_ATTEMPTS_PER_ASSIGNMENT - (usedBefore + 1),
+        };
+
+  // Chấm AI thất bại: bài ĐÃ lưu nên không phải lỗi nộp. Controller trả 202 cho dạng này.
+  // attemptId nằm ở cả data.attemptId và data.attempt.attemptId; bài viết không có trong response.
+  if (gradingError !== null) {
+    return { attemptId: attempt.id, attempt: body, gradingError };
+  }
+  return body;
 };
 
 /**
@@ -507,4 +529,123 @@ export const getAttemptDetail = async (
     result,
     attemptNo: numbers.get(attempt.id) ?? 1,
   });
+};
+/**
+ * POST /api/v1/attempts/:id/regrade: chấm lại MỘT attempt writing đang chờ chấm (score IS NULL),
+ * thường sau khi lần nộp trước bị lỗi AI (202 gradingError).
+ *
+ * Quy tắc:
+ *  - Chỉ HS CHỦ attempt (lọc studentId = user.id): attempt của người khác/không tồn tại -> 404.
+ *    GV/ADMIN đã bị route chặn 403 từ trước.
+ *  - Chỉ dạng writing (khác -> 400 NOT_REGRADABLE) và chỉ khi score IS NULL (đã chấm -> 409
+ *    ATTEMPT_ALREADY_GRADED). Không nhận body: nội dung bài lấy từ DB, không từ client.
+ *  - Chấm lại CHÍNH dòng đó: không tạo dòng mới, không tốn lần nộp; is_late/submitted_at KHÔNG đổi
+ *    (gradeWritingAttempt chỉ ghi score, ai_feedback, errors).
+ *  - Vẫn qua gradeWriting -> runAiTask nên tính hạn mức ngày và ghi ai_usage_logs như thường.
+ *  - Ghi bằng updateMany where id AND score IS NULL: hai request song song chỉ một lần ghi thắng;
+ *    lần thua nhận 409 (không ghi đè).
+ *  - Lỗi AI lại: attempt giữ nguyên, trả { attemptId, attempt, gradingError } (controller: 202).
+ *  - Chấm lại sau due_at vẫn được; lộ đáp án theo 4c.4 tại thời điểm này (isAnswerRevealed).
+ * Response không chứa bài viết, chỉ có kết quả + attemptNo/isLate/submittedAt.
+ */
+export const regradeAttempt = async (
+  user: { id: number; role: AiRole },
+  attemptId: number
+) => {
+  const attempt = await prisma.attempt.findFirst({
+    where: { id: attemptId, studentId: user.id },
+    select: {
+      id: true,
+      assignmentId: true,
+      answer: true,
+      score: true,
+      maxScore: true,
+      errors: true,
+      aiFeedback: true,
+      teacherScore: true,
+      isLate: true,
+      submittedAt: true,
+      assignment: { select: { dueAt: true } },
+      exercise: { select: EXERCISE_FOR_ATTEMPT_SELECT },
+    },
+  });
+
+  if (!attempt) {
+    throw businessError(404, "NOT_FOUND", "Không tìm thấy bài nộp");
+  }
+  if (attempt.exercise.type !== "writing") {
+    throw businessError(400, "NOT_REGRADABLE", "Chỉ bài Viết mới cần chấm lại");
+  }
+  if (attempt.score !== null) {
+    throw businessError(409, "ATTEMPT_ALREADY_GRADED", "Bài này đã được chấm rồi");
+  }
+
+  // Bài viết lấy từ DB (đã qua writingAnswerSchema lúc nộp); kiểm lại để chắc chắn dữ liệu còn đúng khuôn.
+  const parsed = writingAnswerSchema.safeParse(attempt.answer);
+  if (!parsed.success) {
+    throw businessError(422, "ATTEMPT_DATA_INVALID", "Bài nộp không có nội dung hợp lệ để chấm lại");
+  }
+
+  let graded: WritingGradeSaved | null = null;
+  let gradingError: GradingError | null = null;
+  try {
+    graded = await gradeWritingAttempt({
+      attemptId: attempt.id,
+      userId: user.id,
+      role: user.role,
+      text: parsed.data.text,
+      exercise: { level: attempt.exercise.level, content: attempt.exercise.content },
+    });
+  } catch (error) {
+    gradingError = toGradingError(error);
+    if (gradingError === null) throw error; // lỗi không phải AI (DB...) xử lý như cũ
+  }
+
+  // Có lần chấm khác ghi trước (bấm 2 lần/song song): không ghi đè, báo 409.
+  if (graded !== null && !graded.written) {
+    throw businessError(409, "ATTEMPT_ALREADY_GRADED", "Bài này vừa được chấm xong");
+  }
+
+  const reveal = isAnswerRevealed(
+    attempt.assignmentId,
+    attempt.assignment ? attempt.assignment.dueAt : null,
+    new Date()
+  );
+  const result = buildAttemptResult(
+    {
+      id: attempt.id,
+      score: graded ? graded.score : attempt.score,
+      maxScore: attempt.maxScore,
+      errors: graded ? graded.errors : attempt.errors,
+      aiFeedback: graded ? graded.aiFeedback : attempt.aiFeedback,
+      teacherScore: attempt.teacherScore,
+    },
+    attempt.exercise,
+    { reveal }
+  );
+
+  const numbers = await loadAttemptNumbers(user.id, [attempt.id]);
+  const body = {
+    ...result,
+    attemptNo: numbers.get(attempt.id) ?? 1,
+    // Chỉ bài giao có giới hạn lần nộp (4c.3); chấm lại không đổi con số này.
+    ...(attempt.assignmentId !== null
+      ? {
+          attemptsLeft: Math.max(
+            0,
+            MAX_ATTEMPTS_PER_ASSIGNMENT -
+              (await prisma.attempt.count({
+                where: { studentId: user.id, assignmentId: attempt.assignmentId },
+              }))
+          ),
+        }
+      : {}),
+    isLate: attempt.isLate,
+    submittedAt: attempt.submittedAt,
+  };
+
+  if (gradingError !== null) {
+    return { attemptId: attempt.id, attempt: body, gradingError };
+  }
+  return body;
 };

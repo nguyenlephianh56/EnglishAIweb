@@ -45,3 +45,12 @@ attemptRoutes.get(
   validateParams(attemptIdParamSchema),
   attemptsController.getAttempt
 );
+
+// POST /api/v1/attempts/:id/regrade  (chấm lại attempt writing đang chờ chấm; chỉ STUDENT chủ attempt)
+// Không nhận body. Quyền kiểm TRƯỚC khi kiểm :id, để GV/Admin luôn nhận 403 (không phải 400/404).
+attemptRoutes.post(
+  "/:id/regrade",
+  requireRole(Role.STUDENT),
+  validateParams(attemptIdParamSchema),
+  attemptsController.regradeAttempt
+);

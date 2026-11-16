@@ -37,7 +37,9 @@ export const createAttempt = async (
       req.body
     );
 
-    return success(res, result, 201);
+        // 201: nộp + chấm xong. 202: bài ĐÃ lưu nhưng AI chấm lỗi (data có gradingError, error = null).
+    const status = "gradingError" in result ? 202 : 201;
+    return success(res, result, status);
   } catch (error) {
     handleError(error, res, next);
   }
@@ -84,6 +86,28 @@ export const getAttempt = async (
     const result = await attemptsService.getAttemptDetail(req.user, id);
 
     return success(res, result);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+// POST /api/v1/attempts/:id/regrade
+// Không nhận body (nội dung bài lấy từ DB). res.locals.params đã qua validateParams(attemptIdParamSchema).
+// student_id lấy từ JWT: attempt của người khác trả 404. 200 = chấm xong; 202 = AI lỗi lại, bài vẫn chờ chấm.
+export const regradeAttempt = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const { id } = res.locals.params as AttemptIdParam;
+    const result = await attemptsService.regradeAttempt(req.user, id);
+
+    const status = "gradingError" in result ? 202 : 200;
+    return success(res, result, status);
   } catch (error) {
     handleError(error, res, next);
   }

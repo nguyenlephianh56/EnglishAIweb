@@ -29,6 +29,8 @@ export interface WritingGradeTarget {
 }
 
 export interface WritingGradeSaved {
+  /** true = lần gọi này là lần GHI điểm (thắng); false = đã có lần chấm khác ghi trước. */
+  written: boolean;
   score: number | null;
   errors: unknown;
   /** {criteria, comment} đúng như đang lưu trong DB. Đưa cho buildAttemptResult đọc lại an toàn. */
@@ -75,12 +77,11 @@ export const gradeWritingAttempt = async (
     },
   });
 
-  if (written.count === 1) return { score, errors: graded.errors, aiFeedback };
-
+    if (written.count === 1) return { written: true, score, errors: graded.errors, aiFeedback };
   // Đã có lần chấm khác ghi trước: KHÔNG ghi đè, trả đúng dữ liệu đang lưu trong DB.
   const stored = await prisma.attempt.findUniqueOrThrow({
     where: { id: target.attemptId },
     select: { score: true, errors: true, aiFeedback: true },
   });
-  return { score: stored.score, errors: stored.errors, aiFeedback: stored.aiFeedback };
+    return { written: false, score: stored.score, errors: stored.errors, aiFeedback: stored.aiFeedback };
 };
