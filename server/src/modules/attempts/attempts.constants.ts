@@ -9,9 +9,12 @@ export const MAX_ATTEMPTS_PER_ASSIGNMENT = 3;
 export const ATTEMPT_LIST_DEFAULT_LIMIT = 20;
 export const ATTEMPT_LIST_MAX_LIMIT = 50;
 /**
- * Bài viết (writing): chỉ lưu chờ chấm ở bước này, chấm AI làm ở dòng sau của T13.
- * WRITING_TEXT_MAX là trần KỸ THUẬT để không ghi quá lớn vào DB (tính sau khi trim),
- * không phải giới hạn theo cấp độ; minWords và giới hạn thật cũng để dòng sau.
+ * Bài viết (writing).
+ * WRITING_TEXT_MAX là trần CỨNG của Zod (sau khi trim): chỉ để chặn payload quá lớn trước khi
+ * tới service. Giới hạn nghiệp vụ thật (minWords, WRITING_MAX_WORDS, WRITING_MAX_CHARS) kiểm ở
+ * grading/writingLength.ts và trả 400 WRITING_TOO_SHORT / WRITING_TOO_LONG.
+ * Đủ cho trường hợp lớn nhất: minWords 1000 -> tối đa 3000 từ ≈ 21000 ký tự. Cũng là trần của
+ * WRITING_MAX_CHARS trong config/env.ts.
  */
-export const WRITING_TEXT_MAX = 5000;
+export const WRITING_TEXT_MAX = 30000;
 export const WRITING_MAX_SCORE = 10;

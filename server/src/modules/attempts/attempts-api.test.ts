@@ -168,7 +168,7 @@ beforeAll(async () => {
     label: "writing",
     type: "writing",
     skill: "WRITING",
-    content: { prompt: "Describe your hometown.", minWords: 80 },
+    content: { prompt: "Describe your hometown.", minWords: 1 },
   });
   ex.speaking = await createExercise({
     label: "speaking",

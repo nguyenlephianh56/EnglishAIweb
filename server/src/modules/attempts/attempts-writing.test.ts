@@ -84,7 +84,7 @@ const newWriting = async (status: "PUBLISHED" | "DRAFT") => {
       skill: "WRITING",
       level: "A2",
       topic: `${RUN_ID} writing ${status}`,
-      content: { prompt: "Write about your day", minWords: 50 },
+      content: { prompt: "Write about your day", minWords: 1 },
       answer: undefined, // writing: answer = NULL của SQL
       explanation: EXPLANATION,
       status,
@@ -275,15 +275,20 @@ describe("POST /attempts - writing tự luyện", () => {
     expect(Math.abs(row!.submittedAt.getTime() - Date.now())).toBeLessThan(60 * 1000);
   });
 
-  it("đúng trần ký tự -> 201; vượt trần 1 ký tự -> 400, không tạo attempt", async () => {
-    const ok = await submitPractice("a".repeat(WRITING_TEXT_MAX), users.studentA);
+    it("trần ký tự: đúng WRITING_MAX_CHARS -> 201; +1 -> 400 WRITING_TOO_LONG; vượt trần cứng Zod -> 400 VALIDATION_ERROR", async () => {
+    const ok = await submitPractice("a".repeat(env.WRITING_MAX_CHARS), users.studentA);
     expect(ok.status).toBe(201);
 
     const before = await countFor(users.studentA);
-    const tooLong = await submitPractice("a".repeat(WRITING_TEXT_MAX + 1), users.studentA);
+    const tooLong = await submitPractice("a".repeat(env.WRITING_MAX_CHARS + 1), users.studentA);
     expect(tooLong.status).toBe(400);
-    expect(tooLong.body.error!.code).toBe("VALIDATION_ERROR");
+    expect(tooLong.body.error!.code).toBe("WRITING_TOO_LONG");
     expect(tooLong.body.data).toBeNull();
+
+    const huge = await submitPractice("a".repeat(WRITING_TEXT_MAX + 1), users.studentA);
+    expect(huge.status).toBe(400);
+    expect(huge.body.error!.code).toBe("VALIDATION_ERROR");
+
     expect(await countFor(users.studentA)).toBe(before);
   });
 

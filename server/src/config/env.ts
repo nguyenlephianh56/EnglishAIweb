@@ -1,6 +1,7 @@
 
 import "dotenv/config";
 import { z } from "zod";
+import { WRITING_TEXT_MAX } from "../modules/attempts/attempts.constants";
 
 // Biến để trống ("") thì coi như không đặt -> dùng giá trị mặc định.
 const emptyToUndefined = (value: unknown) =>
@@ -11,6 +12,13 @@ const nonNegativeInt = (defaultValue: number, max: number) =>
   z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(0).max(max).default(defaultValue)
+  );
+
+// Số nguyên >= 1, có trần (dùng cho giới hạn không được phép bằng 0).
+const positiveInt = (defaultValue: number, max: number) =>
+  z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(max).default(defaultValue)
   );
 
 const envSchema = z.object({
@@ -57,6 +65,8 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string().trim().default("grade_writing,grade_speaking,analysis,path")
   ),
+   WRITING_MAX_WORDS: positiveInt(600, 5000),
+  WRITING_MAX_CHARS: positiveInt(4000, WRITING_TEXT_MAX),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

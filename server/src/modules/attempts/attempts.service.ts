@@ -17,6 +17,8 @@ import {
 import {MAX_ATTEMPTS_PER_ASSIGNMENT,WRITING_MAX_SCORE,} from "./attempts.constants";
 import { gradeWritingAttempt } from "./attempts-writing-grade";
 import type { AiRole } from "../../ai/ai.usage";
+import { env } from "../../config/env";
+import { validateWritingLength } from "../grading/writingLength";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
 const businessError = (
@@ -155,12 +157,24 @@ interface PreparedAttempt {
   errors: unknown[];
 }
 
+/** minWords của đề, lấy từ exercises.content trong DB (không nhận từ client). Thiếu/sai -> 0. */
+const readMinWords = (content: unknown): number => {
+  const raw =
+    typeof content === "object" && content !== null
+      ? (content as Record<string, unknown>).minWords
+      : undefined;
+  return typeof raw === "number" && Number.isInteger(raw) && raw > 0 ? raw : 0;
+};
+
 /**
  * Dạng writing: chỉ kiểm hình dạng { text } rồi lưu CHỜ CHẤM (score = NULL, errors = []).
  * ai_feedback không đặt nên là NULL. Chấm AI làm ở dòng sau của T13.
  * Lỗi 400 chỉ nêu field sai, không chép lại nội dung bài viết.
  */
-const prepareWritingAttempt = (studentAnswer: unknown): PreparedAttempt => {
+const prepareWritingAttempt = (
+  studentAnswer: unknown,
+  content: unknown
+): PreparedAttempt => {
   const parsed = writingAnswerSchema.safeParse(studentAnswer);
   if (!parsed.success) {
     const detail = parsed.error.issues
@@ -169,6 +183,26 @@ const prepareWritingAttempt = (studentAnswer: unknown): PreparedAttempt => {
       .join("; ");
     throw businessError(400, "VALIDATION_ERROR", `Bài làm không hợp lệ: ${detail}`);
   }
+
+  // Kiểm độ dài TRƯỚC khi lưu attempt và TRƯỚC khi gọi AI (tiết kiệm lượt).
+  // Chỉ có số liệu trong details, không chép lại nội dung bài viết.
+  const length = validateWritingLength(parsed.data.text, readMinWords(content), {
+    maxWords: env.WRITING_MAX_WORDS,
+    maxChars: env.WRITING_MAX_CHARS,
+  });
+  if (!length.ok) {
+    const details =
+      length.code === "WRITING_TOO_SHORT"
+        ? { wordCount: length.wordCount, minWords: length.minWords }
+        : {
+            wordCount: length.wordCount,
+            charCount: length.charCount,
+            maxWords: length.maxWords,
+            maxChars: length.maxChars,
+          };
+    throw businessError(400, length.code, length.message, details);
+  }
+
   return {
     answer: parsed.data,
     score: null,
@@ -182,7 +216,9 @@ const prepareAttempt = (
   exercise: ExerciseForAttempt,
   studentAnswer: unknown
 ): PreparedAttempt => {
-  if (exercise.type === "writing") return prepareWritingAttempt(studentAnswer);
+  if (exercise.type === "writing") {
+  return prepareWritingAttempt(studentAnswer, exercise.content);
+}
 
   const grade = gradeExercise(
     exercise.type,
