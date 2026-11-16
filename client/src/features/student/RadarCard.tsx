@@ -1,5 +1,5 @@
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from "recharts";
+import SkillRadarChart from "../shared/charts/SkillRadarChart";
 import type { SkillProfileData } from "../../types/profile";
 
 export default function RadarCard({ profile }: { profile: SkillProfileData }) {
@@ -25,23 +25,7 @@ export default function RadarCard({ profile }: { profile: SkillProfileData }) {
         </span>
       </div>
 
-      <div className="mt-2" role="img" aria-label={`Biểu đồ radar năng lực: ${summary}`}>
-        <ResponsiveContainer width="100%" height={340}>
-          <RadarChart data={profile.radar} outerRadius="72%">
-            <PolarGrid stroke="#E2E8F0" />
-            <PolarAngleAxis dataKey="axis" tick={{ fill: "#64748B", fontSize: 12, fontWeight: 600 }} />
-            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar
-              dataKey="value"
-              stroke="var(--color-brand)"
-              strokeWidth={2.5}
-              fill="var(--color-brand)"
-              fillOpacity={0.15}
-              dot={{ r: 5, fill: "#fff", stroke: "var(--color-brand)", strokeWidth: 2.5 }}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
+      <SkillRadarChart className="mt-2" data={profile.radar} ariaLabel={`Biểu đồ radar năng lực: ${summary}`} />
     </section>
   );
 }

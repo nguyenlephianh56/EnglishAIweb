@@ -25,7 +25,8 @@ import NewAssignmentPage from "../features/teacher/assignments/NewAssignmentPage
 import ExercisesPage from "../features/teacher/exercises/ExercisesPage";
 import GradingPage from "../features/teacher/grading/GradingPage";
 import GradingDetailPage from "../features/teacher/grading/GradingDetailPage";
-import { AnalyticsPage, NewExercisePage } from "../features/teacher/placeholders";
+import AnalyticsPage from "../features/teacher/analytics/AnalyticsPage";
+import { NewExercisePage } from "../features/teacher/placeholders";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
 
