@@ -1,6 +1,6 @@
 import { round2 } from "../attempts/attempt-result";
 import { MAX_ATTEMPTS_PER_ASSIGNMENT } from "../attempts/attempts.constants";
-import { isAnswerRevealed } from "../attempts/attempts-detail";
+import { isAnswerRevealed, isPastDue } from "../attempts/attempts-detail";
 import {
   toStudentView,
   type StudentExerciseView,
@@ -28,7 +28,7 @@ export const computeStatus = (
   now: Date
 ): AssignmentStatus => {
   if (attemptsUsed > 0) return "SUBMITTED";
-  return now.getTime() > dueAt.getTime() ? "OVERDUE" : "NOT_STARTED";
+    return isPastDue(dueAt, now) ? "OVERDUE" : "NOT_STARTED";
 };
 
 const roundOrNull = (value: number | null): number | null =>

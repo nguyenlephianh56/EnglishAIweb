@@ -2,18 +2,9 @@ import { ExerciseStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { gradeExercise } from "../grading/gradeExercise";
 import { buildAttemptResult } from "./attempt-result";
-import {
-  buildAttemptDetail,
-  isAnswerRevealed,
-  type AttemptDetail,
-} from "./attempts-detail";
+import {buildAttemptDetail,isAnswerRevealed,isPastDue,type AttemptDetail,} from "./attempts-detail";
 import {writingAnswerSchema,type CreateAttemptInput,type ListAttemptsQuery,} from "./attempts.schema";
-import {
-  buildAttemptListResponse,
-  hasHistoryFilter,
-  toAttemptListItem,
-  type AttemptListResponse,
-} from "./attempt-list";
+import {buildAttemptListResponse,hasHistoryFilter,toAttemptListItem,type AttemptListResponse,} from "./attempt-list";
 import {MAX_ATTEMPTS_PER_ASSIGNMENT,WRITING_MAX_SCORE,} from "./attempts.constants";
 import { gradeWritingAttempt, type WritingGradeSaved } from "./attempts-writing-grade";
 import type { AiRole } from "../../ai/ai.usage";
@@ -270,9 +261,7 @@ export const submitAttempt = async (
   // Một mốc thời gian duy nhất cho cả lần nộp (giờ server).
   const now = new Date();
   // Đã quá hạn nộp? Tự luyện không có hạn nên luôn false.
-  const pastDue =
-    assignment !== null && now.getTime() > assignment.dueAt.getTime();
-  const isLate = pastDue;
+  const isLate = assignment !== null && isPastDue(assignment.dueAt, now);
 
   // Ném lỗi có statusCode + code (422 NOT_AUTO_GRADABLE, 400 VALIDATION_ERROR, ...)
  const prepared = prepareAttempt(exercise, input.answer);
@@ -333,7 +322,12 @@ export const submitAttempt = async (
   }
 
   // Tự luyện (assignment === null): lộ ngay. Bài giao: chỉ lộ khi đã quá hạn.
-  const reveal = assignment === null || pastDue;
+  // Cùng hàm với GET chi tiết và regrade; cùng `now` với is_late.
+  const reveal = isAnswerRevealed(
+    assignment ? assignment.id : null,
+    assignment ? assignment.dueAt : null,
+    now
+  );
   const result = buildAttemptResult(finalAttempt, exercise, { reveal });
 
   // Tự luyện không giới hạn nên response giữ nguyên. Bài giao thêm lượt nộp:

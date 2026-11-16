@@ -10,6 +10,14 @@ import { finalScoreOf } from "./attempt-list";
  */
 
 /**
+ * NGUỒN DUY NHẤT của điều kiện "đã quá hạn": now > due_at (đúng bằng due_at thì CHƯA quá hạn).
+ * Dùng chung cho: is_late khi nộp, lộ đáp án (isAnswerRevealed) và trạng thái OVERDUE.
+ * Không viết lại phép so sánh này ở nơi khác để ba chỗ không bao giờ lệch nhau.
+ */
+export const isPastDue = (dueAt: Date, now: Date): boolean =>
+  now.getTime() > dueAt.getTime();
+
+/**
  * Quy tắc lộ đáp án (Project.md 4c.4):
  *  - tự luyện (assignment_id null): lộ ngay;
  *  - bài giao: chỉ lộ khi now > due_at (đúng hạn chót thì CHƯA lộ, giống lúc nộp bài).
@@ -21,7 +29,7 @@ export const isAnswerRevealed = (
   now: Date
 ): boolean => {
   if (assignmentId === null) return true;
-  return dueAt !== null && now.getTime() > dueAt.getTime();
+    return dueAt !== null && isPastDue(dueAt, now);
 };
 
 /** Các cột của attempts mà trang chi tiết cần (object Prisma có thừa field thì bị bỏ). */
