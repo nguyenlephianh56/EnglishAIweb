@@ -11,6 +11,7 @@ import type { AiRole } from "../../ai/ai.usage";
 import { env } from "../../config/env";
 import { validateWritingLength } from "../grading/writingLength";
 import { toGradingError, type GradingError } from "./attempts-grading-error";
+import { refreshProfileAfterGrading } from "../skill-profiles/skill-profiles.refresh";
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
 const businessError = (
@@ -292,6 +293,11 @@ export const submitAttempt = async (
     return { attempt, usedBefore };
   });
 
+  // Điểm tự động đã commit; lỗi hồ sơ được hàm refresh nuốt, không làm hỏng nộp bài.
+  if (exercise.type !== "writing") {
+    await refreshProfileAfterGrading(prisma, attempt.id);
+  }
+
     // Writing: attempt đã lưu (score NULL) NGOÀI transaction, giờ mới gọi AI (chờ vài giây, không
   // giữ khóa/kết nối DB). Lỗi AI (hết lượt, bận, timeout, sai khuôn...) KHÔNG làm mất bài:
   // attempt giữ nguyên score = NULL (gradeWritingAttempt chỉ ghi SAU khi AI trả kết quả hợp lệ,
@@ -309,6 +315,9 @@ export const submitAttempt = async (
         text,
         exercise: { level: exercise.level, content: exercise.content },
       });
+      if (graded.written === true) {
+        await refreshProfileAfterGrading(prisma, attempt.id);
+      }
       finalAttempt = {
         ...attempt,
         score: graded.score,
@@ -599,6 +608,11 @@ export const regradeAttempt = async (
   if (graded !== null && !graded.written) {
     throw businessError(409, "ATTEMPT_ALREADY_GRADED", "Bài này vừa được chấm xong");
   }
+
+    if (graded !== null && graded.written === true) {
+    await refreshProfileAfterGrading(prisma, attempt.id);
+  }
+  
 
   const reveal = isAnswerRevealed(
     attempt.assignmentId,
