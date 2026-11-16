@@ -2,6 +2,7 @@
 import "dotenv/config";
 import { z } from "zod";
 import { WRITING_TEXT_MAX } from "../modules/attempts/attempts.constants";
+import { DEFAULT_SKILL_WINDOW_SIZE } from "../modules/skill-profiles/skill-profiles.constants";
 
 // Biến để trống ("") thì coi như không đặt -> dùng giá trị mặc định.
 const emptyToUndefined = (value: unknown) =>
@@ -67,6 +68,8 @@ const envSchema = z.object({
   ),
    WRITING_MAX_WORDS: positiveInt(600, 5000),
   WRITING_MAX_CHARS: positiveInt(4000, WRITING_TEXT_MAX),
+  SKILL_WINDOW_SIZE: positiveInt(DEFAULT_SKILL_WINDOW_SIZE, 100),
+
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
