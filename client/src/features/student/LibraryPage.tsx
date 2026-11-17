@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, CircleAlert, Search, SearchX, SlidersHorizontal } from "lucide-react";
+import { CircleAlert, Search, SearchX, SlidersHorizontal } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
 import Pagination from "../../components/ui/Pagination";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { useHomeData } from "./useHomeData";
-import { useLibrary } from "./useLibrary";
-import { LIBRARY_TOPICS } from "./mock/libraryData";
-import { countActiveFilters, LEVEL_OPTIONS, parseFilters, SKILL_OPTIONS, SORT_OPTIONS, TYPE_OPTIONS } from "./libraryFilters";
+import { useLibrary, useLibraryTopics } from "./useLibrary";
+import { countActiveFilters, LEVEL_OPTIONS, parseFilters, SKILL_OPTIONS, TYPE_OPTIONS } from "./libraryFilters";
 import LibraryCard from "./LibraryCard";
 
 /** Chip lọc: đang chọn thì nền indigo chữ trắng */
@@ -42,7 +40,8 @@ export default function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const filters = parseFilters(params);
   const lib = useLibrary(filters);
-  const { data: home } = useHomeData();
+  const topicsQ = useLibraryTopics();
+  const topics = topicsQ.data ?? [];
 
   // Cập nhật URL: đổi bộ lọc thì về trang 1; replace = true cho gõ tìm kiếm để không đầy lịch sử
   function update(patch: Record<string, string | undefined>, replace = false) {
@@ -142,24 +141,6 @@ export default function LibraryPage() {
         <h2 className="font-heading text-base font-bold text-slate-900" aria-live="polite">
           {lib.isLoading ? "Đang tải..." : `${lib.total} bài luyện tập`}
         </h2>
-        <div className="relative">
-          <label htmlFor="library-sort" className="sr-only">
-            Sắp xếp
-          </label>
-          <select
-            id="library-sort"
-            value={filters.sort}
-            onChange={(e) => update({ sort: e.target.value === "newest" ? undefined : e.target.value })}
-            className="appearance-none rounded-lg bg-transparent py-1 pl-2 pr-7 text-sm font-semibold text-slate-600 outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-1 top-1/2 size-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-        </div>
       </div>
 
       {lib.isError ? (
@@ -193,7 +174,7 @@ export default function LibraryPage() {
         <>
           <div className={`mt-5 grid gap-6 transition-opacity md:grid-cols-2 xl:grid-cols-3 ${lib.isFetching ? "opacity-60" : ""}`} aria-busy={lib.isFetching}>
             {lib.items.map((e) => (
-              <LibraryCard key={e.id} exercise={e} studentLevel={home?.skillProfile.level} />
+              <LibraryCard key={e.id} exercise={e} />
             ))}
           </div>
           <Pagination page={lib.page} pageCount={lib.pageCount} onChange={(p) => update({ page: p > 1 ? String(p) : undefined })} />
@@ -204,7 +185,7 @@ export default function LibraryPage() {
         <fieldset>
           <legend className="mb-2 text-sm font-bold text-slate-900">Chủ đề</legend>
           <div className="flex flex-wrap gap-2">
-            {[undefined, ...LIBRARY_TOPICS].map((t) => {
+            {[undefined, ...topics].map((t) => {
               const selected = draftTopic === t;
               return (
                 <label key={t ?? "all"} className="cursor-pointer">

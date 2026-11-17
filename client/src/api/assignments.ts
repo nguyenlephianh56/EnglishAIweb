@@ -1,4 +1,5 @@
 import { api, unwrap } from "./client";
+import type { StudentAssignmentDetail } from "../types/attempt";
 import type {
   AssignmentListParams,
   AssignmentListResult,
@@ -29,3 +30,5 @@ export const getAssignmentSubmissions = (assignmentId: number) => unwrap<Assignm
 
 /** Giáo viên giao bài cho một lớp. Lỗi (hạn nộp quá khứ, dạng bài chưa hỗ trợ...) nằm trong message của server. */
 export const createAssignment = (body: CreateAssignmentBody) => unwrap<CreatedAssignment>(api.post("/assignments", body));
+/** Học sinh: chi tiết một bài giao kèm đề để làm bài (không có đáp án; explanation chỉ có sau hạn nộp). */
+export const getStudentAssignment = (assignmentId: number) => unwrap<StudentAssignmentDetail>(api.get(`/assignments/${assignmentId}`));

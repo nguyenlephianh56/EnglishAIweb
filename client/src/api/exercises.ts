@@ -1,4 +1,5 @@
 import { api, unwrap } from "./client";
+import type { StudentExercise } from "../types/attempt";
 import type { CreateExercisePayload, ExerciseListItem, ExerciseListParams, ExerciseListResult } from "../types/exercise";
 
 /**
@@ -19,3 +20,6 @@ export const proposeExercise = (id: number) => unwrap<ExerciseListItem>(api.post
 
 /** DELETE /exercises/:id: xóa mềm (bài chuyển sang HIDDEN) */
 export const deleteExercise = (id: number) => unwrap<unknown>(api.delete(`/exercises/${id}`));
+
+/** Học sinh: đề của một bài thư viện (không có đáp án). Bài không tồn tại hoặc không thuộc thư viện -> 404. */
+export const getStudentExercise = (id: number) => unwrap<StudentExercise>(api.get(`/exercises/${id}`));

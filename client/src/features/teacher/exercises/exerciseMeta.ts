@@ -49,35 +49,7 @@ export function parseExerciseFilters(params: URLSearchParams): ExerciseFilters {
 /** Số bộ lọc "nâng cao" đang bật (kỹ năng, cấp độ, dạng bài) */
 export const countAdvancedFilters = (f: ExerciseFilters) => [f.skill, f.level, f.type].filter(Boolean).length;
 
-const asRecord = (v: unknown): Record<string, unknown> => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
-
-/**
- * SỐ CÂU tính từ content theo dạng bài. Trả về số, hoặc chữ ("AI chấm"), hoặc null nếu không đọc được.
- * - multiple_choice: content.questions.length   - fill_blank: số chỗ trống "___"
- * - matching: content.left.length               - error_correction: 1
- * - listening_fill: content.blanks (số hoặc mảng) - writing/speaking: "AI chấm"
- */
-export function questionCount(item: Pick<ExerciseListItem, "type" | "content">): number | string | null {
-  const c = asRecord(item.content);
-  switch (item.type) {
-    case "multiple_choice":
-      return Array.isArray(c.questions) ? c.questions.length : null;
-    case "fill_blank":
-      return typeof c.text === "string" ? (c.text.match(/_{3,}/g) ?? []).length : null;
-    case "matching":
-      return Array.isArray(c.left) ? c.left.length : null;
-    case "error_correction":
-      return 1;
-    case "listening_fill":
-      if (typeof c.blanks === "number") return c.blanks;
-      return Array.isArray(c.blanks) ? c.blanks.length : null;
-    case "writing":
-    case "speaking":
-      return "AI chấm";
-    default:
-      return null;
-  }
-}
+export { questionCount } from "../../exercises/contentUtils";
 
 /** "Hôm nay" / "Hôm qua" / "dd/MM/yyyy" */
 export function formatUpdated(iso: string | undefined, now: Date = new Date()): string {

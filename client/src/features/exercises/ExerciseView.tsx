@@ -1,3 +1,4 @@
+import type React from "react";
 import { CircleAlert } from "lucide-react";
 import { EXERCISE_REGISTRY, isAnswerableType } from "./registry";
 import type { ExerciseTypeDefinition } from "./registry";
@@ -18,4 +19,31 @@ export default function ExerciseView<T extends AnswerableExerciseType>({ type, .
   }
   const { Renderer } = EXERCISE_REGISTRY[type] as unknown as ExerciseTypeDefinition<T>;
   return <Renderer {...(props as ExerciseRendererProps<T>)} />;
+}
+
+/** Props lỏng cho nơi chỉ biết `type` lúc chạy (trang làm bài, trang kết quả): kiểu chặt đã được registry lo. */
+export interface DynamicExerciseViewProps {
+  type: string;
+  content: unknown;
+  value: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onChange: (value: any) => void;
+  mode: "answering" | "review";
+  disabled?: boolean;
+  result?: { correctAnswer?: unknown; explanation?: string | null };
+}
+
+/** Như ExerciseView nhưng `type` là chuỗi bất kỳ (dạng chưa hỗ trợ sẽ báo rõ). */
+export function DynamicExerciseView({ type, ...props }: DynamicExerciseViewProps) {
+  if (!isAnswerableType(type)) {
+    return (
+      <div role="alert" className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+        <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
+        Dạng bài “{type}” chưa được hỗ trợ trên giao diện web.
+      </div>
+    );
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Renderer = EXERCISE_REGISTRY[type].Renderer as unknown as React.ComponentType<any>;
+  return <Renderer {...props} />;
 }
