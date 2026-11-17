@@ -4,7 +4,7 @@ import { success, failure } from "../../utils/response";
 import type { AttemptIdParam, ListAttemptsQuery } from "./attempts.schema";
 
 // Lỗi nghiệp vụ (có statusCode + code) -> response chuẩn; lỗi lạ -> errorHandler (500)
-const handleError = (error: unknown, res: Response, next: NextFunction) => {
+export const handleError = (error: unknown, res: Response, next: NextFunction) => {
     const err = error as Error & {
     statusCode?: number;
     code?: string;

@@ -69,7 +69,14 @@ const envSchema = z.object({
    WRITING_MAX_WORDS: positiveInt(600, 5000),
   WRITING_MAX_CHARS: positiveInt(4000, WRITING_TEXT_MAX),
   SKILL_WINDOW_SIZE: positiveInt(DEFAULT_SKILL_WINDOW_SIZE, 100),
-
+    // Upload âm thanh (T17). Dung lượng tối đa MỖI file (byte): mặc định 10 MB, trần 50 MB.
+  AUDIO_MAX_BYTES: positiveInt(10 * 1024 * 1024, 50 * 1024 * 1024),
+  // Thư mục lưu tạm file âm thanh. Đường dẫn tương đối tính từ thư mục chạy server (server/).
+  // PHẢI nằm ngoài mọi thư mục được phục vụ công khai.
+  AUDIO_TMP_DIR: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().min(1).default("tmp/audio")
+  ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

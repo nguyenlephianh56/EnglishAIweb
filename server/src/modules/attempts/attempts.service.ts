@@ -38,14 +38,14 @@ type ExerciseForAttempt = Prisma.ExerciseGetPayload<{
 }>;
 
 /** Kết quả của bước "tìm bài + kiểm quyền": bài cần chấm và thông tin bài giao (nếu có). */
-interface ResolvedTarget {
+export interface ResolvedTarget {
   exercise: ExerciseForAttempt;
   assignment: { id: number; dueAt: Date } | null;
 }
 
 /** Nhánh TỰ LUYỆN: bài phải PUBLISHED + in_library, nếu không -> 404. */
 const resolvePracticeTarget = async (
-  input: CreateAttemptInput
+   input: Pick<CreateAttemptInput, "exerciseId">
 ): Promise<ResolvedTarget> => {
   const exercise = await prisma.exercise.findFirst({
     where: {
@@ -140,6 +140,40 @@ const resolveAssignmentTarget = async (
     exercise,
     assignment: { id: assignment.id, dueAt: assignment.dueAt },
   };
+};
+
+/**
+ * Bước chung "tìm bài + kiểm quyền + kiểm lượt" của MỌI lần nộp (POST /attempts và upload âm thanh).
+ * Giữ đúng thứ tự cũ của submitAttempt: tìm bài/kiểm quyền (tự luyện hoặc bài giao) -> với bài giao
+ * thì kiểm còn lượt (409). Chưa chấm, chưa lưu gì. Dùng chung để KHÔNG có bản thứ hai lệch quy tắc.
+ * Lỗi ném ra có statusCode + code như cũ (404 NOT_FOUND, 400 VALIDATION_ERROR, 409 ATTEMPT_LIMIT_REACHED).
+ *
+ * Chốt an toàn: thiếu cả hai mã -> 400. Với POST /attempts, Zod đã chặn ca này từ trước nên
+ * nhánh này không bao giờ chạy; nó chỉ để nơi gọi khác không vô tình lọt vào nhánh tự luyện
+ * với exerciseId = undefined (Prisma sẽ bỏ điều kiện id và khớp một bài bất kỳ).
+ */
+export const resolveSubmitTarget = async (
+  user: { id: number },
+  input: Pick<CreateAttemptInput, "exerciseId" | "assignmentId">
+): Promise<ResolvedTarget> => {
+  if (input.assignmentId === undefined && input.exerciseId === undefined) {
+    throw businessError(
+      400,
+      "VALIDATION_ERROR",
+      "exerciseId: Mã bài tập là bắt buộc"
+    );
+  }
+
+  const target =
+    input.assignmentId === undefined
+      ? await resolvePracticeTarget(input)
+      : await resolveAssignmentTarget(user, input.assignmentId, input.exerciseId);
+
+  // Bài giao: hết lượt thì dừng ngay.
+  if (target.assignment !== null) {
+    await assertAttemptsLeft(prisma, user.id, target.assignment.id);
+  }
+  return target;
 };
 
 /** Điều sẽ lưu vào attempts cho một lần nộp: bài làm đã chuẩn hóa + điểm + lỗi. */
@@ -249,16 +283,9 @@ export const submitAttempt = async (
   user: { id: number; role: AiRole },
   input: CreateAttemptInput
 ) => {
-  const { exercise, assignment } =
-    input.assignmentId === undefined
-      ? await resolvePracticeTarget(input)
-      : await resolveAssignmentTarget(user, input.assignmentId, input.exerciseId);
-
-  // Bài giao: hết lượt thì dừng ngay, chưa chấm, chưa lưu gì.
-   if (assignment !== null) {
-    await assertAttemptsLeft(prisma, user.id, assignment.id);
-  }
-
+    // Tìm bài + kiểm quyền + kiểm còn lượt (hàm dùng chung với upload âm thanh).
+  // Lỗi ở bước nào thì dừng, chưa chấm, chưa lưu gì.
+  const { exercise, assignment } = await resolveSubmitTarget(user, input);
   // Một mốc thời gian duy nhất cho cả lần nộp (giờ server).
   const now = new Date();
   // Đã quá hạn nộp? Tự luyện không có hạn nên luôn false.

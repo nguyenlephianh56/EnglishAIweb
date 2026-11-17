@@ -13,6 +13,9 @@ import {
 } from "../../middlewares/validate";
 import { authenticate } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
+import * as attemptsAudioController from "./attempts.audio.controller";
+import { audioUploadQuerySchema } from "./attempts.audio.schema";
+import { receiveAudioFile } from "./attempts.audio.upload";
 
 export const attemptRoutes = Router();
 
@@ -26,6 +29,19 @@ attemptRoutes.post(
   requireRole(Role.STUDENT),
   validate(createAttemptSchema),
   attemptsController.createAttempt
+);
+
+// POST /api/v1/attempts/audio?exerciseId=...&assignmentId=...  (T17: upload âm thanh bài Nói; chỉ STUDENT)
+// multipart/form-data, đúng 1 file ở field "audio". Chưa tạo attempt (T18 làm tiếp bằng audio_id).
+// Thứ tự BẮT BUỘC: quyền vai trò -> query -> quyền/bài (authorizeAudioUpload) -> multer (ghi file) -> kiểm
+// chữ ký file. Mọi kiểm quyền nằm TRƯỚC multer nên ca bị từ chối không để lại file.
+attemptRoutes.post(
+  "/audio",
+  requireRole(Role.STUDENT),
+  validateQuery(audioUploadQuerySchema),
+  attemptsAudioController.authorizeAudioUpload,
+  receiveAudioFile,
+  attemptsAudioController.uploadAudio
 );
 
 // GET /api/v1/attempts  (lịch sử bài nộp của CHÍNH HS; chỉ STUDENT)
