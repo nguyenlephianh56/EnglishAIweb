@@ -9,8 +9,9 @@ export const BLANK_PATTERN = /_{3,}/g;
 /** Số chỗ trống "___" của một đoạn văn */
 export const countBlanks = (text: string) => (text.match(BLANK_PATTERN) ?? []).length;
 
-/** Đếm từ (tách theo khoảng trắng) */
-export const countWords = (text: string) => (text.trim() ? text.trim().split(/\s+/).length : 0);
+/** Đếm từ ĐÚNG như backend: chữ/số, cho phép ' ’ - nối giữa từ ("don't", "well-known" là 1 từ) */
+export const WORD_PATTERN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
+export const countWords = (text: string) => text.normalize("NFC").match(WORD_PATTERN)?.length ?? 0;
 
 type Comparer<T extends AnswerableExerciseType> = (value: ExerciseValueMap[T], correct: ExerciseValueMap[T]) => boolean[];
 

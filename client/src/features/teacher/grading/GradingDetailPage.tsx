@@ -1,11 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, Clock, Info } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import { UserAvatar } from "../../../components/layout/AppLayout";
 import GradingForm from "./GradingForm";
-import { countWords, errorGroupLabel, formatDateTime, locateErrors, splitByErrors } from "./gradingMeta";
+import AnnotatedText from "../../exercises/shared/AnnotatedText";
+import ErrorList from "../../exercises/shared/ErrorList";
+import { countWords, formatDateTime } from "./gradingMeta";
 import { useGradingList, useGradingSubmission } from "./useGrading";
 import type { GradingSubmission } from "../../../types/grading";
 
@@ -24,9 +26,7 @@ function EssayPanel({ submission }: { submission: GradingSubmission }) {
   const [tab, setTab] = useState<TextTab>("marked");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const { errors } = submission.ai;
-  const located = useMemo(() => locateErrors(submission.text, errors), [submission.text, errors]);
-  const segments = useMemo(() => splitByErrors(submission.text, located.ranges), [submission.text, located.ranges]);
-  const unmatched = new Set(located.unmatched);
+  const [active, setActive] = useState<number | null>(null);
 
   function onTabKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -78,23 +78,12 @@ function EssayPanel({ submission }: { submission: GradingSubmission }) {
           </div>
         </div>
 
-        <div role="tabpanel" id="essay-panel" aria-labelledby={`essay-tab-${tab}`} className="mt-5 whitespace-pre-wrap rounded-2xl bg-slate-50 p-5 text-[15px] leading-8 text-slate-800">
-          {tab === "original"
-            ? submission.text
-            : segments.map((s, i) =>
-                s.errorIndex === undefined ? (
-                  <span key={i}>{s.text}</span>
-                ) : (
-                  <span key={i} className="rounded-sm bg-red-50 underline decoration-red-500 decoration-wavy decoration-2 underline-offset-4">
-                    {s.text}
-                    <sup className="ml-0.5 font-bold text-red-600">
-                      <span className="sr-only"> (lỗi </span>
-                      {s.errorIndex + 1}
-                      <span className="sr-only">)</span>
-                    </sup>
-                  </span>
-                )
-              )}
+        <div role="tabpanel" id="essay-panel" aria-labelledby={`essay-tab-${tab}`} className="mt-5">
+          {tab === "original" ? (
+            <div className="whitespace-pre-wrap rounded-2xl bg-slate-50 p-5 text-[15px] leading-8 text-slate-800">{submission.text}</div>
+          ) : (
+            <AnnotatedText text={submission.text} errors={errors} activeIndex={active} onActiveChange={setActive} />
+          )}
         </div>
       </section>
 
@@ -102,29 +91,9 @@ function EssayPanel({ submission }: { submission: GradingSubmission }) {
         <h2 id="errors-title" className="font-heading text-lg font-bold text-slate-900">
           Lỗi cần sửa ({errors.length})
         </h2>
-        {errors.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">AI không phát hiện lỗi nào trong bài.</p>
-        ) : (
-          <ol className="mt-4 space-y-3">
-            {errors.map((err, i) => (
-              <li key={i} className="flex gap-3 rounded-2xl border border-slate-100 p-4">
-                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-red-50 text-xs font-bold text-red-600">{i + 1}</span>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900">
-                    <span className="text-red-600 line-through decoration-red-300">{err.text}</span>
-                    <span className="mx-2 text-slate-400" aria-label="sửa thành">→</span>
-                    <span className="text-green-700">{err.correction}</span>
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">{err.explanation}</p>
-                  <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600">{errorGroupLabel(err.type)}</span>
-                    {unmatched.has(i) && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-700">Không xác định được vị trí trong bài</span>}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
+        <div className="mt-4">
+          <ErrorList errors={errors} text={submission.text} activeIndex={active} onActiveChange={setActive} />
+        </div>
       </section>
     </div>
   );

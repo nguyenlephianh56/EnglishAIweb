@@ -44,7 +44,11 @@ export const SAMPLES: { [T in AnswerableExerciseType]: Sample<T> } = {
     review: { value: ["do not likes"], correctAnswer: ["doesn't like"], explanation: "Chủ ngữ “She” là ngôi thứ ba số ít nên dùng “doesn't” + động từ nguyên mẫu." },
   },
   listening_fill: {
-    content: { script: "My name is Anna. I live in London with my parents. Every morning I take the bus to school. I like Mondays because we have art class.", blanks: 3 },
+    content: {
+      script: "My name is ___. I live in ___ with my parents. Every morning I take the bus to school. I like ___ because we have art class.",
+      blanks: 3,
+      spoken: "My name is Anna. I live in London with my parents. Every morning I take the bus to school. I like Mondays because we have art class.",
+    },
     review: { value: ["Anna", "London", "tuesdays"], correctAnswer: ["Anna", "London", "Mondays"], explanation: "Nghe lại đoạn cuối: “I like Mondays because we have art class”." },
   },
   writing: {
@@ -55,4 +59,38 @@ export const SAMPLES: { [T in AnswerableExerciseType]: Sample<T> } = {
       explanation: "Bài viết được AI chấm điểm sau khi nộp.",
     },
   },
+};
+
+/** Bài Nghe mẫu để thử các tình huống: thiếu spoken, số "___" không khớp blanks */
+export const LISTENING_EXTRAS: { title: string; content: ExerciseContentMap["listening_fill"] }[] = [
+  {
+    title: "Thiếu spoken (phải hiện cảnh báo và khóa nút phát)",
+    content: { script: "We have lunch at ___ every day.", blanks: 1 },
+  },
+  {
+    title: "Số “___” khác blanks (ô nhập xếp bên dưới)",
+    content: {
+      script: "Tom gets up at ___ and goes to school by ___.",
+      blanks: 3,
+      spoken: "Tom gets up at six and goes to school by bus. He studies English every day. It is his favourite subject.",
+    },
+  },
+];
+
+/** Kết quả bài Viết mẫu: có lỗi tìm thấy, lỗi lặp hai lần trong bài ("I goes") và lỗi không tìm thấy ("freinds") */
+export const WRITING_RESULT_SAMPLE = {
+  text: "Last weekend I goes to the park with my freind. We plays football for two hours.\nMy friend Nam is very kind person. After that I goes home and I was tired.",
+  score: 6.5,
+  maxScore: 10,
+  criteria: { content: 7, coherence: 6.5, vocabulary: 6, grammar: 5.5 },
+  comment: "Bài viết có ý rõ ràng và đủ yêu cầu. Em cần chú ý chia động từ theo chủ ngữ và dùng mạo từ trước danh từ đếm được.",
+  errors: [
+    { type: "grammar:subject_verb_agreement", text: "I goes", correction: "I went", explanation: "Kể chuyện đã xảy ra nên dùng quá khứ: went." },
+    { type: "grammar:subject_verb_agreement", text: "I goes", correction: "I went", explanation: "Cùng lỗi như trên: dùng quá khứ đơn." },
+    { type: "grammar:subject_verb_agreement", text: "We plays", correction: "We played", explanation: "Chủ ngữ We đi với động từ nguyên mẫu, ở đây dùng quá khứ." },
+    { type: "grammar:article", text: "very kind person", correction: "a very kind person", explanation: "Danh từ đếm được số ít cần mạo từ a." },
+    { type: "spelling:typo", text: "freinds", correction: "friends", explanation: "Sai chính tả: friends." },
+    { type: "punctuation:comma", text: "After that", correction: "After that,", explanation: "Thêm dấu phẩy sau cụm mở đầu câu." },
+    { type: "style", text: "was tired", correction: "was very tired", explanation: "Có thể nhấn mạnh hơn." },
+  ],
 };

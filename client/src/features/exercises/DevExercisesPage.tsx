@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import ExerciseView from "./ExerciseView";
+import AIFeedbackCard from "./shared/AIFeedbackCard";
+import AnnotatedText from "./shared/AnnotatedText";
+import ErrorList from "./shared/ErrorList";
 import { EXERCISE_REGISTRY } from "./registry";
 import { compareAnswer } from "./answerUtils";
-import { SAMPLES } from "./mock/sampleExercises";
+import { LISTENING_EXTRAS, SAMPLES, WRITING_RESULT_SAMPLE } from "./mock/sampleExercises";
 import type { AnswerableExerciseType, ExerciseValueMap } from "../../types/exercise";
 
 const TYPES = Object.keys(EXERCISE_REGISTRY) as AnswerableExerciseType[];
@@ -52,6 +55,57 @@ function Section<T extends AnswerableExerciseType>({ type, locked }: { type: T; 
   );
 }
 
+/** Kết quả bài Viết: AnnotatedText + ErrorList + AIFeedbackCard dùng chung */
+function WritingResultDemo() {
+  const r = WRITING_RESULT_SAMPLE;
+  const [active, setActive] = useState<number | null>(null);
+  const [noCorrections, setNoCorrections] = useState(false);
+  const errors = noCorrections ? r.errors.map((e) => ({ type: e.type, text: e.text })) : r.errors;
+  return (
+    <section id="writing-result" className="scroll-mt-24 space-y-5" aria-labelledby="dev-writing-result">
+      <h2 id="dev-writing-result" className="font-heading text-2xl font-extrabold text-slate-900">
+        Kết quả bài Viết <code className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-sm font-semibold text-slate-500">shared/</code>
+      </h2>
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input type="checkbox" checked={noCorrections} onChange={(e) => setNoCorrections(e.target.checked)} className="size-4 accent-indigo-600" />
+        Giả lập chưa lộ đáp án (bỏ correction và explanation)
+      </label>
+      <AIFeedbackCard criteria={r.criteria} comment={r.comment} score={r.score} maxScore={r.maxScore} />
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <AnnotatedText text={r.text} errors={errors} activeIndex={active} onActiveChange={setActive} idPrefix="dev" />
+        <div className="mt-6">
+          <ErrorList errors={errors} text={r.text} activeIndex={active} onActiveChange={setActive} idPrefix="dev" />
+        </div>
+      </div>
+      <AIFeedbackCard score={null} maxScore={10} comment="Thiếu criteria thì ẩn phần thanh, vẫn hiện nhận xét." />
+    </section>
+  );
+}
+
+/** Các tình huống đặc biệt của bài Nghe điền từ */
+function ListeningExtras() {
+  return (
+    <section id="listening-extras" className="scroll-mt-24 space-y-5" aria-labelledby="dev-listening-extras">
+      <h2 id="dev-listening-extras" className="font-heading text-2xl font-extrabold text-slate-900">
+        Nghe điền từ: tình huống đặc biệt
+      </h2>
+      {LISTENING_EXTRAS.map((x) => (
+        <ListeningExtra key={x.title} title={x.title} content={x.content} />
+      ))}
+    </section>
+  );
+}
+
+function ListeningExtra({ title, content }: { title: string; content: (typeof LISTENING_EXTRAS)[number]["content"] }) {
+  const [value, setValue] = useState<string[]>(() => Array.from({ length: content.blanks }, () => ""));
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <p className="mb-4 text-xs font-bold uppercase tracking-wider text-brand">{title}</p>
+      <ExerciseView type="listening_fill" content={content} value={value} onChange={setValue} mode="answering" />
+    </div>
+  );
+}
+
 /** /dev/exercises (chỉ có khi chạy `npm run dev`): xem thử từng renderer ở cả hai chế độ với dữ liệu mẫu. */
 export default function DevExercisesPage() {
   const [locked, setLocked] = useState(false);
@@ -71,6 +125,12 @@ export default function DevExercisesPage() {
                 {EXERCISE_REGISTRY[t].label}
               </a>
             ))}
+            <a href="#listening-extras" className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100">
+              Nghe: đặc biệt
+            </a>
+            <a href="#writing-result" className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100">
+              Kết quả Viết
+            </a>
           </nav>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input type="checkbox" checked={locked} onChange={(e) => setLocked(e.target.checked)} className="size-4 accent-indigo-600" />
@@ -82,6 +142,8 @@ export default function DevExercisesPage() {
           {TYPES.map((t) => (
             <Section key={t} type={t} locked={locked} />
           ))}
+          <ListeningExtras />
+          <WritingResultDemo />
         </div>
       </div>
     </div>

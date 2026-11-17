@@ -1,18 +1,9 @@
 import { formatDate, formatTime } from "../../../utils/format";
-import type { CriteriaKey, WritingCriteria } from "../../../types/grading";
+import type { WritingCriteria } from "../../../types/grading";
 
-export const CRITERIA: { key: CriteriaKey; label: string }[] = [
-  { key: "content", label: "Nội dung" },
-  { key: "coherence", label: "Mạch lạc" },
-  { key: "vocabulary", label: "Từ vựng" },
-  { key: "grammar", label: "Ngữ pháp" },
-];
 
 /** Điểm tổng AI gợi ý: trung bình 4 tiêu chí, làm tròn 1 chữ số thập phân */
 export const averageScore = (c: WritingCriteria) => Math.round(((c.content + c.coherence + c.vocabulary + c.grammar) / 4) * 10) / 10;
-
-/** 7.5 -> "7,5" */
-export const formatScore = (n: number) => n.toLocaleString("vi-VN", { maximumFractionDigits: 1 });
 
 /** Đọc điểm người dùng gõ (chấp nhận dấu phẩy "7,5"). Trả NaN nếu rỗng hoặc không phải số. */
 export function parseScore(raw: string): number {
@@ -22,7 +13,6 @@ export function parseScore(raw: string): number {
 }
 export const isValidScore = (n: number) => Number.isFinite(n) && n >= 0 && n <= 10;
 
-export const countWords = (text: string) => (text.trim() ? text.trim().split(/\s+/).length : 0);
 
 export const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -43,6 +33,6 @@ export const errorGroupLabel = (type: string) => {
   return GROUP_LABEL[group] ?? (group || "Khác");
 };
 
-// Tìm vị trí lỗi trong bài: dùng chung với trang kết quả của học sinh, nằm ở features/exercises/textMarks.ts
-export { locateErrors, splitByErrors } from "../../exercises/textMarks";
-export type { ErrorRange, LocatedErrors, TextSegment } from "../../exercises/textMarks";
+// Dùng chung với trang kết quả của học sinh: xem features/exercises/shared và answerUtils
+export { CRITERIA, formatScore } from "../../exercises/shared/scoreFormat";
+export { countWords } from "../../exercises/answerUtils";

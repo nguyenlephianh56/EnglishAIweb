@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
-import { Info, RefreshCw, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { RefreshCw, Sparkles } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Notice from "../account/Notice";
-import { CRITERIA, errorGroupLabel, formatScore } from "../teacher/grading/gradingMeta";
 import { countWords } from "./answerUtils";
-import { locateErrors, splitByErrors } from "./textMarks";
+import AIFeedbackCard from "./shared/AIFeedbackCard";
+import AnnotatedText from "./shared/AnnotatedText";
+import ErrorList from "./shared/ErrorList";
 import type { AttemptDetail } from "../../types/attempt";
 
 interface WritingResultProps {
@@ -17,17 +18,12 @@ interface WritingResultProps {
   reloading: boolean;
 }
 
-/** Kết quả bài Viết: bài đã nộp với lỗi gạch đỏ, phản hồi AI (4 tiêu chí + nhận xét), hoặc trạng thái chờ chấm. */
+/** Kết quả bài Viết: chờ chấm, hoặc phản hồi AI + bài đã nộp có lỗi gạch đỏ + danh sách lỗi. */
 export default function WritingResult({ attempt, gradingMessage, regrading, onReload, onRegrade, regradeError, reloading }: WritingResultProps) {
   const text = (attempt.submittedAnswer as { text?: unknown } | null)?.text;
   const essay = typeof text === "string" ? text : "";
-  const pending = attempt.score === null && attempt.finalScore === null;
+  const pending = attempt.score === null || attempt.graded === false;
   const [active, setActive] = useState<number | null>(null);
-
-  const located = useMemo(() => locateErrors(essay, attempt.errors), [essay, attempt.errors]);
-  const segments = useMemo(() => splitByErrors(essay, located.ranges), [essay, located.ranges]);
-  const unmatched = new Set(located.unmatched);
-  const hasCorrections = attempt.errors.some((e) => e.correction !== undefined);
 
   return (
     <div className="space-y-6">
@@ -54,44 +50,7 @@ export default function WritingResult({ attempt, gradingMessage, regrading, onRe
           {regrading && <p className="mt-3 text-sm font-semibold text-amber-900">AI đang chấm bài, có thể mất vài giây.</p>}
         </section>
       ) : (
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="wr-ai">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <h2 id="wr-ai" className="flex items-center gap-2 font-heading text-xl font-bold text-slate-900">
-              <Sparkles className="size-5 text-brand" aria-hidden="true" />
-              Phản hồi từ AI
-            </h2>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
-              <Info className="size-4" aria-hidden="true" />
-              Điểm AI chỉ mang tính tham khảo
-            </span>
-          </div>
-
-          {attempt.criteria && (
-            <ul className="mt-5 grid gap-4 sm:grid-cols-2" aria-label="Điểm theo tiêu chí">
-              {CRITERIA.map((c) => {
-                const v = attempt.criteria![c.key];
-                return (
-                  <li key={c.key}>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-bold text-slate-800">{c.label}</span>
-                      <span className="font-semibold text-slate-600">{formatScore(v)}/10</span>
-                    </div>
-                    <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={c.label} aria-valuemin={0} aria-valuemax={10} aria-valuenow={v}>
-                      <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, Math.max(0, v * 10))}%` }} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {attempt.comment && (
-            <div className="mt-5 rounded-2xl bg-slate-50 p-5">
-              <p className="text-sm font-bold text-slate-900">Nhận xét</p>
-              <p className="mt-1 whitespace-pre-line text-[15px] leading-7 text-slate-700">{attempt.comment}</p>
-            </div>
-          )}
-        </section>
+        <AIFeedbackCard criteria={attempt.criteria} comment={attempt.comment} score={attempt.score} maxScore={attempt.maxScore} />
       )}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="wr-essay">
@@ -101,63 +60,17 @@ export default function WritingResult({ attempt, gradingMessage, regrading, onRe
           </h2>
           <span className="text-sm text-slate-500">{countWords(essay)} từ</span>
         </div>
-
-        <div className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-50 p-5 text-[15px] leading-8 text-slate-800">
-          {segments.map((s, i) =>
-            s.errorIndex === undefined ? (
-              <span key={i}>{s.text}</span>
-            ) : (
-              <button
-                key={i}
-                type="button"
-                aria-pressed={active === s.errorIndex}
-                aria-label={`Lỗi ${s.errorIndex + 1}: ${s.text}`}
-                title={`${errorGroupLabel(attempt.errors[s.errorIndex].type)}${attempt.errors[s.errorIndex].correction ? `: ${s.text} → ${attempt.errors[s.errorIndex].correction}` : ""}`}
-                onClick={() => setActive((cur) => (cur === s.errorIndex ? null : s.errorIndex))}
-                onMouseEnter={() => setActive(s.errorIndex)}
-                className={`rounded-sm bg-red-50 px-0.5 text-left underline decoration-red-500 decoration-wavy decoration-2 underline-offset-4 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-300 ${active === s.errorIndex ? "bg-red-100" : ""}`}
-              >
-                {s.text}
-                <sup className="ml-0.5 font-bold text-red-600">{s.errorIndex + 1}</sup>
-              </button>
-            )
-          )}
-          {essay === "" && <span className="text-slate-400">Không đọc được nội dung bài đã nộp.</span>}
+        <div className="mt-4">
+          <AnnotatedText text={essay} errors={pending ? [] : attempt.errors} activeIndex={active} onActiveChange={setActive} idPrefix="result" />
         </div>
 
-        {!pending && attempt.errors.length > 0 && (
+        {!pending && (
           <div className="mt-6">
-            <h3 className="text-sm font-bold text-slate-900">Lỗi cần sửa ({attempt.errors.length})</h3>
-            {!hasCorrections && <p className="mt-1 text-xs font-semibold text-sky-700">Gợi ý sửa và giải thích sẽ hiện sau hạn nộp.</p>}
-            <ol className="mt-3 space-y-3">
-              {attempt.errors.map((e, i) => (
-                <li
-                  key={i}
-                  className={`flex gap-3 rounded-2xl border p-4 transition-colors ${active === i ? "border-red-300 bg-red-50/60" : "border-slate-100"}`}
-                  onMouseEnter={() => setActive(i)}
-                >
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-red-50 text-xs font-bold text-red-600">{i + 1}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-900">
-                      <span className="text-red-600 line-through decoration-red-300">{e.text}</span>
-                      {e.correction !== undefined && e.correction !== "" && (
-                        <>
-                          <span className="mx-2 text-slate-400" aria-label="sửa thành">
-                            →
-                          </span>
-                          <span className="text-green-700">{e.correction}</span>
-                        </>
-                      )}
-                    </p>
-                    {e.explanation && <p className="mt-1 text-sm text-slate-600">{e.explanation}</p>}
-                    <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600">{errorGroupLabel(e.type)}</span>
-                      {unmatched.has(i) && <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-700">Không xác định được vị trí trong bài</span>}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <h3 className="mb-3 text-sm font-bold text-slate-900">Lỗi cần sửa ({attempt.errors.length})</h3>
+            <ErrorList errors={attempt.errors} text={essay} activeIndex={active} onActiveChange={setActive} idPrefix="result" />
+            {attempt.errors.length > 0 && attempt.errors.every((e) => e.correction === undefined && !e.explanation) && (
+              <p className="mt-3 text-xs font-semibold text-sky-700">Gợi ý sửa và giải thích sẽ hiện sau hạn nộp.</p>
+            )}
           </div>
         )}
       </section>

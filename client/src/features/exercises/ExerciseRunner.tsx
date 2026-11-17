@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, CircleAlert, Loader2, Repeat, Send, TriangleAlert } from "lucide-react";
+import { CalendarClock, CircleAlert, Clock, Loader2, Repeat, Send, TriangleAlert } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Notice from "../account/Notice";
@@ -12,8 +12,12 @@ import { ANY_SKILL_META } from "../student/skillMeta";
 import { ASSIGNMENTS_KEY } from "../student/useAssignments";
 import { DynamicExerciseView } from "./ExerciseView";
 import { BackLink } from "./RunnerShell";
+import { countWords } from "./answerUtils";
 import { EXERCISE_REGISTRY, emptyValueFor, exerciseTypeLabel, isAnswerableType, isAnsweredFor, progressFor, toPayloadFor } from "./registry";
 import { assignmentDetailKey } from "./useExerciseData";
+import { ElapsedClock, WaitedSeconds } from "./writing/clocks";
+import { isAiOrNetworkError } from "./writing/submitErrors";
+import { formatDraftTime, useWritingDraft } from "./writing/useWritingDraft";
 import type { AnswerableExerciseType, ExerciseContentMap } from "../../types/exercise";
 import type { StudentAssignmentDetail, StudentExercise } from "../../types/attempt";
 
@@ -45,7 +49,18 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   const type = exercise.type as AnswerableExerciseType;
   const content = exercise.content as ExerciseContentMap[AnswerableExerciseType];
 
-  const [value, setValue] = useState<unknown>(() => (supported ? emptyValueFor(type, content as never) : null));
+  const isWriting = exercise.type === "writing";
+
+  // Bài Viết: tự lưu nháp theo bài (bài giao và tự luyện có khóa riêng)
+  const draft = useWritingDraft(assignment ? `assignment-${assignment.assignmentId}` : String(exercise.id), isWriting);
+  const [restoredAt, setRestoredAt] = useState<number | null>(draft.initial?.savedAt ?? null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+
+  const [value, setValue] = useState<unknown>(() => {
+    if (!supported) return null;
+    if (isWriting && draft.initial) return { text: draft.initial.text };
+    return emptyValueFor(type, content as never);
+  });
   const [touched, setTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const finished = useRef(false); // đã nộp xong: không chặn điều hướng nữa
@@ -54,6 +69,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
     mutationFn: submitAttempt,
     onSuccess: (outcome) => {
       finished.current = true;
+      draft.clear(); // nộp xong (kể cả khi AI chưa chấm được vì bài đã lưu trên máy chủ) thì bỏ nháp
       void queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY });
       if (assignment) void queryClient.invalidateQueries({ queryKey: assignmentDetailKey(assignment.assignmentId) });
       navigate(`/student/results/${outcome.result.attemptId}`, { state: outcome.gradingError ? { gradingError: outcome.gradingError } : undefined });
@@ -70,7 +86,6 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   const progress = supported ? progressFor(type, value as never, content as never) : { done: 0, total: 0 };
   const complete = supported && isAnsweredFor(type, value as never, content as never);
   const percent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
-  const isWriting = exercise.type === "writing";
 
   // ---- Trạng thái bài giao ----
   const overdue = assignment ? Date.now() > new Date(assignment.dueAt).getTime() : false;
@@ -104,8 +119,17 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
 
   function onSubmitClick() {
     if (!canSubmit) return;
-    if (complete) send();
+    // Bài Viết luôn hỏi xác nhận (kèm số từ); dạng khác chỉ hỏi khi còn bỏ trống
+    if (complete && !isWriting) send();
     else setConfirmOpen(true);
+  }
+
+  function discardDraft() {
+    draft.clear();
+    setValue(emptyValueFor(type, content as never));
+    setRestoredAt(null);
+    setTouched(false);
+    setDiscardOpen(false);
   }
 
   const skill = ANY_SKILL_META[exercise.skill] ?? ANY_SKILL_META.FOUNDATION;
@@ -116,7 +140,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   const progressText = isWriting ? `Đã viết ${progress.done}/${progress.total} từ tối thiểu` : `Đã trả lời ${progress.done}/${progress.total} ${unit}`;
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-8 lg:px-8">
+    <div className={`mx-auto px-5 py-8 lg:px-8 ${isWriting ? "max-w-6xl" : "max-w-4xl"}`}>
       <BackLink to={backTo}>{assignment ? "Bài được giao" : "Thư viện luyện tập"}</BackLink>
 
       <h1 className="mt-4 font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">{exercise.topic}</h1>
@@ -175,11 +199,28 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
             <span className="font-bold text-slate-900" id="runner-progress-label">
               {progressText}
             </span>
-            <span className="font-semibold text-slate-500">{percent}%</span>
+            <span className="flex items-center gap-3 font-semibold text-slate-500">
+              {isWriting && (
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="size-4" aria-hidden="true" />
+                  Thời gian làm: <ElapsedClock />
+                </span>
+              )}
+              {percent}%
+            </span>
           </div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-labelledby="runner-progress-label" aria-valuemin={0} aria-valuemax={progress.total} aria-valuenow={progress.done}>
             <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${percent}%` }} />
           </div>
+        </div>
+      )}
+
+      {isWriting && restoredAt !== null && (
+        <div role="status" className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-800">
+          <span>Đã khôi phục bản nháp lưu lúc {formatDraftTime(restoredAt)}</span>
+          <Button variant="outline" size="sm" disabled={submitting} onClick={() => setDiscardOpen(true)}>
+            Xóa nháp
+          </Button>
         </div>
       )}
 
@@ -191,6 +232,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
           onChange={(v) => {
             setValue(v);
             setTouched(true);
+            if (isWriting) draft.save((v as { text?: string }).text ?? "");
           }}
           mode="answering"
           disabled={submitting}
@@ -198,15 +240,25 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
       </div>
 
       {mutation.isError && (
-        <div className="mt-4">
+        <div className="mt-4 space-y-3">
           <Notice type="error">{getErrorMessage(mutation.error, "Không nộp được bài, vui lòng thử lại.")}</Notice>
+          {isWriting && isAiOrNetworkError(mutation.error) && (
+            <>
+              <Notice type="warning">Bài của bạn đã được lưu; nộp lại có thể tính thêm 1 lượt với bài được giao.</Notice>
+              <Button variant="outline" size="sm" leftIcon={<Repeat />} disabled={submitting || locked} onClick={send}>
+                Thử nộp lại
+              </Button>
+            </>
+          )}
         </div>
       )}
 
       {isWriting && submitting && (
-        <p role="status" className="mt-4 flex items-center gap-2 rounded-2xl bg-brand-light p-4 text-sm font-semibold text-brand-dark">
+        <p role="status" aria-live="polite" className="mt-4 flex items-center gap-2 rounded-2xl bg-brand-light p-4 text-sm font-semibold text-brand-dark">
           <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden="true" />
-          AI đang chấm bài, có thể mất vài giây. Vui lòng không đóng trang.
+          <span>
+            AI đang chấm bài <span aria-hidden="true">(đã chờ <WaitedSeconds /> giây)</span>. Có thể mất vài giây, vui lòng không đóng trang.
+          </span>
         </p>
       )}
 
@@ -230,18 +282,34 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
       </div>
 
       {/* Xác nhận khi còn bỏ trống */}
-      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Nộp bài khi còn bỏ trống?" description={`Còn ${missing} ${unit} chưa làm. Phần bỏ trống sẽ được tính là sai.`}>
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={isWriting ? "Nộp bài viết?" : "Nộp bài khi còn bỏ trống?"}
+        description={isWriting ? `Bài viết của em có ${countWords((value as { text?: string } | null)?.text ?? "")} từ. Sau khi nộp, AI sẽ chấm điểm và không sửa bài được nữa.` : `Còn ${missing} ${unit} chưa làm. Phần bỏ trống sẽ được tính là sai.`}
+      >
         {assignment && <p className="text-sm text-slate-600">Đây là bài giao: mỗi lần nộp tính là một lượt (còn {Math.max(0, assignment.maxAttempts - assignment.attemptsUsed)} lượt).</p>}
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-            Làm tiếp
+            {isWriting ? "Viết tiếp" : "Làm tiếp"}
           </Button>
-          <Button onClick={send}>Vẫn nộp bài</Button>
+          <Button onClick={send}>{isWriting ? "Nộp bài" : "Vẫn nộp bài"}</Button>
+        </div>
+      </Modal>
+
+      <Modal open={discardOpen} onClose={() => setDiscardOpen(false)} title="Xóa bản nháp?" description="Văn bản đang viết trong ô soạn thảo sẽ bị xóa và không khôi phục lại được.">
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setDiscardOpen(false)}>
+            Giữ lại
+          </Button>
+          <Button variant="danger" onClick={discardDraft}>
+            Xóa nháp
+          </Button>
         </div>
       </Modal>
 
       {/* Chặn điều hướng trong ứng dụng khi đang làm dở */}
-      <Modal open={blocker.state === "blocked"} onClose={() => blocker.reset?.()} title="Rời khỏi bài đang làm?" description="Bài làm dở sẽ không được lưu và sẽ mất nếu em rời trang.">
+      <Modal open={blocker.state === "blocked"} onClose={() => blocker.reset?.()} title="Rời khỏi bài đang làm?" description={isWriting ? "Bản nháp được lưu trên máy này, nhưng bài chưa được nộp." : "Bài làm dở sẽ không được lưu và sẽ mất nếu em rời trang."}>
         <div className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           Hãy nộp bài trước nếu em muốn giữ kết quả.
