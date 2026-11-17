@@ -55,3 +55,9 @@ export const LEVEL_THRESHOLDS: readonly LevelThreshold[] = [
 
 /** Mức khi điểm không đạt ngưỡng nào ở bảng trên. */
 export const LOWEST_LEVEL: ProfileLevel = "A1";
+/**
+ * Số điểm tối đa trong `progress` (đường tiến bộ) mỗi kỹ năng của API hồ sơ (T15).
+ * Mỗi điểm = 1 điểm đại diện của 1 bài, lấy các bài gần nhất, trả theo thứ tự cũ → mới.
+ * Khác với cửa sổ tính `score` (N = 10): `progress` dài hơn để thấy xu hướng.
+ */
+export const PROGRESS_MAX_POINTS = 20;

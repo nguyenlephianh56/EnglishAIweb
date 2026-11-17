@@ -9,6 +9,7 @@ import { classRoutes } from "./modules/classes/classes.routes";
 import { exerciseRoutes } from "./modules/exercises/exercises.routes";
 import { attemptRoutes } from "./modules/attempts/attempts.routes";
 import { assignmentRoutes } from "./modules/assignments/assignments.routes";
+import { skillProfileRoutes } from "./modules/skill-profiles/skill-profiles.routes";
 
 export const app = express();
 
@@ -73,6 +74,9 @@ app.use("/api/v1/attempts", attemptRoutes);
 
 // Assignment routes
 app.use("/api/v1/assignments", assignmentRoutes);
+
+// Skill profile routes (hồ sơ kỹ năng)
+app.use("/api/v1/skill-profiles", skillProfileRoutes);
 
 // 404 handler
 app.use((_req, res) => {
