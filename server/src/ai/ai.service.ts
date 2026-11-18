@@ -15,7 +15,7 @@ import type {AiCache,AiTask,AiUsageCounter,AiUsageLogger,AiUsageStatus,} from ".
 import { dailyLimitForRole, sumTokens } from "./ai.usage";
 import type { AiDailyLimits, AiRole } from "./ai.usage";
 import { AIInvalidFormatError, generateJson } from "./json";
-import type { AIProvider } from "./provider";
+import type { AIProvider, AIRequest } from "./provider";
 import { AIServiceError } from "./resilience";
 import { logAiUsage } from "./ai.log";
 
@@ -45,6 +45,10 @@ export interface RunAiTaskInput<S extends z.ZodTypeAny> {
   prompt: string;
   /** Zod schema của kết quả mong đợi. */
   schema: S;
+  /** Có audio thì bỏ qua cache. */
+audio?: AIRequest["audio"];
+/** Hậu kiểm kết quả vừa sinh, trước log ok; lỗi này không retry JSON. */
+validateGeneratedResult?: (data: z.output<S>) => void;
 }
 
 export interface RunAiTaskResult<T> {
@@ -107,7 +111,7 @@ export async function runAiTask<S extends z.ZodTypeAny>(
     });
   }
   const task = parsedTask.data;
-  const { userId, role, prompt, schema } = input;
+  const { userId, role, prompt, schema, audio } = input;
 
    const { provider, cache, counter, logger, limits, model, cacheableTasks, now } = await resolveDeps(deps);
 
@@ -125,7 +129,7 @@ export async function runAiTask<S extends z.ZodTypeAny>(
 
    // (2) Tra cache, chỉ với task cache được. Khóa = hash(task + model + prompt đã chuẩn hóa),
   //     không phải prompt thô. `key` là undefined nghĩa là task này không dùng cache.
-  const key = cacheableTasks.has(task) ? buildAiCacheKey(task, model, prompt) : undefined;
+  const key =audio === undefined && cacheableTasks.has(task)? buildAiCacheKey(task, model, prompt): undefined;
   if (key !== undefined) {
     let hit: unknown;
     try {
@@ -143,15 +147,30 @@ export async function runAiTask<S extends z.ZodTypeAny>(
     }
   }
   // (3) Gọi AI. Lỗi: log rồi ném lại NGUYÊN VẸN (không bọc, không đổi message).
-  let result: Awaited<ReturnType<typeof generateJson<S>>>;
-  try {
-    result = await generateJson(provider, prompt, schema, { schemaName: task });
-  } catch (error) {
-    const gemini429 = error instanceof AIServiceError && error.code === "RATE_LIMITED";
-    const spent = error instanceof AIInvalidFormatError ? sumTokens(error.tokens) : null;
-    await writeLog(gemini429 ? "rate_limited" : "error", spent);
-    throw error;
-  }
+let result: Awaited<ReturnType<typeof generateJson<S>>>;
+let generatedTokens: number | null = null;
+
+try {
+  result = await generateJson(provider, prompt, schema, {
+    schemaName: task,
+    ...(audio !== undefined ? { audio } : {}),
+  });
+
+  generatedTokens = sumTokens(result.tokens);
+  input.validateGeneratedResult?.(result.data);
+} catch (error) {
+  const gemini429 =
+    error instanceof AIServiceError &&
+    error.code === "RATE_LIMITED";
+
+  const spent =
+    error instanceof AIInvalidFormatError
+      ? sumTokens(error.tokens)
+      : generatedTokens;
+
+  await writeLog(gemini429 ? "rate_limited" : "error", spent);
+  throw error;
+}
 
   // (4) Chỉ tới đây (đã qua Zod) mới lưu cache (nếu task cache được) + log ok.
   if (key !== undefined) {

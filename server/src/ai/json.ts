@@ -15,7 +15,7 @@
 // (bài làm, phản hồi của model, giá trị sai). Chỉ có số lần thử, tên schema, mã lỗi.
 // =====================================================================
 import type { z } from "zod";
-import type { AIProvider } from "./provider";
+import type { AIProvider, AIRequest } from "./provider";
 
 /** Mã lỗi khi AI trả sai định dạng sau khi đã thử lại. */
 export const AI_INVALID_FORMAT_CODE = "AI_INVALID_FORMAT";
@@ -68,11 +68,12 @@ export class AIInvalidFormatError extends Error {
 
 /** Tùy chọn thêm khi gọi generateJson. */
 export interface GenerateJsonOptions {
-  /** Tên schema, chỉ để ghi log (vd "writing"). Mặc định "unnamed". */
   schemaName?: string;
   system?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  /** Audio gửi riêng, giữ nguyên khi thử lại lỗi định dạng. */
+  audio?: AIRequest["audio"];
 }
 
 /** Kết quả thành công. `data` đã qua Zod; không có chuỗi thô. */
@@ -160,6 +161,7 @@ export async function generateJson<S extends z.ZodTypeAny>(
     const response = await provider.generate({
       prompt: currentPrompt,
       json: true,
+      ...(options.audio !== undefined ? { audio: options.audio } : {}),
       ...(options.system !== undefined ? { system: options.system } : {}),
       ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
       ...(options.maxOutputTokens !== undefined
