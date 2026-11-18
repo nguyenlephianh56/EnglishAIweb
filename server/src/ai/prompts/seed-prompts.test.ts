@@ -34,24 +34,24 @@ afterEach(() => {
 });
 
 describe("seedPromptTemplates", () => {
-  it("DB trống -> tạo đủ 3 mẫu", async () => {
+  it("DB trống -> tạo đủ mọi mẫu mặc định", async () => {
     const { db, store } = fakeSeedDb();
 
     const keys = await seedPromptTemplates(db);
 
     expect(keys).toEqual([...PROMPT_KEYS]);
-    expect(store.size).toBe(3);
+    expect(store.size).toBe(PROMPT_KEYS.length);
     expect([...store.keys()].sort()).toEqual([...PROMPT_KEYS].sort());
   });
 
-  it("chạy 2 lần -> vẫn 3 bản ghi, không trùng key", async () => {
+  it("chạy 2 lần -> số bản ghi không đổi, không trùng key", async () => {
     const { db, store, upsert } = fakeSeedDb();
 
     await seedPromptTemplates(db);
     await seedPromptTemplates(db);
 
-    expect(store.size).toBe(3);
-    expect(upsert).toHaveBeenCalledTimes(6);
+    expect(store.size).toBe(PROMPT_KEYS.length);
+    expect(upsert).toHaveBeenCalledTimes(PROMPT_KEYS.length * 2);
     for (const key of PROMPT_KEYS) {
       expect(store.get(key)).toBe(DEFAULT_PROMPTS[key].template);
     }
@@ -66,7 +66,8 @@ describe("seedPromptTemplates", () => {
     expect(store.get("writing_grade")).toBe(edited);
     expect(store.get("exercise_generate")).toBe(DEFAULT_PROMPTS.exercise_generate.template);
     expect(store.get("listening_generate")).toBe(DEFAULT_PROMPTS.listening_generate.template);
-    expect(store.size).toBe(3);
+    expect(store.get("speaking_transcribe")).toBe(DEFAULT_PROMPTS.speaking_transcribe.template);
+    expect(store.size).toBe(PROMPT_KEYS.length);
   });
 
   it("gọi upsert với where.key, update rỗng, create = {key, template mặc định}", async () => {
