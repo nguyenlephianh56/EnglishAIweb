@@ -4,6 +4,7 @@ import {
   ATTEMPT_LIST_MAX_LIMIT,
   WRITING_TEXT_MAX,
 } from "./attempts.constants";
+import { SPEAKING_TRANSCRIPT_MAX_CHARS } from "../../ai/speaking.constants";
 // Số nguyên lớn nhất của cột INT trong PostgreSQL; vượt quá thì Prisma sẽ báo lỗi 500.
 const MAX_EXERCISE_ID = 2147483647;
 
@@ -93,6 +94,36 @@ export const writingAnswerSchema = z
 
 export type WritingAnswer = z.infer<typeof writingAnswerSchema>;
 
+/**
+ * Dạng LƯU của attempts.answer cho bài speaking: { text } = bản chữ hóa đã trim
+ * (từ Gemini hoặc từ Web Speech API của FE). KHÔNG lưu audio_id/đường dẫn/âm thanh.
+ * Chỉ trim đầu/cuối, không đổi hoa/thường, không bỏ dấu câu (bước chấm phát âm cần bản nguyên trạng).
+ * Đây KHÔNG phải dạng request: request { audio_id } hoặc { transcript } định nghĩa riêng.
+ * Thông báo lỗi không chép lại nội dung (bản chữ là dữ liệu riêng tư).
+ */
+export const speakingAttemptAnswerSchema = z
+  .object(
+    {
+      text: z
+        .string({
+          required_error: "text: Bản chữ hóa là bắt buộc",
+          invalid_type_error: "text: Bản chữ hóa phải là chuỗi",
+        })
+        .trim()
+        .min(1, "text: Bản chữ hóa không được để trống")
+        .max(
+          SPEAKING_TRANSCRIPT_MAX_CHARS,
+          `text: Bản chữ hóa tối đa ${SPEAKING_TRANSCRIPT_MAX_CHARS} ký tự`
+        ),
+    },
+    {
+      required_error: "Bài làm là bắt buộc",
+      invalid_type_error: "Bài làm phải là một object dạng { text }",
+    }
+  )
+  .strict("Bài làm chỉ được có field text");
+
+export type SpeakingAttemptAnswer = z.infer<typeof speakingAttemptAnswerSchema>;
 
 // ---------------------------------------------------------------------------
 // GET /attempts và GET /attempts/:id
