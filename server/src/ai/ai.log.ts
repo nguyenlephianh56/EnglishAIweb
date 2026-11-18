@@ -26,7 +26,8 @@ function errorCode(error: unknown): string {
 /** Ghi đúng 1 dòng log. Không bao giờ ném lỗi. Trả true nếu đã ghi. */
 export async function logAiUsage(
   logger: AiUsageLogger,
-  entry: AiUsageLogEntry
+  entry: AiUsageLogEntry,
+  onCreated?: (id: number) => void
 ): Promise<boolean> {
   const parsed = aiUsageLogEntrySchema.safeParse(entry);
   if (!parsed.success) {
@@ -38,7 +39,8 @@ export async function logAiUsage(
 
   const { task, status } = parsed.data;
   try {
-    await logger.log(parsed.data);
+       const id = await logger.log(parsed.data);
+    if (typeof id === "number") onCreated?.(id);
     return true;
   } catch (error) {
     console.error(`[ai/log] log_failed task=${task} status=${status} code=${errorCode(error)}`);

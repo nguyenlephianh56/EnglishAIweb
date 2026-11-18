@@ -24,10 +24,10 @@ export interface SpeakingTranscriptInput {
   transcript?: unknown;
 }
 
-export interface SpeakingTranscriptResult {
-  text: string;
-  source: "gemini" | "client";
-}
+/** usageLogId chỉ đi giữa các bước trên server. */
+export type SpeakingTranscriptResult =
+  | { text: string; source: "client" }
+  | { text: string; source: "gemini"; usageLogId?: number };
 
 /** Các cổng tùy chọn để test; chạy thật thì bỏ trống. */
 export interface SpeakingTranscriptDeps {
@@ -188,6 +188,7 @@ export async function getSpeakingTranscript(
   assertInlineBudget(audio.data.length, prompt);
 
   try {
+    let usageLogId: number | undefined;
     const result = await runAiTask({
       userId: studentId,
       role: "STUDENT",
@@ -195,6 +196,7 @@ export async function getSpeakingTranscript(
       prompt,
       schema: speakingTranscriptSchema,
       audio,
+      onUsageLogCreated: (id) => { usageLogId = id; },
       validateGeneratedResult: ({ text }) => {
         if (text.length === 0) {
           throw new SpeakingTranscriptError(
@@ -206,7 +208,11 @@ export async function getSpeakingTranscript(
       },
     }, deps.ai);
 
-    return { text: result.data.text, source: "gemini" };
+    return {
+      text: result.data.text,
+      source: "gemini",
+      ...(usageLogId === undefined ? {} : { usageLogId }),
+    };
   } catch (error) {
     if (
       error instanceof SpeakingTranscriptError

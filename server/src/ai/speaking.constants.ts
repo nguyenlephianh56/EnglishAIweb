@@ -12,3 +12,6 @@ export const SPEAKING_AUDIO_MIME_TYPES: Readonly<Record<string, string>> =
     ".mp3": "audio/mpeg",
     ".wav": "audio/wav",
   });
+  export const SPEAKING_MAX_WORD_ISSUES = 20;
+  /** Số từ tối thiểu để chấm một bản chữ. */
+export const SPEAKING_MIN_TRANSCRIPT_WORDS = 3;

@@ -49,6 +49,10 @@ export interface RunAiTaskInput<S extends z.ZodTypeAny> {
 audio?: AIRequest["audio"];
 /** Hậu kiểm kết quả vừa sinh, trước log ok; lỗi này không retry JSON. */
 validateGeneratedResult?: (data: z.output<S>) => void;
+  /** Nhận ID dòng vừa ghi để server nối các bước của cùng lần nộp Nói. */
+  onUsageLogCreated?: (id: number) => void;
+  /** Cổng cập nhật dòng chấm Nói đã được kiểm tra và tính lượt trước đó. */
+  speakingUsageContinuation?: AiUsageLogger;
 }
 
 export interface RunAiTaskResult<T> {
@@ -115,16 +119,20 @@ export async function runAiTask<S extends z.ZodTypeAny>(
 
    const { provider, cache, counter, logger, limits, model, cacheableTasks, now } = await resolveDeps(deps);
 
-    /** Ghi đúng 1 dòng log qua cổng chung; cổng này không bao giờ ném lỗi. */
-  const writeLog = (status: AiUsageStatus, tokens: number | null = null) =>
-  logAiUsage(logger, { userId, task, status, tokens });
+  const continuation = task === "grade_speaking" ? input.speakingUsageContinuation : undefined;
 
-  // (1) Giới hạn lượt/ngày. Hết lượt: không gọi model, không đụng cache.
-  const limit = dailyLimitForRole(role, limits);
-  const used = await counter.countUsedToday(userId, now());
-  if (used >= limit) {
-    await writeLog("rate_limited");
-    throw new AIQuotaExceededError();
+  /** Ghi hoặc cập nhật một dòng qua cổng log chung. */
+  const writeLog = (status: AiUsageStatus, tokens: number | null = null) =>
+    logAiUsage(continuation ?? logger, { userId, task, status, tokens }, input.onUsageLogCreated);
+
+  // (1) Kiểm lượt/ngày khi bắt đầu lượt AI mới.
+  if (continuation === undefined) {
+    const limit = dailyLimitForRole(role, limits);
+    const used = await counter.countUsedToday(userId, now());
+    if (used >= limit) {
+      await writeLog("rate_limited");
+      throw new AIQuotaExceededError();
+    }
   }
 
    // (2) Tra cache, chỉ với task cache được. Khóa = hash(task + model + prompt đã chuẩn hóa),

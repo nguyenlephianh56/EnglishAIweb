@@ -18,7 +18,7 @@ import type {
   AiUsageLogger,
   AiUsageStatus,
 } from "./ai.types";
-
+import { AIUsageCheckError } from "./ai.types";
 // ---------------------------------------------------------------------
 // Mốc ngày giờ Việt Nam
 // ---------------------------------------------------------------------
@@ -102,8 +102,8 @@ export function createPrismaUsageCounter(db: AiUsageDb = prisma): AiUsageCounter
  */
 export function createPrismaUsageLogger(db: AiUsageDb = prisma): AiUsageLogger {
   return {
-    async log(entry: AiUsageLogEntry): Promise<void> {
-      await db.aiUsageLog.create({
+    async log(entry: AiUsageLogEntry) {
+      const row = await db.aiUsageLog.create({
         data: {
           userId: entry.userId,
           task: entry.task,
@@ -111,6 +111,40 @@ export function createPrismaUsageLogger(db: AiUsageDb = prisma): AiUsageLogger {
           tokens: entry.tokens,
         },
       });
+      return (row as { id?: number } | null | undefined)?.id;
+    },
+  };
+}
+
+/** Dùng lại dòng đã tính lượt của cùng lần nộp sau khi Gemini chữ hóa. */
+export async function getSpeakingUsageContinuation(
+  userId: number,
+  id: number,
+  db: Pick<typeof prisma, "aiUsageLog"> = prisma
+): Promise<AiUsageLogger> {
+  const where = { id, userId, task: "grade_speaking", status: { in: COUNTED_STATUSES } };
+  const existing = await db.aiUsageLog.findFirst({ where, select: { id: true } });
+  if (existing === null) throw new AIUsageCheckError();
+
+  return {
+    async log({ status, tokens }) {
+      // Cache và 429 không thay đổi trạng thái đã tính cho lần chữ hóa.
+      if (status === "cached" || status === "rate_limited") return;
+
+      if (tokens !== null) {
+        // PostgreSQL cộng vào NULL vẫn ra NULL, nên khởi tạo khi chưa có số token.
+        const initialized = await db.aiUsageLog.updateMany({
+          where: { ...where, tokens: null },
+          data: { status, tokens },
+        });
+        if (initialized.count > 0) return;
+      }
+
+      const updated = await db.aiUsageLog.updateMany({
+        where,
+        data: { status, ...(tokens === null ? {} : { tokens: { increment: tokens } }) },
+      });
+      if (updated.count === 0) throw new AIUsageCheckError();
     },
   };
 }

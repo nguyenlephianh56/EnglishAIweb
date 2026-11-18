@@ -104,7 +104,7 @@ export interface AiUsageLogEntry {
   tokens: number | null;
 }
 
-/** Cổng ghi log. Mỗi lượt chạy runAiTask ghi đúng 1 dòng. */
+/** Cổng ghi log, có thể trả ID dòng vừa tạo. */
 export interface AiUsageLogger {
-  log(entry: AiUsageLogEntry): Promise<void>;
+  log(entry: AiUsageLogEntry): Promise<number | void>;
 }
