@@ -1,6 +1,6 @@
 import { api, unwrap } from "./client";
 import type { StudentExercise } from "../types/attempt";
-import type { CreateExercisePayload, ExerciseListItem, ExerciseListParams, ExerciseListResult } from "../types/exercise";
+import type { CreateExercisePayload, ExerciseListItem, ExerciseListParams, ExerciseListResult, GenerateExercisePayload } from "../types/exercise";
 
 /**
  * GET /exercises?skill=&level=&type=&topic=&status=&page=&pageSize=
@@ -23,3 +23,9 @@ export const deleteExercise = (id: number) => unwrap<unknown>(api.delete(`/exerc
 
 /** Học sinh: đề của một bài thư viện (không có đáp án). Bài không tồn tại hoặc không thuộc thư viện -> 404. */
 export const getStudentExercise = (id: number) => unwrap<StudentExercise>(api.get(`/exercises/${id}`));
+
+/** Thời gian chờ tối đa khi nhờ AI sinh bài: backend có thể gọi mô hình hai lần */
+export const GENERATE_TIMEOUT_MS = 60_000;
+
+/** POST /exercises/generate: AI soạn MỘT bài và lưu ngay ở trạng thái DRAFT (source AI). Trả 201 kèm bài vừa lưu. */
+export const generateExercise = (body: GenerateExercisePayload) => unwrap<ExerciseListItem>(api.post("/exercises/generate", body, { timeout: GENERATE_TIMEOUT_MS }));

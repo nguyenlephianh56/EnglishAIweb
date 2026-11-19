@@ -51,6 +51,15 @@ export interface ExerciseListParams {
   pageSize?: number;
 }
 
+/** Body của POST /exercises/generate (backend chặt: không nhận field nào khác) */
+export interface GenerateExercisePayload {
+  skill: LibrarySkill;
+  level: CefrLevel;
+  topic: string;
+  type: ExerciseTypeKey;
+  count: number;
+}
+
 /** Body của POST /exercises (giáo viên: bài mới luôn ở trạng thái DRAFT) */
 export interface CreateExercisePayload {
   type: ExerciseTypeKey | string;
@@ -89,9 +98,11 @@ export interface ErrorCorrectionContent {
   wrong: string;
 }
 export interface ListeningFillContent {
-  /** Kịch bản được đọc bằng speechSynthesis, KHÔNG hiện chữ cho học sinh */
+  /** Bài hiển thị cho học sinh: các từ bị khuyết là "___" */
   script: string;
   blanks: number;
+  /** Bản đọc đầy đủ (không khuyết), dùng cho âm thanh. Thiếu thì chưa phát được. */
+  spoken?: string;
 }
 export interface WritingContent {
   prompt: string;

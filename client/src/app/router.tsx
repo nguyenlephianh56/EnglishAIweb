@@ -30,6 +30,7 @@ import GradingPage from "../features/teacher/grading/GradingPage";
 import GradingDetailPage from "../features/teacher/grading/GradingDetailPage";
 import AnalyticsPage from "../features/teacher/analytics/AnalyticsPage";
 import NewExercisePage from "../features/teacher/exercises/NewExercisePage";
+import GenerateExercisePage from "../features/teacher/exercises/GenerateExercisePage";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
 
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
           { path: "classes/:id", element: <ClassDetailPage /> },
           { path: "exercises", element: <ExercisesPage /> },
           { path: "exercises/new", element: <NewExercisePage /> },
+          { path: "exercises/ai", element: <GenerateExercisePage /> },
           { path: "assignments", element: <AssignmentsPage /> },
           { path: "assignments/new", element: <NewAssignmentPage /> },
           { path: "assignments/:assignmentId", element: <AssignmentDetailPage /> },

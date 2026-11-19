@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CircleAlert, FilePlus2, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { CircleAlert, FilePlus2, Plus, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import Modal from "../../../components/ui/Modal";
@@ -122,9 +122,14 @@ export default function ExercisesPage() {
           <h1 className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Ngân hàng bài tập</h1>
           <p className="mt-2 text-slate-500">Quản lý và tái sử dụng nội dung cho các lớp học.</p>
         </div>
-        <Button to="/teacher/exercises/new" leftIcon={<Plus />}>
-          Tạo bài tập
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button to="/teacher/exercises/ai" variant="outline" leftIcon={<Sparkles />}>
+            Nhờ AI sinh bài
+          </Button>
+          <Button to="/teacher/exercises/new" leftIcon={<Plus />}>
+            Tạo bài tập
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 flex items-start gap-3">
@@ -234,7 +239,10 @@ export default function ExercisesPage() {
               <>
                 <p className="mt-3 font-heading text-lg font-bold text-slate-900">Chưa có bài tập nào</p>
                 <p className="mt-1 text-sm text-slate-500">Tạo bài tập đầu tiên để giao cho lớp của thầy/cô.</p>
-                <div className="mt-5">
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <Button to="/teacher/exercises/ai" variant="outline" leftIcon={<Sparkles />}>
+                    Nhờ AI sinh bài
+                  </Button>
                   <Button to="/teacher/exercises/new" leftIcon={<Plus />}>
                     Tạo bài tập
                   </Button>
