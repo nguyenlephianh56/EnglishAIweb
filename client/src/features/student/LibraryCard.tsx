@@ -1,6 +1,7 @@
-import { ArrowRight, BookOpen, Clock, Headphones, Layers, Mic, PenLine } from "lucide-react";
+import { ArrowRight, BookOpen, Headphones, Layers, Mic, PenLine } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Button from "../../components/ui/Button";
+import { exerciseTypeLabel } from "../exercises/registry";
 import type { ExerciseSummary, LibrarySkill } from "../../types/library";
 
 // Màu phần đầu thẻ theo kỹ năng: nền nhạt, màu nhãn, màu ô icon
@@ -14,14 +15,11 @@ const TONE: Record<LibrarySkill, { label: string; icon: LucideIcon; soft: string
 
 interface LibraryCardProps {
   exercise: ExerciseSummary;
-  /** Cấp độ hiện tại của học sinh, dùng để hiện nhãn "Phù hợp với bạn" */
-  studentLevel?: string;
 }
 
-export default function LibraryCard({ exercise: e, studentLevel }: LibraryCardProps) {
+export default function LibraryCard({ exercise: e }: LibraryCardProps) {
   const tone = TONE[e.skill];
   const Icon = tone.icon;
-  const matches = studentLevel !== undefined && e.level === studentLevel;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -41,19 +39,14 @@ export default function LibraryCard({ exercise: e, studentLevel }: LibraryCardPr
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">{e.level}</span>
-          {matches && <span className="text-xs font-bold text-green-600">Phù hợp với bạn</span>}
         </div>
-        <h3 className="mt-3 font-heading text-lg font-bold text-slate-900">{e.title}</h3>
-        <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{e.description}</p>
+        <h3 className="mt-3 font-heading text-lg font-bold text-slate-900">{e.topic}</h3>
+        <p className="mt-1.5 text-sm text-slate-500">{exerciseTypeLabel(e.type)}</p>
 
         <div className="mt-auto pt-5">
-          <p className="flex items-center gap-4 border-t border-slate-100 pt-4 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="size-4" aria-hidden="true" />
-              {e.durationMin} phút
-            </span>
-            <span>{e.aiGraded ? "AI chấm" : `${e.questionCount} câu`}</span>
-          </p>
+          {e.questionCount !== null && (
+            <p className="border-t border-slate-100 pt-4 text-xs text-slate-500">{e.questionCount === "AI chấm" ? "AI chấm" : `${e.questionCount} câu`}</p>
+          )}
           <div className="mt-4">
             <Button to={`/student/library/${e.id}`} fullWidth rightIcon={<ArrowRight />}>
               Bắt đầu
