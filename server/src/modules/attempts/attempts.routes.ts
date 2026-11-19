@@ -16,10 +16,15 @@ import { requireRole } from "../../middlewares/requireRole";
 import * as attemptsAudioController from "./attempts.audio.controller";
 import { audioUploadQuerySchema } from "./attempts.audio.schema";
 import { receiveAudioFile } from "./attempts.audio.upload";
+import { createTeacherGradeRouter } from "./attempts.grade.routes";
+import { updateTeacherGrade } from "./attempts.grade.service";
 
 export const attemptRoutes = Router();
 
-// Mọi route attempts đều yêu cầu đăng nhập (authenticate đã chặn PENDING/LOCKED bằng 401)
+// PATCH /:id/grade dùng middleware riêng để tài khoản PENDING/LOCKED nhận 403.
+attemptRoutes.use(createTeacherGradeRouter(updateTeacherGrade));
+
+// Các route bên dưới dùng authenticate và trả 401 cho PENDING/LOCKED.
 attemptRoutes.use(authenticate);
 
 // POST /api/v1/attempts  (chỉ STUDENT; TEACHER/ADMIN bị 403, không token -> 401)
