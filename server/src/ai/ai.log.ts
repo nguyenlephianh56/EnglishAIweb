@@ -4,6 +4,7 @@
 //   2) Chỉ chuyển đúng 4 trường xuống cổng ghi (trường thừa bị bỏ).
 //   3) Ghi lỗi (DB hỏng...) -> nuốt, chỉ console mã lỗi; không retry; không ném lỗi,
 //      để kết quả/lỗi trả về cho học sinh không bị đổi.
+import { errorCodeForLog } from "../utils/error-code-for-log";
 import { z } from "zod";
 import { aiTaskSchema, aiUsageStatusSchema } from "./ai.types";
 import type { AiUsageLogEntry, AiUsageLogger } from "./ai.types";
@@ -17,11 +18,6 @@ export const aiUsageLogEntrySchema = z.object({
   /** Số token thật từ provider; không có thì null (không tự ước lượng). */
   tokens: z.number().int().nonnegative().nullable(),
 });
-
-function errorCode(error: unknown): string {
-  const code = (error as { code?: unknown } | null)?.code;
-  return typeof code === "string" ? code : "UNKNOWN";
-}
 
 /** Ghi đúng 1 dòng log. Không bao giờ ném lỗi. Trả true nếu đã ghi. */
 export async function logAiUsage(
@@ -43,7 +39,7 @@ export async function logAiUsage(
     if (typeof id === "number") onCreated?.(id);
     return true;
   } catch (error) {
-    console.error(`[ai/log] log_failed task=${task} status=${status} code=${errorCode(error)}`);
+    console.error(`[ai/log] log_failed task=${task} status=${status} code=${errorCodeForLog(error)}`);
     return false;
   }
 }

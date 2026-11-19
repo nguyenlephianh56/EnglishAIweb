@@ -342,18 +342,18 @@ describe("POST /api/v1/exercises - quyền truy cập", () => {
     expect(json.error.code).toBe("FORBIDDEN");
   });
 
-  // Lưu ý: middleware authenticate chặn mọi user không ACTIVE bằng 401 (không phải 403).
-  // Đây là hành vi có sẵn của dự án; test ghi nhận đúng hành vi đó.
-  it("TEACHER PENDING -> bị chặn (401 từ authenticate)", async () => {
+  it("TEACHER PENDING -> 403", async () => {
     const { status, json } = await post(validBody(), asUser(ids.teacherPending));
-    expect(status).toBe(401);
+    expect(status).toBe(403);
     expect(json.data).toBeNull();
+    expect(json.error.code).toBe("FORBIDDEN");
   });
 
-  it("TEACHER LOCKED -> bị chặn (401 từ authenticate)", async () => {
+  it("TEACHER LOCKED -> 403", async () => {
     const { status, json } = await post(validBody(), asUser(ids.teacherLocked));
-    expect(status).toBe(401);
+    expect(status).toBe(403);
     expect(json.data).toBeNull();
+    expect(json.error.code).toBe("FORBIDDEN");
   });
 
   it("các request bị chặn không tạo dòng nào trong DB", async () => {

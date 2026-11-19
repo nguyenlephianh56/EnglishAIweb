@@ -14,6 +14,7 @@
  *  - Không log tên file gốc, nội dung hay đường dẫn; chỉ log mã lỗi hệ thống.
  */
 
+import { errorCodeForLog } from "../../utils/error-code-for-log";
 import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
@@ -133,7 +134,7 @@ const uploader = multer({
  * Node chứa đường dẫn đầy đủ. Client nhận message cố định.
  */
 const storageError = (error: unknown): AudioUploadError => {
-  console.error("[audio] storage error:", systemErrorCode(error) ?? "UNKNOWN");
+  console.error("[audio] storage error:", errorCodeForLog(error));
   return new AudioUploadError(
     500,
     "AUDIO_STORAGE_ERROR",
@@ -171,7 +172,7 @@ export const discardAudioFile = async (req: Request): Promise<void> => {
   try {
     await fs.promises.rm(filePath, { force: true });
   } catch (error) {
-    console.error("[audio] discard failed:", systemErrorCode(error) ?? "UNKNOWN");
+    console.error("[audio] discard failed:", errorCodeForLog(error));
   }
 };
 
@@ -320,6 +321,6 @@ export const deleteClaimedAudio = async (claimedPath: string): Promise<void> => 
     await fs.promises.unlink(claimedPath);
   } catch (error) {
     if (systemErrorCode(error) === "ENOENT") return;
-    console.error("[audio] AUDIO_DELETE_FAILED", systemErrorCode(error) ?? "UNKNOWN");
+    console.error("[audio] AUDIO_DELETE_FAILED", errorCodeForLog(error));
   }
 };

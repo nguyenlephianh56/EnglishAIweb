@@ -8,6 +8,7 @@
 //                           -> lỗi: log `error` (hoặc `rate_limited` nếu Gemini 429),
 //                              ném lại lỗi chuẩn của T8 NGUYÊN VẸN
 //   (4) lưu cache (chỉ kết quả đã qua Zod) + log `ok` (kèm tokens nếu có)
+import { errorCodeForLog } from "../utils/error-code-for-log";
 import type { z } from "zod";
 import { buildAiCacheKey } from "./ai.cache";
 import { AIQuotaExceededError, aiTaskSchema } from "./ai.types";
@@ -59,12 +60,6 @@ export interface RunAiTaskResult<T> {
   data: T;
   /** true = lấy từ cache, không gọi model. */
   cached: boolean;
-}
-
-/** Lấy mã lỗi (nếu có) để log; tuyệt đối không lấy message/stack vì có thể chứa nội dung. */
-function errorCode(error: unknown): string {
-  const code = (error as { code?: unknown } | null)?.code;
-  return typeof code === "string" ? code : "UNKNOWN";
 }
 
 async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<AiServiceDeps> {
@@ -143,7 +138,7 @@ export async function runAiTask<S extends z.ZodTypeAny>(
     try {
       hit = await cache.get(key);
     } catch (error) {
-      console.error(`[ai/service] cache_get_failed code=${errorCode(error)}`);
+      console.error(`[ai/service] cache_get_failed code=${errorCodeForLog(error)}`);
     }
     if (hit !== undefined) {
       // Kiểm lại bằng schema của lượt này: cùng task+prompt nhưng khác khuôn thì coi là không trúng.
@@ -185,7 +180,7 @@ try {
     try {
       await cache.set(key, result.data);
     } catch (error) {
-      console.error(`[ai/service] cache_set_failed code=${errorCode(error)}`);
+      console.error(`[ai/service] cache_set_failed code=${errorCodeForLog(error)}`);
     }
   }
   await writeLog("ok", sumTokens(result.tokens));

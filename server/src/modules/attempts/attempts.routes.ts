@@ -11,7 +11,7 @@ import {
   validateParams,
   validateQuery,
 } from "../../middlewares/validate";
-import { authenticate } from "../../middlewares/auth";
+import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
 import * as attemptsAudioController from "./attempts.audio.controller";
 import { audioUploadQuerySchema } from "./attempts.audio.schema";
@@ -24,8 +24,8 @@ export const attemptRoutes = Router();
 // PATCH /:id/grade dùng middleware riêng để tài khoản PENDING/LOCKED nhận 403.
 attemptRoutes.use(createTeacherGradeRouter(updateTeacherGrade));
 
-// Các route bên dưới dùng authenticate và trả 401 cho PENDING/LOCKED.
-attemptRoutes.use(authenticate);
+// Các route bên dưới cũng yêu cầu tài khoản ACTIVE.
+attemptRoutes.use(authenticateActiveAccount);
 
 // POST /api/v1/attempts  (chỉ STUDENT; TEACHER/ADMIN bị 403, không token -> 401)
 // Thứ tự quan trọng: kiểm quyền TRƯỚC khi kiểm body, để GV/Admin luôn nhận 403.

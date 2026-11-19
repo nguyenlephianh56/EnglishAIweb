@@ -44,8 +44,8 @@ app.get("/api/v1/health/db", async (_req, res) => {
       },
       error: null,
     });
-  } catch (error) {
-    console.error("Database health check failed:", error);
+  } catch {
+    console.error("DATABASE_UNAVAILABLE");
 
     res.status(503).json({
       data: null,

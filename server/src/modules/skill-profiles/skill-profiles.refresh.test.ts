@@ -63,14 +63,17 @@ describe("refreshProfileAfterGrading", () => {
     expect(logged).not.toContain("NOI-DUNG-BAI-VIET-BI-MAT");
   });
 
-  it("lỗi không có mã: log tên lỗi, vẫn không log message", async () => {
+  it("lỗi không có mã: log UNKNOWN kể cả khi tên lỗi chứa dữ liệu riêng", async () => {
     const { db } = makeDb({ studentId: 3, exercise: { skill: "WRITING" } });
-    recomputeMock.mockRejectedValue(new TypeError("bai viet: I goes to school"));
+    recomputeMock.mockRejectedValue(Object.assign(new TypeError("bai viet: I goes to school"), {
+      name: "PRIVATE_ERROR_NAME",
+    }));
 
     await expect(refreshProfileAfterGrading(db, 1)).resolves.toBeUndefined();
 
     const logged = JSON.stringify(errorSpy.mock.calls[0]);
-    expect(logged).toContain("TypeError");
+    expect(logged).toContain("UNKNOWN");
+    expect(logged).not.toContain("PRIVATE_ERROR_NAME");
     expect(logged).not.toContain("I goes");
   });
 

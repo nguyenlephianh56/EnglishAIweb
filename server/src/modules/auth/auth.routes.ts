@@ -3,7 +3,7 @@ import { Router } from "express";
 import * as authController from "./auth.controller";
 import { registerSchema, loginSchema } from "./auth.schema";
 import { validate } from "../../middlewares/validate";
-import { authenticate } from "../../middlewares/auth";
+import { authenticateActiveAccount } from "../../middlewares/auth";
 
 export const authRoutes = Router();
 
@@ -24,6 +24,6 @@ authRoutes.post(
 // GET /api/v1/auth/me
 authRoutes.get(
   "/me",
-  authenticate,
+  authenticateActiveAccount,
   authController.me
 );

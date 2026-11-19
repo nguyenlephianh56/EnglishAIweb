@@ -160,11 +160,11 @@ describe("T20 – PATCH /api/v1/attempts/:id/grade", () => {
     expect((await request("abc", user)).status).toBe(403);
   });
 
-  it("route dùng middleware xác thực cũ vẫn trả 401 cho tài khoản bị khóa", async () => {
+  it("route chi tiết bài nộp cũng trả 403 cho tài khoản bị khóa", async () => {
     const res = await fetch(`${baseUrl}/api/v1/attempts/${assignedId}`, {
       headers: authorization("locked"),
     });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 
   it.each(["owner", "admin"])("%s truy cập được bài giao chưa có điểm AI", async (user) => {

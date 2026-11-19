@@ -3,14 +3,14 @@ import { Router } from "express";
 import { Role } from "@prisma/client";
 import * as skillProfilesController from "./skill-profiles.controller";
 import { studentIdParamSchema } from "./skill-profiles.schema";
-import { authenticate } from "../../middlewares/auth";
+import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
 import { validateParams } from "../../middlewares/validate";
 
 export const skillProfileRoutes = Router();
 
-// Mọi route đều yêu cầu đăng nhập (authenticate chặn token sai/thiếu và tài khoản không ACTIVE).
-skillProfileRoutes.use(authenticate);
+// Mọi route yêu cầu tài khoản ACTIVE.
+skillProfileRoutes.use(authenticateActiveAccount);
 
 // GET /api/v1/skill-profiles/me  (chỉ STUDENT; studentId lấy từ token)
 // Khai báo TRƯỚC các route có tham số để "me" không bị hiểu là một id.

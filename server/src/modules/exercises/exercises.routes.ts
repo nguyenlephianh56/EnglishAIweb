@@ -4,7 +4,7 @@ import * as exercisesController from "./exercises.controller";
 import {
   createExerciseSchema,updateExerciseSchema,rejectExerciseSchema,} from "./exercises.schema";
 import { validate } from "../../middlewares/validate";
-import { authenticate } from "../../middlewares/auth";
+import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
 import { aiRateLimit } from "../../middlewares/aiRateLimit";
 import { generateExerciseSchema } from "./exercises.generate.schema";
@@ -14,8 +14,8 @@ export const exerciseRoutes = Router();
 
 
 
-// Mọi route bài tập đều yêu cầu đăng nhập (authenticate đã chặn PENDING/LOCKED bằng 401)
-exerciseRoutes.use(authenticate);
+// Mọi route bài tập yêu cầu tài khoản ACTIVE. PENDING/LOCKED nhận 403.
+exerciseRoutes.use(authenticateActiveAccount);
 
 // POST /api/v1/exercises  (TEACHER hoặc ADMIN; STUDENT bị 403)
 exerciseRoutes.post(

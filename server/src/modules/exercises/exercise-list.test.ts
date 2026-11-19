@@ -942,13 +942,13 @@ describe("GET danh sách - query sai và xác thực", () => {
   });
 
   it.each(["pending", "locked"] as const)(
-    "tài khoản %s -> 401",
+    "tài khoản %s -> 403",
     async (role) => {
       const r = await getList(users[role]);
 
-      expect(r.status).toBe(401);
+      expect(r.status).toBe(403);
       expect(r.body.data).toBeNull();
-      expect(r.body.error?.code).toBe("UNAUTHORIZED");
+      expect(r.body.error?.code).toBe("FORBIDDEN");
     }
   );
 });

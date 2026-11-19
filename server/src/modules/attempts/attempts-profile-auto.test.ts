@@ -94,7 +94,7 @@ describe("submitAttempt tự động → refresh hồ sơ", () => {
     }));
     expect(result).toEqual({
       ...expected,
-      ...(!assigned || late ? { answer: ["goes"], explanation: exercise.explanation } : {}),
+      ...(!assigned || late ? { explanation: exercise.explanation } : {}),
       ...(assigned ? { attemptNo: 3, attemptsLeft: 0 } : {}),
     });
   });
@@ -135,7 +135,7 @@ describe("submitAttempt tự động → refresh hồ sơ", () => {
     expect(committed).toBe(true);
     expect(tx.attempt.create).toHaveBeenCalledTimes(1);
     expect(refreshSpy).toHaveBeenCalledExactlyOnceWith(db, 42);
-    expect(result).toEqual({ ...expected, answer: ["goes"], explanation: exercise.explanation });
+    expect(result).toEqual({ ...expected, explanation: exercise.explanation });
     expect(errorSpy).toHaveBeenCalledExactlyOnceWith(
       "[skill-profiles] refresh_after_grading_failed",
       { studentId: student.id, skill: "FOUNDATION", code: "P2002" },

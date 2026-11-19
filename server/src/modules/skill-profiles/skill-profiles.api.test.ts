@@ -6,8 +6,7 @@
  * - skill_profiles được tạo bằng chính hàm T14 `recomputeSkillProfile` (chỉ GỌI, không sửa), nên test
  *   kiểm cả đường "T14 ghi → T15 đọc".
  *
- * LƯU Ý ĐÃ CHỐT: `authenticate` (không sửa ở T15) trả 401 cho tài khoản không ACTIVE (GV PENDING, HS LOCKED),
- * nên các test đó kỳ vọng 401 chứ không phải 403.
+ * T22: tài khoản PENDING hoặc LOCKED có token hợp lệ nhận 403.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Server } from "http";
@@ -332,9 +331,9 @@ describe("T15 xác thực và vai trò", () => {
     expect((await get(`/api/v1/skill-profiles/students/${ids.s1}`, ids.s1)).status).toBe(403);
   });
 
-  it("GV chưa duyệt (PENDING) và HS bị khóa (LOCKED) bị chặn 401 bởi authenticate", async () => {
-    expect((await get(`/api/v1/skill-profiles/students/${ids.s1}`, ids.teacherPending)).status).toBe(401);
-    expect((await get("/api/v1/skill-profiles/me", ids.locked)).status).toBe(401);
+  it("GV PENDING và HS LOCKED nhận 403", async () => {
+    expect((await get(`/api/v1/skill-profiles/students/${ids.s1}`, ids.teacherPending)).status).toBe(403);
+    expect((await get("/api/v1/skill-profiles/me", ids.locked)).status).toBe(403);
   });
 
   it.each(["abc", "0", "-1", "1.5", "1e3", "%207", "99999999999"])(

@@ -261,7 +261,6 @@ const detailOf = (r: ApiResult): Detail => {
 };
 
 const REVEALED_KEYS = [
-  "answer",
   "assignmentId",
   "attemptId",
   "attemptNo",
@@ -282,7 +281,7 @@ const REVEALED_KEYS = [
   "total",
 ];
 const HIDDEN_KEYS = REVEALED_KEYS.filter(
-  (k) => k !== "answer" && k !== "explanation"
+  (k) => k !== "explanation"
 );
 
 const ALL_SECRETS = [
@@ -294,14 +293,14 @@ const ALL_SECRETS = [
 ];
 
 describe("Tự luyện: lộ ngay", () => {
-  it("200: có đáp án đúng, explanation, correction; bài làm của HS ở submittedAnswer", async () => {
+  it("200: có explanation, correction; bài làm của HS ở submittedAnswer", async () => {
     const d = detailOf(await getDetail(A.p1, users.studentA));
     expect(Object.keys(d).sort()).toEqual(REVEALED_KEYS);
     expect(d.attemptId).toBe(A.p1);
     expect(d.exerciseId).toBe(ids.exP);
     expect(d.assignmentId).toBeNull();
     expect(d.mode).toBe("practice");
-    expect(d.answer).toEqual([SECRET_A, SECRET_B]);
+    expect(d).not.toHaveProperty("answer");
     expect(d.explanation).toBe(SECRET_EXPLANATION);
     expect(d.submittedAnswer).toEqual(STUDENT_ANSWER);
     expect(d.errors).toEqual([
@@ -366,10 +365,10 @@ describe("Bài giao TRƯỚC hạn: không lộ", () => {
 });
 
 describe("Bài giao SAU hạn: lộ đủ", () => {
-  it("có answer, explanation, correction; isLate true", async () => {
+  it("có explanation, correction; isLate true", async () => {
     const d = detailOf(await getDetail(A.past, users.studentA));
     expect(Object.keys(d).sort()).toEqual(REVEALED_KEYS);
-    expect(d.answer).toEqual([SECRET_A, SECRET_B]);
+    expect(d).not.toHaveProperty("answer");
     expect(d.explanation).toBe(SECRET_EXPLANATION);
     expect(d.errors[0]).toMatchObject({
       correction: SECRET_CORRECTION,
@@ -389,7 +388,7 @@ describe("Bài giao SAU hạn: lộ đủ", () => {
       data: { dueAt: new Date(Date.now() - 1000) },
     });
     const revealed = detailOf(await getDetail(A.flip, users.studentA));
-    expect(revealed.answer).toEqual([SECRET_A, SECRET_B]);
+    expect(revealed).not.toHaveProperty("answer");
     expect(revealed.explanation).toBe(SECRET_EXPLANATION);
 
     await prisma.assignment.update({

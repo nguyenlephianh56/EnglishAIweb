@@ -599,9 +599,10 @@ describe("POST /api/v1/assignments - phân quyền", () => {
     expect(res.body.error?.code).toBe("FORBIDDEN");
   });
 
-  it("ADMIN -> 403 (chỉ GV chủ lớp được giao bài)", async () => {
+  it("ADMIN được giao bài cho lớp của GV", async () => {
     const res = await postAssignment(validBody(), users.admin);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ classId: ids.classOwn, assignedById: users.admin });
   });
 
   it("STUDENT gửi body sai vẫn nhận 403 (kiểm quyền trước kiểm body)", async () => {

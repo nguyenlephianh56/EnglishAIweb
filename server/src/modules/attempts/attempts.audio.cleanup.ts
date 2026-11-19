@@ -10,6 +10,7 @@
  *  - Quá hạn = (now - mtime) LỚN HƠN ttlMs; đúng bằng ttlMs thì còn giữ.
  *  - Một file lỗi không làm dừng lượt quét. Log chỉ có mã, không có tên file/đường dẫn.
  */
+import { errorCodeForLog } from "../../utils/error-code-for-log";
 import fs from "fs";
 import path from "path";
 import { getAudioTmpDir } from "./attempts.audio.config";
@@ -62,7 +63,7 @@ export const cleanupExpiredAudio = async (
     entries = await fs.promises.readdir(dir, { withFileTypes: true });
   } catch (error) {
     if (errorCode(error) !== "ENOENT") {
-      console.error("[audio] AUDIO_CLEANUP_FAILED", errorCode(error));
+      console.error("[audio] AUDIO_CLEANUP_FAILED", errorCodeForLog(error));
     }
     return result; // chưa có thư mục = chưa có gì để dọn
   }
@@ -83,7 +84,7 @@ export const cleanupExpiredAudio = async (
     } catch (error) {
       if (errorCode(error) === "ENOENT") continue; // đã bị request khác xóa: coi như xong
       result.failed += 1;
-      console.error("[audio] AUDIO_DELETE_FAILED", errorCode(error));
+      console.error("[audio] AUDIO_DELETE_FAILED", errorCodeForLog(error));
     }
   }
 

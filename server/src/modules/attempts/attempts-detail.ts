@@ -52,10 +52,7 @@ export type AttemptDetail = AttemptResult & {
   mode: string;
   /** Lần nộp thứ mấy trong cùng bài giao (hoặc cùng bài tự luyện), bắt đầu từ 1. */
   attemptNo: number;
-  /**
-   * Bài làm của HS. Cố ý KHÔNG đặt tên `answer`: key `answer` đã dành cho
-   * ĐÁP ÁN ĐÚNG (do buildAttemptResult trả, chỉ có khi được lộ).
-   */
+  /** Bài làm mà chính HS đã gửi. */
   submittedAnswer: unknown;
   teacherScore: number | null;
   /** COALESCE(teacher_score, score). */

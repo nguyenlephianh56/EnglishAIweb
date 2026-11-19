@@ -336,10 +336,7 @@ describe("POST /exercises/generate - lỗi thì KHÔNG tạo bản ghi", () => {
     expect(fake.createExercise).toHaveBeenCalledTimes(1);
 
     // Log chỉ có mã cố định, không có chuỗi kết nối/nội dung bài.
-    expect(log).toHaveBeenCalledOnce();
-    expect((log.mock.calls[0]?.[0] as Error).message).toBe(
-      "EXERCISE_GENERATE_FAILED"
-    );
+    expect(log).toHaveBeenCalledExactlyOnceWith("INTERNAL_SERVER_ERROR");
   });
 });
 

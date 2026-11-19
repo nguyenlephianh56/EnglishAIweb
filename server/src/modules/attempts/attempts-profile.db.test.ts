@@ -192,12 +192,13 @@ afterAll(async () => {
 });
 
 describe("T14 — chấm tự động", () => {
-  it.each(AUTO)("$type: chấm, lộ đáp án, giới hạn 3 lần và refresh như cũ", async (item) => {
+  it.each(AUTO)("$type: chấm, trả giải thích tự luyện, giới hạn 3 lần và refresh", async (item) => {
     const id = await student();
     const ex = exercises.get(item.type)!;
     const practice = await submit(id, ex, item.answer);
     expect(practice.status).toBe(201);
-    expect(practice.data).toMatchObject({ score: 10, answer: item.answer, explanation: EXPLANATION });
+    expect(practice.data).toMatchObject({ score: 10, explanation: EXPLANATION });
+    expect(practice.data).not.toHaveProperty("answer");
     once(practice.data.attemptId);
     const asg = await assignment(ex);
     for (let n = 1; n <= 3; n++) {
@@ -483,8 +484,7 @@ describe("T14 — best-effort", () => {
     const expected: Row = { attemptId: saved.id, score: saved.score, maxScore: 10, graded: true,
       correct: mode === "auto" ? 2 : 0, total: mode === "auto" ? 2 : 0,
       errors: mode === "auto" ? [] : AI_GRADE.errors, explanation: EXPLANATION };
-    if (mode === "auto") expected.answer = ["goes", "school"];
-    else Object.assign(expected, { criteria: AI_GRADE.criteria, comment: AI_GRADE.comment });
+    if (mode !== "auto") Object.assign(expected, { criteria: AI_GRADE.criteria, comment: AI_GRADE.comment });
     if (mode === "regrade") Object.assign(expected, {
       attemptNo: 2, isLate: false, submittedAt: saved.submittedAt.toISOString(),
     });

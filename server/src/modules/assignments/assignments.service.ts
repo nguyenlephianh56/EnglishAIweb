@@ -27,13 +27,17 @@ import {
 const businessError = (statusCode: number, code: string, message: string) =>
   Object.assign(new Error(message), { statusCode, code });
 
+type AssignmentActor = { id: number; role: Role };
+
+const managedClassScope = (user: AssignmentActor): Prisma.ClassWhereInput =>
+  user.role === Role.ADMIN ? {} : { teacherId: user.id };
+
 /**
- * POST /api/v1/assignments: GV giao bài cho MỘT lớp của mình.
+ * POST /api/v1/assignments: GV giao bài cho lớp mình; admin giao cho mọi lớp.
  *
  * Thứ tự (lỗi ở bước nào thì dừng, KHÔNG tạo assignment):
- *  1. Lớp phải do GV này làm chủ. Lớp không tồn tại và lớp của GV khác cùng một lỗi 404,
- *     để không lộ lớp đó có tồn tại. (ADMIN đã bị requireRole chặn từ route.)
- *  2. Bài phải tồn tại VÀ (đã PUBLISHED, hoặc do chính GV này tạo và không HIDDEN).
+ *  1. Lớp phải thuộc phạm vi quản lý. Lớp không tồn tại và lớp ngoài phạm vi cùng trả 404.
+ *  2. Bài phải tồn tại VÀ (đã PUBLISHED, hoặc do người giao tạo và không HIDDEN).
  *     Không thỏa -> 404 (không lộ bài DRAFT của GV khác).
  *  3. Dạng bài phải cho giao (speaking chặn tạm đến Sprint 4; writing đã mở) -> 422.
  *
@@ -41,11 +45,11 @@ const businessError = (statusCode: number, code: string, message: string) =>
  * Không chặn giao trùng (cùng bài, cùng lớp): GV có thể giao lại với hạn khác.
  */
 export const createAssignment = async (
-  user: { id: number },
+  user: AssignmentActor,
   input: CreateAssignmentInput
 ) => {
   const ownClass = await prisma.class.findFirst({
-    where: { id: input.classId, teacherId: user.id },
+    where: { id: input.classId, ...managedClassScope(user) },
     select: { id: true },
   });
   if (!ownClass) {
@@ -228,7 +232,7 @@ const listForStudent = async (
 };
 
 /**
- * GET /assignments cho GIÁO VIÊN: bài giao thuộc các lớp CỦA MÌNH (class.teacher_id = user.id).
+ * GET /assignments: GV xem theo lớp mình, admin xem theo mọi lớp.
  *
  * - Lọc classId của lớp người khác không lỗi và không lộ gì: kết quả đơn giản là rỗng.
  * - Sắp xếp due_at giảm dần (bài mới/hạn xa lên đầu), id giảm dần để ổn định.
@@ -236,14 +240,14 @@ const listForStudent = async (
  *   totalStudents = số thành viên hiện tại của lớp. Hai số này cùng một mốc nên so sánh được.
  * - status không áp dụng cho GV (là trạng thái của từng HS) nên bị bỏ qua.
  */
-const listForTeacher = async (
-  user: { id: number },
+const listForStaff = async (
+  user: AssignmentActor,
   query: ListAssignmentsQuery
 ): Promise<Page<TeacherAssignmentItem>> => {
   const { classId, page, limit } = query;
 
   const where: Prisma.AssignmentWhereInput = {
-    class: { teacherId: user.id },
+    class: managedClassScope(user),
     ...(classId !== undefined ? { classId } : {}),
   };
 
@@ -297,14 +301,14 @@ const listForTeacher = async (
 /**
  * GET /api/v1/assignments: danh sách bài giao theo vai trò.
  * HS: bài được giao cho lớp mình (kèm status). GV: bài đã giao ở lớp mình (kèm số HS đã nộp).
- * ADMIN đã bị requireRole chặn từ route.
+ * Admin: bài đã giao ở mọi lớp, cùng cấu trúc như kết quả dành cho GV.
  */
 export const listAssignments = async (
-  user: { id: number; role: Role },
+  user: AssignmentActor,
   query: ListAssignmentsQuery
 ): Promise<Page<StudentAssignmentItem> | Page<TeacherAssignmentItem>> => {
   if (user.role === Role.STUDENT) return listForStudent(user, query);
-  if (user.role === Role.TEACHER) return listForTeacher(user, query);
+  if (user.role === Role.TEACHER || user.role === Role.ADMIN) return listForStaff(user, query);
   throw businessError(403, "FORBIDDEN", "Bạn không có quyền truy cập chức năng này");
 };
 
@@ -347,10 +351,9 @@ export const getAssignmentDetail = async (
 
 
 /**
- * GET /api/v1/assignments/:id/submissions: bài nộp của cả lớp, cho GV CHỦ LỚP.
+ * GET /api/v1/assignments/:id/submissions: bài nộp của cả lớp, cho GV chủ lớp và admin.
  *
  * - Bài giao không tồn tại và bài giao của lớp GV khác cùng một lỗi 404.
- *   (ADMIN đã bị requireRole chặn từ route.)
  * - Trả MỌI HS hiện có trong lớp (kể cả chưa làm); HS đã rời lớp không có dòng.
  * - Tránh N+1: 1 truy vấn bài giao, 1 truy vấn thành viên lớp (chỉ id/name/email,
  *   KHÔNG lấy passwordHash), 1 SQL gộp theo HS.
@@ -359,11 +362,11 @@ export const getAssignmentDetail = async (
  * - JOIN class_members để attempt của người không còn trong lớp không bị tính.
  */
 export const getSubmissions = async (
-  user: { id: number },
+  user: AssignmentActor,
   assignmentId: number
 ): Promise<SubmissionsResponse> => {
   const assignment = await prisma.assignment.findFirst({
-    where: { id: assignmentId, class: { teacherId: user.id } },
+    where: { id: assignmentId, class: managedClassScope(user) },
     select: {
       id: true,
       classId: true,

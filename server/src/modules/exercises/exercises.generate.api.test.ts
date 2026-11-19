@@ -238,8 +238,8 @@ describe("POST /api/v1/exercises/generate - nối route và stub", () => {
   it.each([
     ["không token", undefined, 401, "UNAUTHORIZED"],
     ["STUDENT", 1, 403, "FORBIDDEN"],
-    ["TEACHER PENDING", 2, 401, "UNAUTHORIZED"],
-    ["TEACHER LOCKED", 3, 401, "UNAUTHORIZED"],
+    ["TEACHER PENDING", 2, 403, "FORBIDDEN"],
+    ["TEACHER LOCKED", 3, 403, "FORBIDDEN"],
   ] as const)(
     "%s bị chặn trước quota",
     async (_name, userId, status, code) => {
@@ -249,7 +249,7 @@ describe("POST /api/v1/exercises/generate - nối route và stub", () => {
       expect(result.json.data).toBeNull();
       expect(result.json.error?.code).toBe(code);
 
-      // PENDING/LOCKED phải thực sự đi qua authenticate.
+      // PENDING/LOCKED phải thực sự đi qua authenticateActiveAccount.
       expect(fake.findUser).toHaveBeenCalledTimes(
         userId === undefined ? 0 : 1
       );
@@ -363,11 +363,7 @@ describe("POST /api/v1/exercises/generate - nối route và stub", () => {
       /PRIVATE_TOPIC|GEMINI_API_KEY|passwordHash/
     );
 
-    expect(log).toHaveBeenCalledOnce();
-    expect(log.mock.calls[0]?.[0]).toBeInstanceOf(Error);
-    expect((log.mock.calls[0]?.[0] as Error).message).toBe(
-      "EXERCISE_GENERATE_FAILED"
-    );
+    expect(log).toHaveBeenCalledExactlyOnceWith("INTERNAL_SERVER_ERROR");
   });
 });
 

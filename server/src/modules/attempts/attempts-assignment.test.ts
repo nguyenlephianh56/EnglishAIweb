@@ -230,7 +230,7 @@ const errorsOf = (data: Record<string, unknown> | null) =>
 
 // ---------------------------------------------------------------------------
 describe("Tự luyện (không có assignmentId): không hồi quy", () => {
-  it("201: assignment_id null, is_late false, lộ đáp án ngay", async () => {
+  it("201: assignment_id null, is_late false, trả phản hồi ngay", async () => {
     const exerciseId = await newFillBlank("PUBLISHED", true);
     const res = await postAttempt(
       { exerciseId, answer: [WRONG_ANSWER] },
@@ -245,7 +245,7 @@ describe("Tự luyện (không có assignmentId): không hồi quy", () => {
     expect(row.mode).toBe("practice");
     expect(row.score).toBe(0);
 
-    expect(res.body.data?.answer).toEqual([SECRET_ANSWER]);
+    expect(res.body.data).not.toHaveProperty("answer");
     expect(res.body.data?.explanation).toBe(SECRET_EXPLANATION);
     const errors = errorsOf(res.body.data);
     expect(errors.length).toBeGreaterThan(0);
@@ -362,7 +362,7 @@ describe("Bài giao trước hạn", () => {
 
 // ---------------------------------------------------------------------------
 describe("Bài giao sau hạn", () => {
-  it("201: is_late true, vẫn chấm + lưu, lộ đủ đáp án", async () => {
+  it("201: is_late true, vẫn chấm + lưu, trả phản hồi", async () => {
     const exerciseId = await newFillBlank("PUBLISHED", false);
     const a = await newAssignment(ids.classA, exerciseId, -HOUR);
 
@@ -378,7 +378,7 @@ describe("Bài giao sau hạn", () => {
     expect(row.score).toBe(0);
     expect(row.submittedAt.getTime()).toBeGreaterThan(a.dueAt.getTime());
 
-    expect(res.body.data?.answer).toEqual([SECRET_ANSWER]);
+    expect(res.body.data).not.toHaveProperty("answer");
     expect(res.body.data?.explanation).toBe(SECRET_EXPLANATION);
     const errors = errorsOf(res.body.data);
     expect(errors.length).toBeGreaterThan(0);
@@ -415,7 +415,7 @@ describe("Sát biên due_at", () => {
     const row = await readAttempt(res.body.data?.attemptId);
     expect(row.isLate).toBe(true);
     expect(row.submittedAt.getTime()).toBeGreaterThan(a.dueAt.getTime());
-    expect(res.body.data?.answer).toEqual([SECRET_ANSWER]);
+    expect(res.body.data).not.toHaveProperty("answer");
   });
 
   it("nhất quán: is_late luôn bằng (submitted_at > due_at) trong DB", async () => {

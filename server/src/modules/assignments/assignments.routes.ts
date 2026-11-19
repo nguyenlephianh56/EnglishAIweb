@@ -11,28 +11,26 @@ import {
   validateParams,
   validateQuery,
 } from "../../middlewares/validate";
-import { authenticate } from "../../middlewares/auth";
+import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
 
 export const assignmentRoutes = Router();
 
-// Mọi route assignments đều yêu cầu đăng nhập (authenticate đã chặn PENDING/LOCKED bằng 401)
-assignmentRoutes.use(authenticate);
+// Mọi route assignments đều yêu cầu tài khoản ACTIVE.
+assignmentRoutes.use(authenticateActiveAccount);
 
-// POST /api/v1/assignments  (chỉ TEACHER; STUDENT/ADMIN bị 403, không token -> 401)
-// Quyền kiểm TRƯỚC khi kiểm body, để STUDENT/ADMIN luôn nhận 403 (không phải 400).
+// POST /api/v1/assignments (GV chủ lớp hoặc admin).
 assignmentRoutes.post(
   "/",
-  requireRole(Role.TEACHER),
+  requireRole(Role.TEACHER, Role.ADMIN),
   validate(createAssignmentSchema),
   assignmentsController.createAssignment
 );
 
-// GET /api/v1/assignments  (STUDENT: bài được giao | TEACHER: bài đã giao ở lớp mình; ADMIN bị 403)
-// Quyền kiểm TRƯỚC khi kiểm query, để ADMIN luôn nhận 403 (không phải 400).
+// GET /api/v1/assignments (HS/GV theo lớp của mình, admin xem mọi lớp).
 assignmentRoutes.get(
   "/",
-  requireRole(Role.STUDENT, Role.TEACHER),
+  requireRole(Role.STUDENT, Role.TEACHER, Role.ADMIN),
   validateQuery(listAssignmentsQuerySchema),
   assignmentsController.listAssignments
 );
@@ -46,11 +44,10 @@ assignmentRoutes.get(
   assignmentsController.getAssignment
 );
 
-// GET /api/v1/assignments/:id/submissions  (bài nộp của cả lớp; chỉ TEACHER chủ lớp, ADMIN bị 403)
-// Quyền kiểm TRƯỚC khi kiểm :id, để HS/ADMIN luôn nhận 403.
+// GET /api/v1/assignments/:id/submissions (GV chủ lớp hoặc admin).
 assignmentRoutes.get(
   "/:id/submissions",
-  requireRole(Role.TEACHER),
+  requireRole(Role.TEACHER, Role.ADMIN),
   validateParams(assignmentIdParamSchema),
   assignmentsController.getSubmissions
 );

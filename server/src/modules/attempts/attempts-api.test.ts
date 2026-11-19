@@ -243,7 +243,6 @@ const countAttempts = () => prisma.attempt.count({ where: { studentId: users.stu
 
 // 8 field duy nhất được phép xuất hiện trong response nộp bài tự luyện
 const RESULT_KEYS = [
-  "answer",
   "attemptId",
   "correct",
   "errors",
@@ -261,7 +260,6 @@ interface GoodCase {
   name: string;
   key: ExerciseKey;
   submit: unknown; // bài làm của HS
-  correctAnswer: unknown; // đáp án đúng của GV (phải được lộ ra)
   score: number;
   correct: number;
   total: number;
@@ -273,7 +271,6 @@ const GOOD_CASES: GoodCase[] = [
     name: "multiple_choice (đúng 1/2)",
     key: "mc",
     submit: [1, 1],
-    correctAnswer: [1, 0],
     score: 5,
     correct: 1,
     total: 2,
@@ -283,7 +280,6 @@ const GOOD_CASES: GoodCase[] = [
     name: "fill_blank (đúng 1/2, không phân biệt hoa/thường, trim)",
     key: "fb",
     submit: ["  Goes ", "home"],
-    correctAnswer: ["goes", "school"],
     score: 5,
     correct: 1,
     total: 2,
@@ -295,11 +291,6 @@ const GOOD_CASES: GoodCase[] = [
     submit: [
       [0, 0],
       [1, 2],
-    ],
-    correctAnswer: [
-      [0, 0],
-      [1, 1],
-      [2, 2],
     ],
     score: 3.33,
     correct: 1,
@@ -313,7 +304,6 @@ const GOOD_CASES: GoodCase[] = [
     name: "error_correction (sai)",
     key: "ec",
     submit: ["went"],
-    correctAnswer: ["goes"],
     score: 0,
     correct: 0,
     total: 1,
@@ -323,7 +313,6 @@ const GOOD_CASES: GoodCase[] = [
     name: "listening_fill (đúng 1/2)",
     key: "lf",
     submit: ["APPLE", "x"],
-    correctAnswer: ["apple", "banana"],
     score: 5,
     correct: 1,
     total: 2,
@@ -347,8 +336,8 @@ describe("POST /api/v1/attempts - STUDENT nộp bài tự luyện (201)", () => 
       expect(data.correct).toBe(c.correct);
       expect(data.total).toBe(c.total);
       expect(data.errors).toEqual(c.errors);
-      // Tự luyện: lộ đáp án + giải thích ngay (4c.4)
-      expect(data.answer).toEqual(c.correctAnswer);
+      // Tự luyện: trả ngay giải thích và bản sửa.
+      expect(data).not.toHaveProperty("answer");
       expect(data.explanation).toBe(EXPLANATION);
 
       // Dòng attempts trong DB

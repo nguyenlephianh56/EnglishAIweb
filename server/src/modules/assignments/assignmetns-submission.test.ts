@@ -445,9 +445,10 @@ describe("GET /api/v1/assignments/:id/submissions - phân quyền", () => {
     expect(res.text).not.toContain("@test.local");
   });
 
-  it("ADMIN -> 403 (chỉ GV chủ lớp)", async () => {
+  it("ADMIN xem được bài nộp ở lớp của GV", async () => {
     const res = await getSubmissions(ids.past, users.admin);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual((await getSubmissions(ids.past, users.teacher)).body);
   });
 
   it("HS gửi id sai vẫn nhận 403 (kiểm quyền trước kiểm id)", async () => {

@@ -1,4 +1,5 @@
 // middlewares/aiRateLimit.ts — Chặn SỚM (trước controller) khi user đã hết lượt AI trong ngày (T9).
+import { errorCodeForLog } from "../utils/error-code-for-log";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import {AIQuotaExceededError,AIUsageCheckError,aiTaskSchema,} from "../ai/ai.types";
 import type { AiTask, AiUsageCounter, AiUsageLogger } from "../ai/ai.types";
@@ -14,12 +15,6 @@ export interface AiRateLimitDeps {
   /** Hàm (không phải giá trị) để đọc cấu hình MỖI request: đổi .env/giá trị thì đổi hành vi. */
   getLimits: () => AiDailyLimits | Promise<AiDailyLimits>;
   now: () => Date;
-}
-
-/** Chỉ lấy mã lỗi (nếu có) để log; không lấy message/stack vì có thể chứa chi tiết nội bộ. */
-function errorCode(error: unknown): string {
-  const code = (error as { code?: unknown } | null)?.code;
-  return typeof code === "string" ? code : "UNKNOWN";
 }
 
 async function defaultGetLimits(): Promise<AiDailyLimits> {
@@ -53,7 +48,7 @@ export function aiRateLimit(
       used = await counter.countUsedToday(user.id, now());
     } catch (error) {
       // Không đếm được thì chặn (không cho qua) để khỏi vượt quota Gemini miễn phí.
-      console.error(`[ai/rateLimit] check_failed task=${safeTask} code=${errorCode(error)}`);
+      console.error(`[ai/rateLimit] check_failed task=${safeTask} code=${errorCodeForLog(error)}`);
       return next(new AIUsageCheckError());
     }
 

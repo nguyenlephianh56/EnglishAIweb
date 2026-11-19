@@ -408,10 +408,9 @@ describe("quyền: bị từ chối, không tạo file", () => {
     await expectRejected(() => postAudio("", { userId: users.admin }), 403);
   });
 
-  // authenticate chặn tài khoản không ACTIVE bằng 401 (giống mọi route attempts hiện có).
-  it("HS PENDING và LOCKED bị chặn (401, như POST /attempts)", async () => {
-    await expectRejected(() => postAudio(`?exerciseId=${ex.lib}`, { userId: users.pending }), 401);
-    await expectRejected(() => postAudio(`?exerciseId=${ex.lib}`, { userId: users.locked }), 401);
+  it("HS PENDING và LOCKED bị chặn với 403", async () => {
+    await expectRejected(() => postAudio(`?exerciseId=${ex.lib}`, { userId: users.pending }), 403);
+    await expectRejected(() => postAudio(`?exerciseId=${ex.lib}`, { userId: users.locked }), 403);
   });
 });
 

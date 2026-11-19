@@ -21,7 +21,7 @@ export const errorHandler = (
     return failure(res, err.code, err.message, err.statusCode);
   }
 
-  console.error(err);
+  console.error("INTERNAL_SERVER_ERROR");
 
   return failure(
     res,

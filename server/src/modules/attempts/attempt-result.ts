@@ -4,10 +4,10 @@ import { toStudentView } from "../exercises/exercise-view";
  * Dựng response kết quả một lần nộp. Hàm dùng chung: nộp bài tự luyện (việc này),
  * và sau này nộp bài giao / xem lại lịch sử chỉ cần đổi cờ `reveal`.
  *
- * Quy tắc lộ đáp án (Project.md 4c.4):
- *  - reveal = true  (tự luyện sau khi nộp; bài giao sau due_at): có `answer`,
- *    `explanation` và đủ errors[].correction / errors[].explanation.
- *  - reveal = false (bài giao chưa tới hạn): KHÔNG có key `answer`, `explanation`;
+ * Quy tắc trả phản hồi cho HS: `answer` chỉ dùng để tính số câu đúng.
+ *  - reveal = true (tự luyện sau khi nộp; bài giao sau due_at): có `explanation`
+ *    và đủ errors[].correction / errors[].explanation.
+ *  - reveal = false (bài giao chưa quá hạn): ẩn `explanation`;
  *    mỗi lỗi chỉ còn { type, text } (bỏ correction và explanation vì chúng nói ra đáp án).
  *
  * Cách làm an toàn: DANH SÁCH TRẮNG (giống toStudentView). Tự chọn từng field trả ra,
@@ -53,18 +53,15 @@ export interface AttemptResult {
   /** Tổng số câu/cặp. */
   total: number;
   errors: ResultError[];
-  /** Đáp án đúng. Chỉ có khi reveal = true. */
   criteria?: ResultCriteria;
   /** Nhận xét tiếng Việt của AI (chỉ writing đã chấm). Luôn hiện, không phụ thuộc reveal. */
   comment?: string;
-  /** Đáp án đúng. Chỉ có khi reveal = true. */
-  answer?: unknown;
   /** Giải thích (null nếu bài không có). Chỉ có khi reveal = true. */
   explanation?: string | null;
 }
 
 export interface BuildAttemptResultOptions {
-  /** true = được lộ đáp án + giải thích (xem 4c.4). Không có mặc định, nơi gọi phải nói rõ. */
+  /** true = được xem giải thích và bản sửa (xem 4c.4). */
   reveal: boolean;
 }
 
@@ -195,16 +192,13 @@ export function buildAttemptResult(
     errors: readErrors(attempt.errors, reveal),
   };
 
-  // criteria + comment luôn hiện nếu có (4c.4 chỉ ẩn correction/explanation và đáp án).
+  // Tiêu chí và nhận xét tổng quát luôn hiện khi có dữ liệu.
   const feedback = readAiFeedback(attempt.aiFeedback);
   if (feedback.criteria) result.criteria = feedback.criteria;
   if (feedback.comment !== undefined) result.comment = feedback.comment;
 
 
   if (reveal) {
-     if (exercise.answer !== null && exercise.answer !== undefined) {
-    result.answer = exercise.answer;
-  }
     result.explanation =
       toStudentView(exercise, { revealExplanation: true }).explanation ?? null;
   }

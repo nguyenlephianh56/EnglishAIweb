@@ -10,21 +10,11 @@
 //  - Hàm KHÔNG kiểm attempt đã có điểm chưa: nơi gọi chịu trách nhiệm chỉ gọi khi attempt VỪA
 //    có điểm hợp lệ (xem bảng "nơi → điều kiện gọi" trong Project.md 4c mục 9).
 // =====================================================================
+import { errorCodeForLog } from "../../utils/error-code-for-log";
 import type { Prisma, PrismaClient, Skill } from "@prisma/client";
 import { recomputeSkillProfile } from "./skill-profiles.recompute";
 
 type Db = Prisma.TransactionClient | PrismaClient;
-
-/** Mã lỗi an toàn để log: mã Prisma (vd "P2002") hoặc tên lỗi. Không bao giờ dùng message. */
-const safeErrorCode = (err: unknown): string => {
-  if (typeof err === "object" && err !== null) {
-    const code = (err as { code?: unknown }).code;
-    if (typeof code === "string" && code.length > 0) return code;
-    const name = (err as { name?: unknown }).name;
-    if (typeof name === "string" && name.length > 0) return name;
-  }
-  return "UNKNOWN";
-};
 
 export const refreshProfileAfterGrading = async (db: Db, attemptId: number): Promise<void> => {
   let studentId: number | undefined;
@@ -43,7 +33,7 @@ export const refreshProfileAfterGrading = async (db: Db, attemptId: number): Pro
     console.error("[skill-profiles] refresh_after_grading_failed", {
       studentId,
       skill,
-      code: safeErrorCode(err),
+      code: errorCodeForLog(err),
     });
   }
 };

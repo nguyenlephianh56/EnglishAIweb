@@ -87,8 +87,11 @@ const envSchema = z.object({
 const parsedEnv = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
-  console.error("Invalid environment variables:");
-  console.error(parsedEnv.error.flatten().fieldErrors);
+  const privateFields = new Set(["JWT_SECRET", "GEMINI_API_KEY"]);
+  const invalidFields = Object.keys(parsedEnv.error.flatten().fieldErrors);
+  console.error("Invalid environment variables", invalidFields.map((field) =>
+    privateFields.has(field) ? "private configuration" : field
+  ));
   process.exit(1);
 }
 

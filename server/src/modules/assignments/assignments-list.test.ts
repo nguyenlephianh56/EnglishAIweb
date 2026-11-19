@@ -504,14 +504,15 @@ describe("GET /api/v1/assignments - phân quyền", () => {
     expect(res.status).toBe(401);
   });
 
-  it("ADMIN -> 403", async () => {
-    const res = await getList("", users.admin);
-    expect(res.status).toBe(403);
-    expect(res.body.error?.code).toBe("FORBIDDEN");
+  it("ADMIN xem được bài giao ở lớp của GV khác", async () => {
+    const res = await getList(`?classId=${ids.classB}`, users.admin);
+    expect(res.status).toBe(200);
+    expect(idsOf(res.body)).toEqual([ids.a5]);
   });
 
-  it("ADMIN gửi query sai vẫn nhận 403 (kiểm quyền trước kiểm query)", async () => {
+  it("ADMIN gửi query sai nhận 400", async () => {
     const res = await getList("?limit=999", users.admin);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
+    expect(res.body.error?.code).toBe("VALIDATION_ERROR");
   });
 });

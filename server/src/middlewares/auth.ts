@@ -17,7 +17,7 @@ declare global {
   }
 }
 
-const createAuthenticate = (inactiveStatus: 401 | 403) => async (
+export const authenticateActiveAccount = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -49,7 +49,7 @@ const createAuthenticate = (inactiveStatus: 401 | 403) => async (
     });
 
     if (!user || user.status !== UserStatus.ACTIVE) {
-      const status = user ? inactiveStatus : 401;
+      const status = user ? 403 : 401;
       return failure(
         res,
         status === 403 ? "FORBIDDEN" : "UNAUTHORIZED",
@@ -64,6 +64,3 @@ const createAuthenticate = (inactiveStatus: 401 | 403) => async (
     return failure(res, "INVALID_TOKEN", "Token không hợp lệ hoặc đã hết hạn", 401);
   }
 };
-
-export const authenticate = createAuthenticate(401);
-export const authenticateActiveAccount = createAuthenticate(403);

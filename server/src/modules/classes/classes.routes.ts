@@ -3,13 +3,13 @@ import { Role } from "@prisma/client";
 import * as classesController from "./classes.controller";
 import { createClassSchema, joinClassSchema,addStudentSchema } from "./classes.schema";
 import { validate } from "../../middlewares/validate";
-import { authenticate } from "../../middlewares/auth";
+import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
 
 export const classRoutes = Router();
 
-// Mọi route lớp đều yêu cầu đăng nhập (authenticate đã chặn PENDING/LOCKED)
-classRoutes.use(authenticate);
+// Mọi route lớp yêu cầu tài khoản ACTIVE. PENDING/LOCKED nhận 403.
+classRoutes.use(authenticateActiveAccount);
 
 // POST /api/v1/classes  (chỉ TEACHER; ADMIN và STUDENT bị 403)
 classRoutes.post(
