@@ -272,3 +272,54 @@ export const resolveAudioPath = (studentId: number, audioId: string): string | n
   }
   return null;
 };
+
+// ---------------------------------------------------------------------------
+// T19: vòng đời file sau khi upload (claim + xóa)
+// ---------------------------------------------------------------------------
+
+/** Đuôi thêm vào tên file khi một request "giành quyền" dùng file đó. */
+export const CLAIMED_SUFFIX = ".claimed";
+
+/** File đã claim: `path` có đuôi .claimed, `ext` là đuôi âm thanh gốc (".webm" | ".mp3" | ".wav"). */
+export interface ClaimedAudio {
+  path: string;
+  ext: string;
+}
+
+/**
+ * Giành quyền dùng file bằng đổi tên NGUYÊN TỬ (rename) sang `<tên gốc>.claimed`.
+ * Trả null nếu không có file (sai HS, sai audio_id, đã bị claim/xóa). Hai request song song cùng
+ * audio_id: hệ điều hành chỉ cho MỘT rename thành công, ca còn lại gặp ENOENT -> null.
+ * Sau khi claim, resolveAudioPath không còn thấy file (đuôi .claimed không nằm trong danh sách
+ * định dạng) nên audio_id chỉ dùng được MỘT lần. Lỗi khác ENOENT (khóa file, quyền...) được ném
+ * ra để bên gọi báo lỗi lưu trữ (file vẫn còn nguyên, job dọn sẽ xử lý sau).
+ */
+export const claimAudioFile = async (
+  studentId: number,
+  audioId: string
+): Promise<ClaimedAudio | null> => {
+  const source = resolveAudioPath(studentId, audioId);
+  if (source === null) return null;
+
+  const claimedPath = `${source}${CLAIMED_SUFFIX}`;
+  try {
+    await fs.promises.rename(source, claimedPath);
+  } catch (error) {
+    if (systemErrorCode(error) === "ENOENT") return null; // request khác đã claim trước
+    throw error;
+  }
+  return { path: claimedPath, ext: path.extname(source).toLowerCase() };
+};
+
+/**
+ * Xóa file đã claim. KHÔNG BAO GIỜ ném lỗi: ENOENT coi như đã xong; lỗi khác (EPERM, EBUSY...)
+ * chỉ log mã AUDIO_DELETE_FAILED (không log đường dẫn/tên file), file để job dọn xử lý sau.
+ */
+export const deleteClaimedAudio = async (claimedPath: string): Promise<void> => {
+  try {
+    await fs.promises.unlink(claimedPath);
+  } catch (error) {
+    if (systemErrorCode(error) === "ENOENT") return;
+    console.error("[audio] AUDIO_DELETE_FAILED", systemErrorCode(error) ?? "UNKNOWN");
+  }
+};

@@ -77,6 +77,11 @@ const envSchema = z.object({
     emptyToUndefined,
     z.string().trim().min(1).default("tmp/audio")
   ),
+  // Dọn file âm thanh mồ côi (T19). TTL: file tạm quá số phút này (tính từ lúc upload) bị xóa.
+  // Mặc định 60 phút, tối đa 24 giờ.
+  AUDIO_TTL_MINUTES: positiveInt(60, 1440),
+  // Chu kỳ quét (phút), 1-59 (dùng cú pháp cron "*/N"). Mặc định 10 phút.
+  AUDIO_CLEANUP_INTERVAL_MINUTES: positiveInt(10, 59),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

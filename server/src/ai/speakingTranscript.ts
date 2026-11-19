@@ -1,5 +1,4 @@
 import { readFile, stat } from "node:fs/promises";
-import { extname } from "node:path";
 import { z } from "zod";
 import { runAiTask, type AiServiceDeps } from "./ai.service";
 import { AIQuotaExceededError } from "./ai.types";
@@ -33,11 +32,21 @@ export type SpeakingTranscriptResult =
 export interface SpeakingTranscriptDeps {
   ai?: Partial<AiServiceDeps>;
   promptDb?: PromptTemplateDb;
-  resolveAudioPath?: (
+  /** T19: giành quyền dùng file (rename nguyên tử). Trả null nếu không có/đã bị dùng. */
+  claimAudio?: (
     studentId: number,
     audioId: string
-  ) => string | null;
+  ) => Promise<ClaimedAudio | null>;
+  /** T19: xóa file đã claim; không được ném lỗi. */
+  deleteAudio?: (claimedPath: string) => Promise<void>;
   readAudio?: (audioPath: string) => Promise<Buffer>;
+}
+
+/** Khớp ClaimedAudio của attempts.audio.upload (khai báo lại để không import module đó khi nạp file). */
+interface ClaimedAudio {
+  path: string;
+  /** Đuôi âm thanh gốc, vd ".webm". */
+  ext: string;
 }
 
 export type SpeakingTranscriptErrorCode =
@@ -113,25 +122,12 @@ async function readUploadedAudio(audioPath: string): Promise<Buffer> {
   return readFile(audioPath);
 }
 
-async function loadAudio(
-  studentId: number,
-  audioId: string,
-  deps: SpeakingTranscriptDeps
-) {
+async function loadAudio(claimed: ClaimedAudio, deps: SpeakingTranscriptDeps) {
   try {
-    const resolve = deps.resolveAudioPath
-      ?? (await import(
-        "../modules/attempts/attempts.audio.upload"
-      )).resolveAudioPath;
-
-    const audioPath = resolve(studentId, audioId);
-    if (audioPath === null) throw audioNotFound();
-
-    const mimeType =
-      SPEAKING_AUDIO_MIME_TYPES[extname(audioPath).toLowerCase()];
+    const mimeType = SPEAKING_AUDIO_MIME_TYPES[claimed.ext.toLowerCase()];
     if (!mimeType) throw invalidAudio();
 
-    const data = await (deps.readAudio ?? readUploadedAudio)(audioPath);
+    const data = await (deps.readAudio ?? readUploadedAudio)(claimed.path);
     if (!Buffer.isBuffer(data) || data.length === 0) throw invalidAudio();
 
     // Kiểm lại nếu file đổi kích thước sau stat.
@@ -145,15 +141,33 @@ async function loadAudio(
       throw audioNotFound();
     }
 
-    throw new SpeakingTranscriptError(
-      500,
-      "AUDIO_STORAGE_ERROR",
-      "Không đọc được tệp âm thanh. Vui lòng thử lại sau."
-    );
+    throw storageError();
   }
 }
 
-/** Chỉ lấy bản chữ; không lưu attempt, chấm điểm hay xóa file. */
+const storageError = () => new SpeakingTranscriptError(
+  500,
+  "AUDIO_STORAGE_ERROR",
+  "Không đọc được tệp âm thanh. Vui lòng thử lại sau."
+);
+
+/** Xóa file đã claim; mọi lỗi chỉ log mã, không ảnh hưởng kết quả chính (T19). */
+async function safeDelete(
+  remove: (claimedPath: string) => Promise<void>,
+  claimedPath: string
+): Promise<void> {
+  try {
+    await remove(claimedPath);
+  } catch {
+    console.error("[audio] AUDIO_DELETE_FAILED");
+  }
+}
+
+/**
+ * Chỉ lấy bản chữ; không lưu attempt, không chấm điểm.
+ * Nhánh audio_id (T19): claim file (dùng được MỘT lần) -> đọc -> gọi Gemini -> `finally` xóa file,
+ * cho cả thành công lẫn mọi lỗi. Nhánh transcript không đụng hệ thống file.
+ */
 export async function getSpeakingTranscript(
   input: SpeakingTranscriptInput,
   deps: SpeakingTranscriptDeps = {}
@@ -176,8 +190,34 @@ export async function getSpeakingTranscript(
   }
 
   if (typeof audio_id !== "string") throw audioNotFound();
-  const audio = await loadAudio(studentId, audio_id, deps);
 
+  const upload = deps.claimAudio && deps.deleteAudio
+    ? undefined
+    : await import("../modules/attempts/attempts.audio.upload");
+  const claimAudio = deps.claimAudio ?? upload!.claimAudioFile;
+  const deleteAudio = deps.deleteAudio ?? upload!.deleteClaimedAudio;
+
+  let claimed: ClaimedAudio | null;
+  try {
+    claimed = await claimAudio(studentId, audio_id);
+  } catch {
+    throw storageError();
+  }
+  if (claimed === null) throw audioNotFound();
+
+  try {
+    const audio = await loadAudio(claimed, deps);
+    return await transcribe(studentId, audio, deps);
+  } finally {
+    await safeDelete(deleteAudio, claimed.path);
+  }
+}
+
+async function transcribe(
+  studentId: number,
+  audio: { mimeType: string; data: Buffer },
+  deps: SpeakingTranscriptDeps
+): Promise<SpeakingTranscriptResult> {
   let prompt: string;
   try {
     prompt = await buildPrompt("speaking_transcribe", {}, deps.promptDb);
