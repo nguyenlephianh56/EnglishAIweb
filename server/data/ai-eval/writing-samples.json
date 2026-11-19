@@ -1,0 +1,17 @@
+[
+  {
+    "id": "W001",
+    "prompt": "<dán đề bài thứ nhất>",
+    "level": "<mức CEFR gốc của đề>",
+    "minWords": null,
+    "text": "<dán bài viết thứ nhất đã ẩn danh>",
+    "manual_score": null
+  },
+  {
+    "id": "W002",
+    "prompt": "<dán đề bài thứ hai>",
+    "level": "<mức CEFR gốc của đề>",
+    "text": "<dán bài viết thứ hai đã ẩn danh>",
+    "manual_score": null
+  }
+]
