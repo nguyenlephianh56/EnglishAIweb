@@ -51,6 +51,16 @@ export interface ExerciseListParams {
   pageSize?: number;
 }
 
+/** Body của PATCH /exercises/:id: chỉ chứa field đổi (ít nhất một), KHÔNG có type/status. explanation = null để xóa. */
+export interface UpdateExercisePayload {
+  topic?: string;
+  skill?: LibrarySkill;
+  level?: CefrLevel;
+  content?: unknown;
+  answer?: unknown;
+  explanation?: string | null;
+}
+
 /** Body của POST /exercises/generate (backend chặt: không nhận field nào khác) */
 export interface GenerateExercisePayload {
   skill: LibrarySkill;

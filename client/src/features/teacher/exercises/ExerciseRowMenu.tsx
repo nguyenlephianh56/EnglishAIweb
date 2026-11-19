@@ -121,10 +121,9 @@ export default function ExerciseRowMenu({ exercise, isOwner, busy, onPropose, on
             <Copy className="size-4 shrink-0" aria-hidden="true" />
             Nhân bản
           </button>
-          <button type="button" role="menuitem" disabled className={itemClass}>
+          <button type="button" role="menuitem" onClick={run(() => navigate(`/teacher/exercises/${exercise.id}/review`))} className={itemClass}>
             <Pencil className="size-4 shrink-0" aria-hidden="true" />
-            Chỉnh sửa
-            <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500">Sắp ra mắt</span>
+            Xem / Sửa
           </button>
           {isOwner && (
             <>

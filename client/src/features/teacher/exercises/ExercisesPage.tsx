@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CircleAlert, FilePlus2, Plus, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
@@ -31,7 +31,16 @@ export default function ExercisesPage() {
   const draftCount = useDraftCount(filters);
   const { propose, remove, duplicate } = useExerciseActions();
 
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Thông báo từ trang khác (gửi duyệt, xóa bản nháp ở trang xem lại)
+  const incomingNotice = (location.state as { notice?: string } | null)?.notice;
+  const [flash, setFlash] = useState<Flash | null>(() => (incomingNotice ? { type: "success", text: incomingNotice } : null));
+  useEffect(() => {
+    // Xóa state khỏi lịch sử để tải lại trang không hiện lại thông báo cũ
+    if (incomingNotice) navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [filterOpen, setFilterOpen] = useState(false);
   const [toDelete, setToDelete] = useState<ExerciseListItem | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
