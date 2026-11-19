@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { PublicOnlyRoute, RequireRole } from "./guards";
 import StudentLayout from "../components/layout/StudentLayout";
@@ -14,14 +15,27 @@ import ProfilePage from "../features/student/ProfilePage";
 import AssignedPage from "../features/student/AssignedPage";
 import NotificationsPage from "../features/student/NotificationsPage";
 import PathPage from "../features/student/PathPage";
-import { ExerciseDetailPage } from "../features/student/placeholders";
+import PracticePage from "../features/exercises/PracticePage";
+import AssignmentExercisePage from "../features/exercises/AssignmentExercisePage";
+import ResultPage from "../features/exercises/ResultPage";
 import TeacherOverviewPage from "../features/teacher/OverviewPage";
 import ClassesPage from "../features/teacher/classes/ClassesPage";
 import ClassDetailPage from "../features/teacher/classes/ClassDetailPage";
 import TeacherNotificationsPage from "../features/teacher/NotificationsPage";
-import { AnalyticsPage, AssignmentsPage, ExercisesPage, GradingPage, NewAssignmentPage, NewExercisePage } from "../features/teacher/placeholders";
+import AssignmentsPage from "../features/teacher/assignments/AssignmentsPage";
+import AssignmentDetailPage from "../features/teacher/assignments/AssignmentDetailPage";
+import NewAssignmentPage from "../features/teacher/assignments/NewAssignmentPage";
+import ExercisesPage from "../features/teacher/exercises/ExercisesPage";
+import GradingPage from "../features/teacher/grading/GradingPage";
+import GradingDetailPage from "../features/teacher/grading/GradingDetailPage";
+import AnalyticsPage from "../features/teacher/analytics/AnalyticsPage";
+import NewExercisePage from "../features/teacher/exercises/NewExercisePage";
+import GenerateExercisePage from "../features/teacher/exercises/GenerateExercisePage";
 import OverviewPage from "../features/admin/OverviewPage";
 import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage, StatsPage, UsersPage } from "../features/admin/placeholders";
+
+// Trang xem thử thành phần bài tập: chỉ đăng ký khi chạy `npm run dev`, bản build không có
+const DevExercisesPage = import.meta.env.DEV ? lazy(() => import("../features/exercises/DevExercisesPage")) : null;
 
 export const router = createBrowserRouter([
   {
@@ -42,9 +56,10 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <HomePage /> },
           { path: "assigned", element: <AssignedPage /> },
-          { path: "assigned/:assignmentId", element: <ExerciseDetailPage /> },
+          { path: "assigned/:assignmentId", element: <AssignmentExercisePage /> },
+          { path: "results/:attemptId", element: <ResultPage /> },
           { path: "library", element: <LibraryPage /> },
-          { path: "library/:id", element: <ExerciseDetailPage /> },
+          { path: "library/:id", element: <PracticePage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "path", element: <PathPage /> },
           { path: "notifications", element: <NotificationsPage /> },
@@ -65,9 +80,12 @@ export const router = createBrowserRouter([
           { path: "classes/:id", element: <ClassDetailPage /> },
           { path: "exercises", element: <ExercisesPage /> },
           { path: "exercises/new", element: <NewExercisePage /> },
+          { path: "exercises/ai", element: <GenerateExercisePage /> },
           { path: "assignments", element: <AssignmentsPage /> },
           { path: "assignments/new", element: <NewAssignmentPage /> },
+          { path: "assignments/:assignmentId", element: <AssignmentDetailPage /> },
           { path: "grading", element: <GradingPage /> },
+          { path: "grading/:id", element: <GradingDetailPage /> },
           { path: "analytics", element: <AnalyticsPage /> },
           { path: "notifications", element: <TeacherNotificationsPage /> },
           { path: "account", element: <AccountPage /> },
@@ -95,5 +113,17 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  ...(DevExercisesPage
+    ? [
+        {
+          path: "/dev/exercises",
+          element: (
+            <Suspense fallback={null}>
+              <DevExercisesPage />
+            </Suspense>
+          ),
+        },
+      ]
+    : []),
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
