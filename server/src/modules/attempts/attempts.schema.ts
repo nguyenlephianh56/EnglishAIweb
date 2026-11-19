@@ -3,6 +3,7 @@ import {
   ATTEMPT_LIST_DEFAULT_LIMIT,
   ATTEMPT_LIST_MAX_LIMIT,
   WRITING_TEXT_MAX,
+  AUDIO_ID_RE,
 } from "./attempts.constants";
 import { SPEAKING_TRANSCRIPT_MAX_CHARS } from "../../ai/speaking.constants";
 // Số nguyên lớn nhất của cột INT trong PostgreSQL; vượt quá thì Prisma sẽ báo lỗi 500.
@@ -124,6 +125,59 @@ export const speakingAttemptAnswerSchema = z
   .strict("Bài làm chỉ được có field text");
 
 export type SpeakingAttemptAnswer = z.infer<typeof speakingAttemptAnswerSchema>;
+
+/**
+ * Dạng REQUEST của `answer` khi nộp bài speaking (T18): đúng MỘT trong hai nguồn, loại trừ nhau.
+ *   { audio_id }   : id file đã upload ở POST /attempts/audio; server chữ hóa bằng Gemini.
+ *   { transcript } : bản chữ FE tự lấy (Web Speech API); không gọi chữ hóa.
+ * KHÁC dạng LƯU ({ text }) ở trên: audio_id/transcript không bao giờ được lưu vào attempts.answer.
+ *
+ * `.strict()` nên field lạ (score, is_late, student_id, errors...) bên trong answer bị 400.
+ * Chỉ kiểm HÌNH DẠNG ở đây (không đụng DB); lỗi nghiệp vụ như "dưới 3 từ" (422 TRANSCRIPT_TOO_SHORT)
+ * và "không thấy file" (404) do service xử lý. Thông báo lỗi không chép lại nội dung người dùng gửi.
+ */
+export const speakingSubmitRequestSchema = z
+  .object(
+    {
+      audio_id: z
+        .string({ invalid_type_error: "audio_id: Mã âm thanh phải là chuỗi" })
+        .regex(AUDIO_ID_RE, "audio_id: Mã âm thanh không hợp lệ")
+        .optional(),
+      transcript: z
+        .string({ invalid_type_error: "transcript: Bản chữ phải là chuỗi" })
+        .trim()
+        .min(1, "transcript: Bản chữ không được để trống")
+        .max(
+          SPEAKING_TRANSCRIPT_MAX_CHARS,
+          `transcript: Bản chữ tối đa ${SPEAKING_TRANSCRIPT_MAX_CHARS} ký tự`
+        )
+        .optional(),
+    },
+    {
+      required_error: "Bài làm là bắt buộc",
+      invalid_type_error: "Bài làm phải là một object dạng { audio_id } hoặc { transcript }",
+    }
+  )
+  .strict("Bài làm chỉ được có audio_id hoặc transcript")
+  .superRefine((data, ctx) => {
+    const hasAudio = data.audio_id !== undefined;
+    const hasTranscript = data.transcript !== undefined;
+    if (hasAudio === hasTranscript) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bài làm phải có đúng một trong hai: audio_id hoặc transcript",
+      });
+    }
+  })
+  // Sau khi qua superRefine, chắc chắn đúng một nguồn: thu hẹp kiểu cho nơi dùng.
+  .transform(
+    (data): { audio_id: string } | { transcript: string } =>
+      data.audio_id !== undefined
+        ? { audio_id: data.audio_id }
+        : { transcript: data.transcript as string }
+  );
+
+export type SpeakingSubmitRequest = z.infer<typeof speakingSubmitRequestSchema>;
 
 // ---------------------------------------------------------------------------
 // GET /attempts và GET /attempts/:id

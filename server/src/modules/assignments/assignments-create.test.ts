@@ -30,7 +30,9 @@ const ids = {
   writingPublished: 0, // PUBLISHED, dạng writing do teacher2 tạo (đã cho giao)
   ownWritingDraft: 0, // DRAFT, dạng writing do teacher tạo
   otherWritingDraft: 0, // DRAFT, dạng writing do teacher2 tạo
-  speakingPublished: 0, // PUBLISHED, dạng speaking (vẫn chưa cho giao)
+  speakingPublished: 0, // PUBLISHED, dạng speaking do teacher2 tạo (đã cho giao, T18)
+  ownSpeakingDraft: 0, // DRAFT, dạng speaking do teacher tạo
+  otherSpeakingDraft: 0, // DRAFT, dạng speaking do teacher2 tạo
 };
 
 let server: Server;
@@ -164,6 +166,8 @@ beforeAll(async () => {
   ids.ownWritingDraft = await newWriting(users.teacher, "DRAFT");
   ids.otherWritingDraft = await newWriting(users.teacher2, "DRAFT");
   ids.speakingPublished = await newSpeaking(users.teacher2, "PUBLISHED");
+  ids.ownSpeakingDraft = await newSpeaking(users.teacher, "DRAFT");
+  ids.otherSpeakingDraft = await newSpeaking(users.teacher2, "DRAFT");
 
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
@@ -342,16 +346,92 @@ describe("POST /api/v1/assignments - bài không hợp lệ -> 404/422", () => {
     expect(res.status).toBe(404);
   });
 
-  it("bài speaking (PUBLISHED) -> 422 TYPE_NOT_ASSIGNABLE, không tạo assignment", async () => {
+  
+});
+// speaking đã mở lại ở T18: các điều kiện cũ (quyền, trạng thái bài, lớp) vẫn nguyên.
+describe("POST /api/v1/assignments - bài speaking", () => {
+  it("GV giao bài speaking PUBLISHED cho lớp mình -> 201, lưu đúng vào DB", async () => {
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.speakingPublished, remindBeforeHours: [24] }),
+      users.teacher
+    );
+    expect(res.status).toBe(201);
+    expect(res.body.error).toBeNull();
+    const data = res.body.data!;
+    expect(data.exerciseId).toBe(ids.speakingPublished);
+    expect(data.classId).toBe(ids.classOwn);
+    expect(data.assignedById).toBe(users.teacher);
+    expect(data.remindBeforeHours).toEqual([24]);
+
+    const row = await prisma.assignment.findUnique({
+      where: { id: data.id as number },
+    });
+    expect(row?.exerciseId).toBe(ids.speakingPublished);
+    expect(row?.classId).toBe(ids.classOwn);
+  });
+
+  it("GV giao bài speaking DRAFT do chính mình tạo -> 201", async () => {
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.ownSpeakingDraft }),
+      users.teacher
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("bài speaking DRAFT của GV khác -> 404, không tạo assignment", async () => {
+    const before = await prisma.assignment.count({
+      where: { exerciseId: ids.otherSpeakingDraft },
+    });
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.otherSpeakingDraft }),
+      users.teacher
+    );
+    expect(res.status).toBe(404);
+    expect(res.body.error?.code).toBe("NOT_FOUND");
+    const after = await prisma.assignment.count({
+      where: { exerciseId: ids.otherSpeakingDraft },
+    });
+    expect(after).toBe(before);
+  });
+
+  it("GV giao bài speaking cho lớp của GV khác -> 404, không tạo assignment", async () => {
+    const before = await prisma.assignment.count({
+      where: { classId: ids.classOther },
+    });
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.speakingPublished, classId: ids.classOther }),
+      users.teacher
+    );
+    expect(res.status).toBe(404);
+    const after = await prisma.assignment.count({
+      where: { classId: ids.classOther },
+    });
+    expect(after).toBe(before);
+  });
+
+  it("HS gọi giao bài speaking -> 403, không tạo assignment", async () => {
     const before = await prisma.assignment.count({
       where: { exerciseId: ids.speakingPublished },
     });
     const res = await postAssignment(
       validBody({ exerciseId: ids.speakingPublished }),
-      users.teacher
+      users.student
     );
-    expect(res.status).toBe(422);
-    expect(res.body.error?.code).toBe("TYPE_NOT_ASSIGNABLE");
+    expect(res.status).toBe(403);
+    const after = await prisma.assignment.count({
+      where: { exerciseId: ids.speakingPublished },
+    });
+    expect(after).toBe(before);
+  });
+
+  it("không có token -> 401, không tạo assignment", async () => {
+    const before = await prisma.assignment.count({
+      where: { exerciseId: ids.speakingPublished },
+    });
+    const res = await postAssignment(
+      validBody({ exerciseId: ids.speakingPublished })
+    );
+    expect(res.status).toBe(401);
     const after = await prisma.assignment.count({
       where: { exerciseId: ids.speakingPublished },
     });

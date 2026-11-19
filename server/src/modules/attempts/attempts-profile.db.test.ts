@@ -313,11 +313,12 @@ describe("T14 — chấm tự động", () => {
     expect(await profile(b, "FOUNDATION")).toEqual(before);
   });
 
-  it.each([false, true])("nộp sai hình dạng hoặc speaking chưa hỗ trợ (%s): không tạo/refresh", async (speaking) => {
+   // T18: speaking đã mở; gửi { text } (dạng lưu, không phải dạng request) cũng là sai hình dạng -> 400.
+  it.each([false, true])("nộp sai hình dạng (speaking=%s): 400, không tạo/refresh", async (speaking) => {
     const id = await student();
     const ex = speaking ? await newExercise("speaking", "SPEAKING", { prompt: "Speak" }, null)
       : exercises.get("fill_blank")!;
-    expect((await submit(id, ex, { text: ESSAY })).status).toBe(speaking ? 422 : 400);
+    expect((await submit(id, ex, { text: ESSAY })).status).toBe(400);
     expect(await prisma.attempt.count({ where: { studentId: id } })).toBe(0);
     expect(await prisma.skillProfile.count({ where: { studentId: id } })).toBe(0);
     expect(refreshSpy).not.toHaveBeenCalled();

@@ -526,7 +526,7 @@ describe("đã qua kiểm quyền nhưng file sai -> không để lại file", (
 });
 
 describe("không hồi quy POST /attempts", () => {
-  it("nộp dạng speaking vẫn bị chặn 422 NOT_AUTO_GRADABLE, không tạo attempt", async () => {
+   it("nộp speaking sai dạng request ({ text }) bị chặn 400, không tạo attempt", async () => {
     const before = await countAttempts();
     const res = await fetch(`${baseUrl}/api/v1/attempts`, {
       method: "POST",
@@ -538,8 +538,8 @@ describe("không hồi quy POST /attempts", () => {
     });
     const body = await res.json();
 
-    expect(res.status).toBe(422);
-    expect(body.error.code).toBe("NOT_AUTO_GRADABLE");
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
     expect(await countAttempts()).toBe(before);
   });
 });

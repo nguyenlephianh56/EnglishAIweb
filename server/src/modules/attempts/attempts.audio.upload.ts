@@ -33,13 +33,12 @@ import {
   detectAudioFormat,
   type AudioFormat,
 } from "./attempts.audio.magic";
+import { AUDIO_ID_RE } from "./attempts.constants";
 
 /** Dấu ngăn giữa studentId và uuid trong tên file. */
 const NAME_SEPARATOR = "__";
 
-/** audio_id = UUID v4 chữ thường (do crypto.randomUUID sinh): khó đoán, không chứa ký tự đường dẫn. */
-const AUDIO_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+// AUDIO_ID_RE (UUID v4 chữ thường) nằm ở attempts.constants.ts để schema request speaking dùng chung.
 
 const STORED_NAME_RE = new RegExp(
   `^[0-9]+${NAME_SEPARATOR}([0-9a-f-]{36})\\.(${AUDIO_FORMATS.join("|")})$`

@@ -98,14 +98,25 @@ function readErrors(raw: unknown, reveal: boolean): ResultError[] {
   return result;
 }
 
-export interface ResultCriteria {
+/** Tiêu chí bài Viết (4 tiêu chí). */
+export interface WritingCriteria {
   content: number;
   coherence: number;
   vocabulary: number;
   grammar: number;
 }
 
-const CRITERIA_KEYS = ["content", "coherence", "vocabulary", "grammar"] as const;
+/** Tiêu chí bài Nói (3 tiêu chí, T18). */
+export interface SpeakingCriteria {
+  content: number;
+  fluency: number;
+  pronunciation: number;
+}
+
+export type ResultCriteria = WritingCriteria | SpeakingCriteria;
+
+const WRITING_CRITERIA_KEYS = ["content", "coherence", "vocabulary", "grammar"] as const;
+const SPEAKING_CRITERIA_KEYS = ["content", "fluency", "pronunciation"] as const;
 
 /**
  * `ai_feedback` lưu trong DB là JSON lỏng. Đọc lại an toàn bằng danh sách trắng:
@@ -120,15 +131,21 @@ function readAiFeedback(raw: unknown): { criteria?: ResultCriteria; comment?: st
 
   if (typeof f.criteria === "object" && f.criteria !== null && !Array.isArray(f.criteria)) {
     const c = f.criteria as Record<string, unknown>;
-    const allValid = CRITERIA_KEYS.every(
-      (k) => typeof c[k] === "number" && Number.isFinite(c[k])
-    );
-    if (allValid) {
+    const isValid = (keys: readonly string[]) =>
+      keys.every((k) => typeof c[k] === "number" && Number.isFinite(c[k]));
+    if (isValid(WRITING_CRITERIA_KEYS)) {
       out.criteria = {
         content: round2(c.content as number),
         coherence: round2(c.coherence as number),
         vocabulary: round2(c.vocabulary as number),
         grammar: round2(c.grammar as number),
+      };
+    } else if (isValid(SPEAKING_CRITERIA_KEYS)) {
+      // Bài Nói: chỉ 3 tiêu chí. wordIssues không đưa ra riêng vì đã có trong errors[].
+      out.criteria = {
+        content: round2(c.content as number),
+        fluency: round2(c.fluency as number),
+        pronunciation: round2(c.pronunciation as number),
       };
     }
   }

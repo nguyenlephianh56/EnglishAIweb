@@ -528,15 +528,15 @@ describe("POST /api/v1/attempts - dữ liệu sai (400 / 422)", () => {
     });
   }
 
-    // writing đã mở lại ở T13 (lưu chờ chấm); speaking vẫn chặn đến Sprint 4.
+  // Dạng LƯU { text } không phải dạng request -> 400, không tạo attempt, không gọi AI.
   for (const key of ["speaking"] as const) {
-    it(`${key} -> 422 NOT_AUTO_GRADABLE, không tạo attempt`, async () => {
+    it(`${key} gửi { text } (sai dạng request) -> 400 VALIDATION_ERROR, không tạo attempt`, async () => {
       const before = await countAttempts();
       const res = await submitAsStudent({ exerciseId: ex[key], answer: { text: "Hello" } });
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(400);
       expect(res.body.data).toBeNull();
-      expect(res.body.error!.code).toBe("NOT_AUTO_GRADABLE");
+      expect(res.body.error!.code).toBe("VALIDATION_ERROR");
       expect(await countAttempts()).toBe(before);
     });
   }

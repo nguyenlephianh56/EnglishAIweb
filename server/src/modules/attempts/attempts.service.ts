@@ -3,7 +3,7 @@ import { prisma } from "../../config/prisma";
 import { gradeExercise } from "../grading/gradeExercise";
 import { buildAttemptResult } from "./attempt-result";
 import {buildAttemptDetail,isAnswerRevealed,isPastDue,type AttemptDetail,} from "./attempts-detail";
-import {writingAnswerSchema,type CreateAttemptInput,type ListAttemptsQuery,} from "./attempts.schema";
+import {writingAnswerSchema,speakingAttemptAnswerSchema,type CreateAttemptInput,type ListAttemptsQuery,} from "./attempts.schema";
 import {buildAttemptListResponse,hasHistoryFilter,toAttemptListItem,type AttemptListResponse,} from "./attempt-list";
 import {MAX_ATTEMPTS_PER_ASSIGNMENT,WRITING_MAX_SCORE,} from "./attempts.constants";
 import { gradeWritingAttempt, type WritingGradeSaved } from "./attempts-writing-grade";
@@ -12,6 +12,10 @@ import { env } from "../../config/env";
 import { validateWritingLength } from "../grading/writingLength";
 import { toGradingError, type GradingError } from "./attempts-grading-error";
 import { refreshProfileAfterGrading } from "../skill-profiles/skill-profiles.refresh";
+import { prepareSpeakingAttempt } from "./attempts-speaking-submit";
+import type { SpeakingTranscriptResult } from "../../ai/speakingTranscript";
+import { gradeSpeakingAttempt, type SpeakingGradeSaved } from "./attempts-speaking-grade";
+
 
 // Lỗi nghiệp vụ theo khuôn chung (statusCode + code); controller đổi thành response chuẩn.
 const businessError = (
@@ -182,6 +186,7 @@ interface PreparedAttempt {
   score: number | null;
   maxScore: number;
   errors: unknown[];
+  speakingTranscript?: SpeakingTranscriptResult;
 }
 
 /** minWords của đề, lấy từ exercises.content trong DB (không nhận từ client). Thiếu/sai -> 0. */
@@ -291,8 +296,11 @@ export const submitAttempt = async (
   // Đã quá hạn nộp? Tự luyện không có hạn nên luôn false.
   const isLate = assignment !== null && isPastDue(assignment.dueAt, now);
 
-  // Ném lỗi có statusCode + code (422 NOT_AUTO_GRADABLE, 400 VALIDATION_ERROR, ...)
- const prepared = prepareAttempt(exercise, input.answer);
+  // Speaking: kiểm request, lấy bản chữ (có thể gọi Gemini) TRƯỚC khi lưu; lỗi thì chưa có attempt.
+  const prepared: PreparedAttempt =
+    exercise.type === "speaking"
+      ? await prepareSpeakingAttempt(user.id, exercise.content, input.answer)
+      : prepareAttempt(exercise, input.answer);
 
   const { attempt, usedBefore } = await prisma.$transaction(async (tx) => {
     let usedBefore = 0;
@@ -320,8 +328,8 @@ export const submitAttempt = async (
     return { attempt, usedBefore };
   });
 
-  // Điểm tự động đã commit; lỗi hồ sơ được hàm refresh nuốt, không làm hỏng nộp bài.
-  if (exercise.type !== "writing") {
+  // Writing/speaking đang chờ chấm AI (score NULL): hồ sơ chỉ cập nhật sau khi AI ghi điểm.
+  if (exercise.type !== "writing" && exercise.type !== "speaking") {
     await refreshProfileAfterGrading(prisma, attempt.id);
   }
 
@@ -341,6 +349,32 @@ export const submitAttempt = async (
         role: user.role,
         text,
         exercise: { level: exercise.level, content: exercise.content },
+      });
+      if (graded.written === true) {
+        await refreshProfileAfterGrading(prisma, attempt.id);
+      }
+      finalAttempt = {
+        ...attempt,
+        score: graded.score,
+        errors: graded.errors as typeof attempt.errors,
+        aiFeedback: graded.aiFeedback,
+      };
+    } catch (error) {
+      gradingError = toGradingError(error);
+      if (gradingError === null) throw error;
+    }
+  }
+
+    // Speaking: giống writing. Attempt đã lưu (score NULL) NGOÀI transaction, giờ mới chấm (chờ AI, không
+  // giữ khóa DB). Lỗi AI -> giữ attempt chờ chấm + gradingError (202). Bản chữ lấy từ bước prepare,
+  // không đọc lại file; hồ sơ chỉ cập nhật khi lần gọi này là lần GHI điểm (written).
+  if (exercise.type === "speaking" && prepared.speakingTranscript !== undefined) {
+    try {
+      const graded = await gradeSpeakingAttempt({
+        attemptId: attempt.id,
+        userId: user.id,
+        content: exercise.content,
+        transcript: prepared.speakingTranscript,
       });
       if (graded.written === true) {
         await refreshProfileAfterGrading(prisma, attempt.id);
@@ -603,29 +637,48 @@ export const regradeAttempt = async (
   if (!attempt) {
     throw businessError(404, "NOT_FOUND", "Không tìm thấy bài nộp");
   }
-  if (attempt.exercise.type !== "writing") {
-    throw businessError(400, "NOT_REGRADABLE", "Chỉ bài Viết mới cần chấm lại");
+  if (attempt.exercise.type !== "writing" && attempt.exercise.type !== "speaking") {
+    throw businessError(400, "NOT_REGRADABLE", "Chỉ bài Viết và bài Nói mới cần chấm lại");
   }
   if (attempt.score !== null) {
     throw businessError(409, "ATTEMPT_ALREADY_GRADED", "Bài này đã được chấm rồi");
   }
 
-  // Bài viết lấy từ DB (đã qua writingAnswerSchema lúc nộp); kiểm lại để chắc chắn dữ liệu còn đúng khuôn.
-  const parsed = writingAnswerSchema.safeParse(attempt.answer);
-  if (!parsed.success) {
-    throw businessError(422, "ATTEMPT_DATA_INVALID", "Bài nộp không có nội dung hợp lệ để chấm lại");
+  // Nội dung bài lấy từ DB (đã qua schema lúc nộp); kiểm lại để chắc chắn dữ liệu còn đúng khuôn.
+  // Speaking: chỉ còn bản chữ { text } (file âm thanh có thể đã bị xóa ở T19), nên chấm lại từ bản chữ
+  // này như nguồn "client": không chữ hóa lại, và tính 1 lượt AI mới (1 dòng ai_usage_logs mới).
+  let runGrade: () => Promise<WritingGradeSaved | SpeakingGradeSaved>;
+  if (attempt.exercise.type === "speaking") {
+    const parsedSpeaking = speakingAttemptAnswerSchema.safeParse(attempt.answer);
+    if (!parsedSpeaking.success) {
+      throw businessError(422, "ATTEMPT_DATA_INVALID", "Bài nộp không có nội dung hợp lệ để chấm lại");
+    }
+    runGrade = () =>
+      gradeSpeakingAttempt({
+        attemptId: attempt.id,
+        userId: user.id,
+        content: attempt.exercise.content,
+        transcript: { text: parsedSpeaking.data.text, source: "client" },
+      });
+  } else {
+    const parsed = writingAnswerSchema.safeParse(attempt.answer);
+    if (!parsed.success) {
+      throw businessError(422, "ATTEMPT_DATA_INVALID", "Bài nộp không có nội dung hợp lệ để chấm lại");
+    }
+    runGrade = () =>
+      gradeWritingAttempt({
+        attemptId: attempt.id,
+        userId: user.id,
+        role: user.role,
+        text: parsed.data.text,
+        exercise: { level: attempt.exercise.level, content: attempt.exercise.content },
+      });
   }
 
-  let graded: WritingGradeSaved | null = null;
+  let graded: WritingGradeSaved | SpeakingGradeSaved | null = null;
   let gradingError: GradingError | null = null;
   try {
-    graded = await gradeWritingAttempt({
-      attemptId: attempt.id,
-      userId: user.id,
-      role: user.role,
-      text: parsed.data.text,
-      exercise: { level: attempt.exercise.level, content: attempt.exercise.content },
-    });
+    graded = await runGrade();
   } catch (error) {
     gradingError = toGradingError(error);
     if (gradingError === null) throw error; // lỗi không phải AI (DB...) xử lý như cũ
@@ -636,11 +689,9 @@ export const regradeAttempt = async (
     throw businessError(409, "ATTEMPT_ALREADY_GRADED", "Bài này vừa được chấm xong");
   }
 
-    if (graded !== null && graded.written === true) {
+  if (graded !== null && graded.written === true) {
     await refreshProfileAfterGrading(prisma, attempt.id);
   }
-  
-
   const reveal = isAnswerRevealed(
     attempt.assignmentId,
     attempt.assignment ? attempt.assignment.dueAt : null,

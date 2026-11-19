@@ -18,3 +18,11 @@ export const ATTEMPT_LIST_MAX_LIMIT = 50;
  */
 export const WRITING_TEXT_MAX = 30000;
 export const WRITING_MAX_SCORE = 10;
+/**
+ * Bài nói (speaking). Điểm tối đa luôn là 10 (server tự đặt, client không gửi được).
+ * audio_id = UUID v4 chữ thường (do crypto.randomUUID sinh): khó đoán, không chứa ký tự đường dẫn.
+ * Dùng chung cho upload (T17) và schema request nộp bài speaking (T18).
+ */
+export const SPEAKING_MAX_SCORE = 10;
+export const AUDIO_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

@@ -242,6 +242,40 @@ describe("toStudentAssignmentDetail", () => {
     expect(json).not.toContain("EXPL_secret");
   });
 
+    // T18: bài speaking được giao. Đề (prompt/sample) đi qua danh sách trắng, không có `answer`.
+  const makeSpeakingRow = (dueAt: Date) => ({
+    ...makeRow(dueAt),
+    exercise: {
+      ...makeRow(dueAt).exercise,
+      type: "speaking",
+      skill: "SPEAKING",
+      content: { prompt: "Talk about your day.", sample: "I get up at six." },
+      answer: ["zebraquux"],
+    },
+  });
+
+  it("bài speaking: có đề, KHÔNG có answer; explanation chỉ lộ sau hạn", () => {
+    const before = toStudentAssignmentDetail(makeSpeakingRow(at(24)), undefined, now);
+    expect(before.exercise.type).toBe("speaking");
+    expect(before.exercise.content).toEqual({
+      prompt: "Talk about your day.",
+      sample: "I get up at six.",
+    });
+    expect("answer" in before.exercise).toBe(false);
+    expect("explanation" in before.exercise).toBe(false);
+    expect(JSON.stringify(before)).not.toContain("zebraquux");
+    expect(JSON.stringify(before)).not.toContain("EXPL_secret");
+
+    const after = toStudentAssignmentDetail(
+      makeSpeakingRow(new Date(now.getTime() - 1)),
+      undefined,
+      now
+    );
+    expect(after.exercise.explanation).toBe("EXPL_secret");
+    expect("answer" in after.exercise).toBe(false);
+    expect(JSON.stringify(after)).not.toContain("zebraquux");
+  });
+
   it("đúng hạn chót (now == dueAt): chưa lộ explanation", () => {
     const detail = toStudentAssignmentDetail(makeRow(now), undefined, now);
     expect("explanation" in detail.exercise).toBe(false);

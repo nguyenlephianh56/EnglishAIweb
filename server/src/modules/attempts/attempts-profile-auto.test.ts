@@ -157,7 +157,7 @@ describe("submitAttempt tự động → refresh hồ sơ", () => {
       }
       if (reason === "speaking") {
         db.exercise.findFirst.mockResolvedValue({ ...exercise, type: "speaking" });
-        statusCode = 422;
+        statusCode = 400;
       }
       if (reason === "commit") {
         db.$transaction.mockImplementation(async (work: (client: typeof tx) => Promise<unknown>) => {
