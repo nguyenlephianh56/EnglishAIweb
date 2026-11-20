@@ -4,14 +4,16 @@ export type ProfileRange = "7d" | "30d" | "90d";
 
 export interface SkillScore {
   skill: SkillKey;
-  /** 0-100 */
+  /** 0-100 (chưa có dữ liệu thì là 0, xem hasData) */
   score: number;
+  /** false khi kỹ năng này chưa có điểm */
+  hasData: boolean;
   /** Thay đổi điểm trong khoảng thời gian đang chọn (âm = giảm) */
   delta: number;
 }
 
-/** Một mốc thời gian của biểu đồ tiến bộ: điểm 4 kỹ năng */
-export type ProgressPoint = { label: string } & Record<SkillKey, number>;
+/** Một mốc thời gian (một ngày) của biểu đồ tiến bộ: điểm 4 kỹ năng; null = kỹ năng chưa có mốc nào trong khoảng đang chọn */
+export type ProgressPoint = { label: string } & Record<SkillKey, number | null>;
 
 export interface ErrorType {
   id: string;
@@ -36,11 +38,12 @@ export interface SkillProfileData {
   deltaPoints: number;
   /** 5 trục của biểu đồ radar (Nền tảng, Nghe, Nói, Viết, Đọc) */
   radar: SkillAxis[];
-  xp: { current: number; target: number };
+  /** Điểm trung bình các kỹ năng đã có điểm, 0-100 */
+  overall: number;
   skills: SkillScore[];
   progress: ProgressPoint[];
   errorTypes: ErrorType[];
-  /** Số bài gần nhất dùng để thống kê lỗi */
+  /** Tổng số lỗi dùng để thống kê */
   errorSampleSize: number;
   weaknesses: Weakness[];
 }

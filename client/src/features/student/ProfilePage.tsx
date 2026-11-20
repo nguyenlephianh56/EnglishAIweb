@@ -1,7 +1,8 @@
 import { lazy, Suspense, useState } from "react";
+import axios from "axios";
 import { ArrowRight, ChartNoAxesColumn, ChevronDown, CircleAlert, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
 import Button from "../../components/ui/Button";
-import { formatNumber } from "../../utils/format";
+import { getErrorMessage } from "../../api/client";
 import { SKILL_META } from "./skillMeta";
 import { useSkillProfile } from "./useSkillProfile";
 import type { ProfileRange, SkillProfileData } from "../../types/profile";
@@ -22,13 +23,13 @@ function Skeleton({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-3xl bg-slate-200 ${className}`} role="status" aria-label="Đang tải" />;
 }
 
-/** Vòng tròn cấp độ: nền xanh ngọc nhạt, cung đậm thể hiện tiến độ XP */
+/** Vòng tròn cấp độ: nền xanh ngọc nhạt, cung đậm thể hiện điểm trung bình các kỹ năng đã có điểm */
 function LevelCard({ profile }: { profile: SkillProfileData }) {
-  const { current, target } = profile.xp;
-  const percent = Math.min(100, Math.round((current / target) * 100));
-  const remaining = Math.max(target - current, 0);
+  const percent = Math.min(100, Math.max(0, profile.overall));
   const r = 62;
   const circumference = 2 * Math.PI * r;
+  const delta = profile.deltaPoints;
+  const heading = delta > 0 ? "Bạn đang tiến bộ rất tốt!" : delta < 0 ? "Hãy luyện tập thêm nhé!" : "Hãy giữ vững nhịp luyện tập!";
 
   return (
     <section className="flex h-full flex-col items-center rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8" aria-labelledby="h-level">
@@ -44,24 +45,18 @@ function LevelCard({ profile }: { profile: SkillProfileData }) {
       </div>
       <h2 id="h-level" className="mt-5 font-heading text-xl font-bold text-slate-900">
         <span className="sr-only">Cấp độ {profile.level} {profile.levelLabel}. </span>
-        Bạn đang tiến bộ rất tốt!
+        {heading}
       </h2>
       <p className="mt-1 text-sm text-slate-500">
-        {remaining > 0 ? (
-          <>
-            Chỉ còn <strong className="font-bold text-slate-900">{formatNumber(remaining)} điểm kinh nghiệm</strong> để hoàn thành cấp độ {profile.level}.
-          </>
-        ) : (
-          <>Bạn đã hoàn thành cấp độ {profile.level}.</>
-        )}
+        Điểm trung bình các kỹ năng: <strong className="font-bold text-slate-900">{profile.overall}/100</strong>
       </p>
       <div className="mt-5 w-full">
-        <div className="h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin={0} aria-valuemax={target} aria-valuenow={current} aria-label="Kinh nghiệm cấp độ hiện tại">
+        <div className="h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label="Điểm trung bình các kỹ năng">
           <div className="h-full rounded-full bg-secondary" style={{ width: `${percent}%` }} />
         </div>
         <p className="mt-1.5 flex justify-between text-xs text-slate-500">
-          <span>{formatNumber(current)} XP</span>
-          <span>{formatNumber(target)} XP</span>
+          <span>0</span>
+          <span>100</span>
         </p>
       </div>
     </section>
@@ -71,7 +66,7 @@ function LevelCard({ profile }: { profile: SkillProfileData }) {
 function SkillScoreCards({ skills }: { skills: SkillProfileData["skills"] }) {
   return (
     <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-      {skills.map(({ skill, score, delta }) => {
+      {skills.map(({ skill, score, hasData, delta }) => {
         const meta = SKILL_META[skill];
         const Icon = meta.icon;
         const up = delta > 0;
@@ -84,17 +79,21 @@ function SkillScoreCards({ skills }: { skills: SkillProfileData["skills"] }) {
             </span>
             <div className="mt-4 flex items-baseline justify-between">
               <h3 className="font-heading text-base font-bold text-slate-900">{meta.label}</h3>
-              <p className="font-heading text-3xl font-extrabold text-slate-900">
-                {score}
-                <span className="text-xs font-semibold text-slate-400">/100</span>
-              </p>
+              {hasData ? (
+                <p className="font-heading text-3xl font-extrabold text-slate-900">
+                  {score}
+                  <span className="text-xs font-semibold text-slate-400">/100</span>
+                </p>
+              ) : (
+                <p className="text-sm font-semibold text-slate-400">Chưa có dữ liệu</p>
+              )}
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} aria-label={`Điểm ${meta.label}`}>
               <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${score}%` }} />
             </div>
             <p className={`mt-3 inline-flex items-center gap-1.5 text-xs font-semibold ${down ? "text-red-600" : up ? "text-green-600" : "text-slate-500"}`}>
               {(up || down) && <TrendIcon className="size-4" aria-hidden="true" />}
-              {up ? `Tăng ${delta} điểm` : down ? `Giảm ${Math.abs(delta)} điểm` : "Không thay đổi"}
+              {!hasData ? "Chưa có dữ liệu" : up ? `Tăng ${delta} điểm` : down ? `Giảm ${Math.abs(delta)} điểm` : "Không thay đổi"}
             </p>
           </li>
         );
@@ -109,7 +108,8 @@ function ErrorTypesCard({ profile }: { profile: SkillProfileData }) {
       <h2 id="h-errors" className="font-heading text-xl font-bold text-slate-900">
         Loại lỗi hay mắc
       </h2>
-      <p className="mt-1 text-sm text-slate-500">Dựa trên {profile.errorSampleSize} bài gần nhất</p>
+      <p className="mt-1 text-sm text-slate-500">Dựa trên {profile.errorSampleSize} lỗi gần nhất</p>
+      {profile.errorTypes.length === 0 && <p className="mt-6 text-sm text-slate-500">Chưa ghi nhận lỗi nào.</p>}
       <ul className="mt-6 space-y-5">
         {profile.errorTypes.map((e, i) => (
           <li key={e.id}>
@@ -141,6 +141,7 @@ function WeaknessCard({ weaknesses }: { weaknesses: SkillProfileData["weaknesses
           <Sparkles className="size-5" />
         </span>
       </div>
+      {weaknesses.length === 0 && <p className="mt-4 text-sm text-slate-500">Chưa có điểm yếu nào nổi bật, bạn cứ tiếp tục phát huy nhé!</p>}
       <ul className="mt-4 divide-y divide-slate-100">
         {weaknesses.map((w) => {
           const meta = SKILL_META[w.skill];
@@ -167,7 +168,10 @@ function WeaknessCard({ weaknesses }: { weaknesses: SkillProfileData["weaknesses
 
 export default function ProfilePage() {
   const [range, setRange] = useState<ProfileRange>("30d");
-  const { data: profile, isLoading, isError, refetch } = useSkillProfile(range);
+  const { data: profile, isLoading, isError, error, refetch } = useSkillProfile(range);
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+  const notActive = isError && status === 403; // tài khoản chưa được kích hoạt / chưa có quyền xem
+  const notFound = isError && status === 404; // chưa có hồ sơ: coi như chưa có dữ liệu
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-8 lg:px-8">
@@ -196,11 +200,18 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {isError && (
+      {notActive && (
+        <div role="alert" className="mt-6 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+          <CircleAlert className="size-5 shrink-0" aria-hidden="true" />
+          Tài khoản của bạn chưa được kích hoạt nên chưa xem được hồ sơ kỹ năng. Vui lòng liên hệ giáo viên hoặc quản trị viên.
+        </div>
+      )}
+
+      {isError && !notActive && !notFound && (
         <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
           <span className="flex items-center gap-2">
             <CircleAlert className="size-5 shrink-0" aria-hidden="true" />
-            Không tải được hồ sơ kỹ năng.
+            {getErrorMessage(error) || "Không tải được hồ sơ kỹ năng."}
           </span>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             Thử lại
@@ -223,7 +234,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {profile && !profile.hasData && (
+      {((profile && !profile.hasData) || notFound) && (
         <div className="mt-8 rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400" aria-hidden="true">
             <ChartNoAxesColumn className="size-6" />
