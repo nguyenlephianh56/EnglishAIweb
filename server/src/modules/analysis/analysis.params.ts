@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 
 const MAX_INT4 = 2_147_483_647;
 

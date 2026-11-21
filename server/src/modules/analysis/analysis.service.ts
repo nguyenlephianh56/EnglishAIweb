@@ -1,4 +1,15 @@
 import { Role, UserStatus } from "@prisma/client";
+import { logAiUsage } from "../../ai/ai.log";
+import { runAiTask } from "../../ai/ai.service";
+import { getDefaultAiDeps } from "../../ai/ai.service.defaults";
+import { AIQuotaExceededError, type AiUsageLogger } from "../../ai/ai.types";
+import { GeminiProvider } from "../../ai/gemini.provider";
+import { AIInvalidFormatError } from "../../ai/json";
+import { ANALYSIS_PROMPT_KEYS, analysisPromptVariables } from "../../ai/prompts/analysis.prompt";
+import { buildPrompt } from "../../ai/prompts/prompt-templates";
+import { AIProviderError } from "../../ai/provider";
+import { AIServiceError, withResilience } from "../../ai/resilience";
+import { createAnalysisResultSchema } from "../../ai/schemas/analysis.schema";
 import { prisma } from "../../config/prisma";
 import {
   findStudentForSkillProfile,
@@ -7,6 +18,13 @@ import {
 import { aggregateAnalysisStats } from "./analysis.stats";
 
 export type AnalysisScope = "student" | "class";
+
+const analysisProvider = withResilience(new GeminiProvider(), {
+  retry429Max: 0,
+  retry429DelayMs: 0,
+  retryNetworkMax: 0,
+  retryNetworkDelayMs: 0,
+});
 
 export class AnalysisInputError extends Error {
   constructor(
@@ -55,4 +73,50 @@ export async function prepareAnalysis(scope: AnalysisScope, id: number, teacherI
   }
 
   return { scope, target, stats };
+}
+
+export async function runAnalysis(
+  scope: AnalysisScope,
+  id: number,
+  actor: { id: number; role: "TEACHER" | "ADMIN" },
+) {
+  const teacherId = actor.role === Role.TEACHER ? actor.id : undefined;
+  const prepared = await prepareAnalysis(scope, id, teacherId);
+  const { stats } = prepared;
+  const ai = getDefaultAiDeps();
+
+  let logAttempted = false;
+  const logger: AiUsageLogger = {
+    log(entry) {
+      logAttempted = true;
+      return ai.logger.log(entry);
+    },
+  };
+
+  try {
+    const prompt = await buildPrompt(ANALYSIS_PROMPT_KEYS[scope], analysisPromptVariables(stats));
+    const { data } = await runAiTask({
+      userId: actor.id,
+      role: actor.role,
+      task: "analysis",
+      prompt,
+      schema: createAnalysisResultSchema(stats.top_errors),
+    }, { ...ai, provider: analysisProvider, logger });
+
+    return { ...prepared, analysis: data, generated_at: new Date().toISOString() };
+  } catch (error) {
+    // Lỗi dựng prompt hoặc đếm lượt có thể xảy ra trước khi T9 ghi log.
+    if (!logAttempted) {
+      await logAiUsage(logger, { userId: actor.id, task: "analysis", status: "error", tokens: null });
+    }
+    if (
+      error instanceof AIQuotaExceededError || error instanceof AIInvalidFormatError ||
+      (error instanceof AIServiceError && error.code !== "AI_ERROR")
+    ) throw error;
+
+    if (error instanceof AIProviderError && error.kind === "INVALID_RESPONSE") {
+      throw new AIInvalidFormatError(1);
+    }
+    throw new AIServiceError("AI_UNAVAILABLE", error instanceof AIServiceError ? error.attempts : 0);
+  }
 }

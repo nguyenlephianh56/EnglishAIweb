@@ -1,8 +1,11 @@
 import { Role } from "@prisma/client";
 import type { RequestHandler } from "express";
+import { AIQuotaExceededError } from "../../ai/ai.types";
+import { AIInvalidFormatError } from "../../ai/json";
+import { AIServiceError } from "../../ai/resilience";
 import { failure, success } from "../../utils/response";
 import { StudentProfileNotFoundError } from "../skill-profiles/skill-profiles.service";
-import { AnalysisInputError, prepareAnalysis, type AnalysisScope } from "./analysis.service";
+import { AnalysisInputError, runAnalysis, type AnalysisScope } from "./analysis.service";
 
 export const analysisHandler = (scope: AnalysisScope): RequestHandler => {
   const param = scope === "student" ? "studentId" : "classId";
@@ -16,10 +19,13 @@ export const analysisHandler = (scope: AnalysisScope): RequestHandler => {
 
     try {
       const id = res.locals.params[param] as number;
-      const teacherId = user.role === Role.TEACHER ? user.id : undefined;
-      return success(res, await prepareAnalysis(scope, id, teacherId));
+      return success(res, await runAnalysis(scope, id, { id: user.id, role: user.role }));
     } catch (error) {
-      if (error instanceof StudentProfileNotFoundError || error instanceof AnalysisInputError) {
+      if (
+        error instanceof StudentProfileNotFoundError || error instanceof AnalysisInputError ||
+        error instanceof AIQuotaExceededError || error instanceof AIInvalidFormatError ||
+        error instanceof AIServiceError
+      ) {
         return failure(res, error.code, error.message, error.statusCode);
       }
       return next(error);
