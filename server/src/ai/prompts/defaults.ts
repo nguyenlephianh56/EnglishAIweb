@@ -20,8 +20,14 @@
 import type { AiTask } from "../ai.types";
 import { LIMITS } from "../../modules/exercises/exercise-content.schema";
 import { SPEAKING_MAX_WORD_ISSUES } from "../speaking.constants";
+import {
+  ANALYSIS_PROMPT_KEYS,
+  ANALYSIS_STATS_TAG,
+  CLASS_ANALYSIS_TEMPLATE,
+  STUDENT_ANALYSIS_TEMPLATE,
+} from "./analysis.prompt";
 
-export const PROMPT_KEYS = ["writing_grade","exercise_generate","listening_generate","speaking_transcribe", "speaking_grade",] as const;
+export const PROMPT_KEYS = ["writing_grade","exercise_generate","listening_generate","speaking_transcribe","speaking_grade",ANALYSIS_PROMPT_KEYS.student,ANALYSIS_PROMPT_KEYS.class,] as const;
 export type PromptKey = (typeof PROMPT_KEYS)[number];
 
 export interface PromptDefinition {
@@ -304,6 +310,13 @@ const SPEAKING_GRADE: PromptDefinition = {
   untrusted: { prompt: "speaking_prompt", sample: "speaking_sample", transcript: "transcript" },
 };
 
+const ANALYSIS_DEFINITION = {
+  task: "analysis",
+  variables: ["stats"],
+  required: ["stats"],
+  untrusted: { stats: ANALYSIS_STATS_TAG },
+} as const;
+
 export const DEFAULT_PROMPTS: Readonly<
   Record<PromptKey, PromptDefinition>
 > = Object.freeze({
@@ -312,6 +325,16 @@ export const DEFAULT_PROMPTS: Readonly<
   speaking_grade: SPEAKING_GRADE,
   listening_generate: LISTENING_GENERATE,
   speaking_transcribe: SPEAKING_TRANSCRIBE,
+  [ANALYSIS_PROMPT_KEYS.student]: {
+    ...ANALYSIS_DEFINITION,
+    key: ANALYSIS_PROMPT_KEYS.student,
+    template: STUDENT_ANALYSIS_TEMPLATE,
+  },
+  [ANALYSIS_PROMPT_KEYS.class]: {
+    ...ANALYSIS_DEFINITION,
+    key: ANALYSIS_PROMPT_KEYS.class,
+    template: CLASS_ANALYSIS_TEMPLATE,
+  },
 });
 
 /** Trả định nghĩa của key, hoặc undefined nếu key lạ (kể cả "constructor", "__proto__"...). */

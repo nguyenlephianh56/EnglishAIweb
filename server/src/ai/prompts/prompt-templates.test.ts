@@ -52,12 +52,14 @@ function sampleVariables(definition: PromptDefinition): Record<string, string> {
 describe("defaults — cấu trúc các mẫu mặc định", () => {
   it("có đủ key và định nghĩa khớp key trong bảng", () => {
     expect([...PROMPT_KEYS]).toEqual([
-      "writing_grade",
-      "exercise_generate",
-      "listening_generate",
-      "speaking_transcribe",
-      "speaking_grade",
-    ]);
+  "writing_grade",
+  "exercise_generate",
+  "listening_generate",
+  "speaking_transcribe",
+  "speaking_grade",
+  "analysis_student",
+  "analysis_class",
+]);
     for (const key of PROMPT_KEYS) {
       expect(DEFAULT_PROMPTS[key].key).toBe(key);
       expect(getPromptDefinition(key)).toBe(DEFAULT_PROMPTS[key]);

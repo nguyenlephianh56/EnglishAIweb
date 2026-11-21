@@ -82,18 +82,11 @@ const buildProgress = async (studentId: number, skill: Skill): Promise<SkillProg
   return points.reverse();
 };
 
-/**
- * Hồ sơ kỹ năng của học sinh `studentId`, luôn đủ 5 kỹ năng theo PROFILE_SKILL_ORDER.
- * Kỹ năng chưa có dòng skill_profiles: score = null, level = null, error_stats = {}, updated_at = null.
- * (progress vẫn tính từ attempts nên có thể có điểm dù chưa có dòng hồ sơ; không có attempt thì [].)
- *
- * Ném StudentProfileNotFoundError khi: không có user đó, user không phải STUDENT, hoặc (khi có teacherId)
- * học sinh không thuộc lớp nào của GV đó.
- */
-export const getStudentSkillProfile = async (
+/** Tìm HS trong phạm vi người xem. Dùng chung cho hồ sơ và phân tích. */
+export const findStudentForSkillProfile = async (
   studentId: number,
   options: StudentSkillProfileOptions = {}
-): Promise<StudentSkillProfileResponse> => {
+) => {
   const where: Prisma.UserWhereInput = { id: studentId, role: Role.STUDENT };
   if (options.teacherId !== undefined) {
     where.memberships = { some: { class: { teacherId: options.teacherId } } };
@@ -105,12 +98,25 @@ export const getStudentSkillProfile = async (
     select: { id: true, name: true },
   });
   if (student === null) throw new StudentProfileNotFoundError();
+  return student;
+};
+
+/** Đọc điểm, mức và lỗi đã lưu của HS sau khi đã tra cứu quyền. */
+export const readSavedSkillProfiles = (studentId: number) =>
+  prisma.skillProfile.findMany({
+    where: { studentId },
+    select: { skill: true, score: true, level: true, errorStats: true, updatedAt: true },
+  });
+
+/** Hồ sơ đủ 5 kỹ năng theo PROFILE_SKILL_ORDER, kèm tiến bộ từ lịch sử làm bài. */
+export const getStudentSkillProfile = async (
+  studentId: number,
+  options: StudentSkillProfileOptions = {}
+): Promise<StudentSkillProfileResponse> => {
+  const student = await findStudentForSkillProfile(studentId, options);
 
   const [profileRows, progressBySkill] = await Promise.all([
-    prisma.skillProfile.findMany({
-      where: { studentId: student.id },
-      select: { skill: true, score: true, level: true, errorStats: true, updatedAt: true },
-    }),
+    readSavedSkillProfiles(student.id),
     Promise.all(PROFILE_SKILL_ORDER.map((skill) => buildProgress(student.id, skill))),
   ]);
 
