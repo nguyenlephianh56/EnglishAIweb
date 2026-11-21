@@ -11,6 +11,7 @@ import { attemptRoutes } from "./modules/attempts/attempts.routes";
 import { assignmentRoutes } from "./modules/assignments/assignments.routes";
 import { skillProfileRoutes } from "./modules/skill-profiles/skill-profiles.routes";
 import { recommendationRoutes } from "./modules/learning-paths/learning-paths.recommendations.routes";
+import { learningPathRoutes } from "./modules/learning-paths/learning-paths.routes";
 
 export const app = express();
 
@@ -81,6 +82,9 @@ app.use("/api/v1/skill-profiles", skillProfileRoutes);
 
 // Gợi ý bài cho học sinh (T24)
 app.use("/api/v1/recommendations", recommendationRoutes);
+
+// Lộ trình học tuần (T24)
+app.use("/api/v1/learning-path", learningPathRoutes);
 
 // 404 handler
 app.use((_req, res) => {

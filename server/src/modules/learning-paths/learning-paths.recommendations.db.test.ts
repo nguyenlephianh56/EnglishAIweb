@@ -118,6 +118,8 @@ const cleanup = async (userIds: number[]) => {
   await prisma.attempt.deleteMany({ where: { studentId: { in: userIds } } });
   await prisma.assignment.deleteMany({ where: { assignedById: { in: userIds } } });
   await prisma.class.deleteMany({ where: { teacherId: { in: userIds } } });
+  const owned = await prisma.exercise.findMany({ where: { createdById: { in: userIds } }, select: { id: true } });
+  await prisma.attempt.deleteMany({ where: { exerciseId: { in: owned.map((e: { id: number }) => e.id) } } });
   await prisma.exercise.deleteMany({ where: { createdById: { in: userIds } } });
   await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 };

@@ -49,3 +49,65 @@ export const toRecommendationItem = (
   reason: selected.reason,
   focus_error_type: selected.focusErrorType,
 });
+
+// ---------------------------------------------------------------------------
+// Lộ trình tuần (T24, Bước 3)
+// ---------------------------------------------------------------------------
+
+/** Bài kèm trạng thái, đọc cùng lúc với item (1 truy vấn include, không N+1). */
+export interface PathExerciseRow extends ExerciseForSummary {
+  status: string;
+  inLibrary: boolean;
+}
+
+export interface PathItemRow {
+  id: number;
+  title: string;
+  done: boolean;
+  exercise: PathExerciseRow | null;
+}
+
+export interface PathRow {
+  id: number;
+  weekStart: Date;
+  createdAt: Date;
+  items: PathItemRow[];
+}
+
+export interface LearningPathItemView {
+  id: number;
+  title: string;
+  done: boolean;
+  /** null khi bài đã bị xóa (exercise_id NULL) hoặc không còn PUBLISHED + in_library. */
+  exercise: ExerciseSummary | null;
+}
+
+export interface LearningPathView {
+  id: number;
+  /** "YYYY-MM-DD" (thứ Hai của tuần). */
+  week_start: string;
+  /** ISO 8601. */
+  created_at: string;
+  items: LearningPathItemView[];
+  progress: { done: number; total: number };
+}
+
+/** Bài còn mở được cho HS khi và chỉ khi đang PUBLISHED và nằm trong thư viện. */
+const isOpenable = (exercise: PathExerciseRow): boolean => exercise.status === "PUBLISHED" && exercise.inLibrary === true;
+
+/** Danh sách trắng: chỉ trả các field dưới đây, không có field thừa. */
+export const toLearningPathView = (path: PathRow): LearningPathView => {
+  const items = path.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    done: item.done,
+    exercise: item.exercise !== null && isOpenable(item.exercise) ? toExerciseSummary(item.exercise) : null,
+  }));
+  return {
+    id: path.id,
+    week_start: path.weekStart.toISOString().slice(0, 10),
+    created_at: path.createdAt.toISOString(),
+    items,
+    progress: { done: items.filter((item) => item.done).length, total: items.length },
+  };
+};
