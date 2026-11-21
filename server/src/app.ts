@@ -10,7 +10,7 @@ import { exerciseRoutes } from "./modules/exercises/exercises.routes";
 import { attemptRoutes } from "./modules/attempts/attempts.routes";
 import { assignmentRoutes } from "./modules/assignments/assignments.routes";
 import { skillProfileRoutes } from "./modules/skill-profiles/skill-profiles.routes";
-import { analysisRoutes } from "./modules/analysis/analysis.routes";
+import { recommendationRoutes } from "./modules/learning-paths/learning-paths.recommendations.routes";
 
 export const app = express();
 
@@ -79,8 +79,8 @@ app.use("/api/v1/assignments", assignmentRoutes);
 // Skill profile routes (hồ sơ kỹ năng)
 app.use("/api/v1/skill-profiles", skillProfileRoutes);
 
-// Analysis routes (phân tích)
-app.use("/api/v1/analysis", analysisRoutes);
+// Gợi ý bài cho học sinh (T24)
+app.use("/api/v1/recommendations", recommendationRoutes);
 
 // 404 handler
 app.use((_req, res) => {

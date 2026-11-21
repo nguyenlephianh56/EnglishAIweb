@@ -1,8 +1,9 @@
-
 import "dotenv/config";
 import { z } from "zod";
 import { WRITING_TEXT_MAX } from "../modules/attempts/attempts.constants";
 import { DEFAULT_SKILL_WINDOW_SIZE } from "../modules/skill-profiles/skill-profiles.constants";
+import { DEFAULT_APP_TIMEZONE } from "../modules/learning-paths/learning-paths.constants";
+import { isValidTimeZone } from "../modules/learning-paths/learning-paths.week";
 
 // Biến để trống ("") thì coi như không đặt -> dùng giá trị mặc định.
 const emptyToUndefined = (value: unknown) =>
@@ -69,6 +70,11 @@ const envSchema = z.object({
    WRITING_MAX_WORDS: positiveInt(600, 5000),
   WRITING_MAX_CHARS: positiveInt(4000, WRITING_TEXT_MAX),
   SKILL_WINDOW_SIZE: positiveInt(DEFAULT_SKILL_WINDOW_SIZE, 100),
+  // Múi giờ để tính "thứ Hai của tuần" cho lộ trình học (T24). Tên IANA, vd Asia/Ho_Chi_Minh.
+  APP_TIMEZONE: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().refine(isValidTimeZone, "APP_TIMEZONE không phải múi giờ IANA hợp lệ").default(DEFAULT_APP_TIMEZONE)
+  ),
     // Upload âm thanh (T17). Dung lượng tối đa MỖI file (byte): mặc định 10 MB, trần 50 MB.
   AUDIO_MAX_BYTES: positiveInt(10 * 1024 * 1024, 50 * 1024 * 1024),
   // Thư mục lưu tạm file âm thanh. Đường dẫn tương đối tính từ thư mục chạy server (server/).
