@@ -1,4 +1,5 @@
 import { api, unwrap } from "./client";
+import type { AttemptReview, TeacherGradeBody, TeacherGradeResult } from "../types/attemptReview";
 import type { AttemptDetail, AttemptResult, AssignmentAttemptExtras, AudioUploadResult, GradingError, SubmitAttemptBody, SubmitOutcome } from "../types/attempt";
 
 type ResultWithExtras = AttemptResult & Partial<AssignmentAttemptExtras>;
@@ -39,3 +40,9 @@ export const getAttempt = (id: number) => unwrap<AttemptDetail>(api.get(`/attemp
 
 /** POST /attempts/:id/regrade: chấm lại bài Viết đang chờ chấm (200 = xong, 202 = AI lại lỗi) */
 export const regradeAttempt = async (id: number): Promise<SubmitOutcome> => normalize(await unwrap<SubmitResponse>(api.post(`/attempts/${id}/regrade`)));
+
+/** GET /attempts/:id/review: giáo viên/quản trị xem bài nộp (404 nếu không thuộc lớp của mình hoặc không tồn tại) */
+export const getAttemptReview = (id: number) => unwrap<AttemptReview>(api.get(`/attempts/${id}/review`));
+
+/** PATCH /attempts/:id/grade: giáo viên chấm/sửa điểm và nhận xét. Chỉ gửi field thay đổi. */
+export const saveTeacherGrade = (id: number, body: TeacherGradeBody) => unwrap<TeacherGradeResult>(api.patch(`/attempts/${id}/grade`, body));

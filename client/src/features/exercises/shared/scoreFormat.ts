@@ -1,4 +1,5 @@
-import type { CriteriaKey } from "../../../types/grading";
+/** Khóa 4 tiêu chí chấm bài Viết */
+export type CriteriaKey = "content" | "coherence" | "vocabulary" | "grammar";
 
 /** Bốn tiêu chí chấm bài Viết (thang 10) */
 export const CRITERIA: { key: CriteriaKey; label: string }[] = [

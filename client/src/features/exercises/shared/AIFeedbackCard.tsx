@@ -1,12 +1,14 @@
 import { Info, Sparkles } from "lucide-react";
 import { CRITERIA, formatScore } from "./scoreFormat";
-import type { CriteriaKey } from "../../../types/grading";
+import type { CriteriaKey } from "./scoreFormat";
 
 export interface AIFeedbackCardProps {
   /** Điểm theo tiêu chí (thang 10); khóa nào có trong `items` thì được vẽ */
   criteria?: object | null;
   /** Danh sách tiêu chí hiển thị (mặc định 4 tiêu chí bài Viết). Bài Nói truyền SPEAKING_CRITERIA. */
   items?: { key: string; label: string }[];
+  /** Tiêu đề khối (mặc định "Phản hồi từ AI") */
+  title?: string;
   comment?: string | null;
   score?: number | null;
   maxScore: number;
@@ -14,7 +16,7 @@ export interface AIFeedbackCardProps {
 }
 
 /** Khối "Phản hồi từ AI": điểm tổng, 4 thanh tiêu chí (thang 10), nhận xét và huy hiệu cố định. Thiếu criteria thì ẩn phần thanh. */
-export default function AIFeedbackCard({ criteria, items = CRITERIA as { key: CriteriaKey; label: string }[], comment, score, maxScore, className = "" }: AIFeedbackCardProps) {
+export default function AIFeedbackCard({ criteria, items = CRITERIA as { key: CriteriaKey; label: string }[], title = "Phản hồi từ AI", comment, score, maxScore, className = "" }: AIFeedbackCardProps) {
   const scores = (criteria ?? {}) as Record<string, unknown>;
   const hasCriteria = Boolean(criteria) && items.every((c) => typeof scores[c.key] === "number");
   return (
@@ -23,7 +25,7 @@ export default function AIFeedbackCard({ criteria, items = CRITERIA as { key: Cr
         <div>
           <h2 id="ai-feedback-title" className="flex items-center gap-2 font-heading text-xl font-bold text-slate-900">
             <Sparkles className="size-5 text-brand" aria-hidden="true" />
-            Phản hồi từ AI
+            {title}
           </h2>
           {typeof score === "number" && (
             <p className="mt-1 text-sm text-slate-500">
