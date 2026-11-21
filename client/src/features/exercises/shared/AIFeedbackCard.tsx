@@ -1,9 +1,12 @@
 import { Info, Sparkles } from "lucide-react";
 import { CRITERIA, formatScore } from "./scoreFormat";
-import type { WritingCriteria } from "../../../types/grading";
+import type { CriteriaKey } from "../../../types/grading";
 
 export interface AIFeedbackCardProps {
-  criteria?: WritingCriteria | null;
+  /** Điểm theo tiêu chí (thang 10); khóa nào có trong `items` thì được vẽ */
+  criteria?: object | null;
+  /** Danh sách tiêu chí hiển thị (mặc định 4 tiêu chí bài Viết). Bài Nói truyền SPEAKING_CRITERIA. */
+  items?: { key: string; label: string }[];
   comment?: string | null;
   score?: number | null;
   maxScore: number;
@@ -11,8 +14,9 @@ export interface AIFeedbackCardProps {
 }
 
 /** Khối "Phản hồi từ AI": điểm tổng, 4 thanh tiêu chí (thang 10), nhận xét và huy hiệu cố định. Thiếu criteria thì ẩn phần thanh. */
-export default function AIFeedbackCard({ criteria, comment, score, maxScore, className = "" }: AIFeedbackCardProps) {
-  const hasCriteria = Boolean(criteria) && CRITERIA.every((c) => typeof criteria?.[c.key] === "number");
+export default function AIFeedbackCard({ criteria, items = CRITERIA as { key: CriteriaKey; label: string }[], comment, score, maxScore, className = "" }: AIFeedbackCardProps) {
+  const scores = (criteria ?? {}) as Record<string, unknown>;
+  const hasCriteria = Boolean(criteria) && items.every((c) => typeof scores[c.key] === "number");
   return (
     <section className={`rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 ${className}`} aria-labelledby="ai-feedback-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -38,8 +42,8 @@ export default function AIFeedbackCard({ criteria, comment, score, maxScore, cla
 
       {hasCriteria && criteria && (
         <ul className="mt-5 grid gap-4 sm:grid-cols-2" aria-label="Điểm theo tiêu chí">
-          {CRITERIA.map((c) => {
-            const v = criteria[c.key];
+          {items.map((c) => {
+            const v = scores[c.key] as number;
             return (
               <li key={c.key}>
                 <div className="flex items-center justify-between text-sm">

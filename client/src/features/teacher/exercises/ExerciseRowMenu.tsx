@@ -29,7 +29,7 @@ export default function ExerciseRowMenu({ exercise, isOwner, busy, onPropose, on
   const menuId = useId();
   const open = pos !== null;
 
-  const canAssign = exercise.status !== "HIDDEN" && exercise.type !== "speaking";
+  const canAssign = exercise.status !== "HIDDEN";
   const canPropose = isOwner && exercise.status === "DRAFT";
 
   function close(refocus = false) {
@@ -107,7 +107,7 @@ export default function ExerciseRowMenu({ exercise, isOwner, busy, onPropose, on
           style={{ position: "fixed", top: pos.top, right: pos.right }}
           className="z-40 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1.5 shadow-xl"
         >
-          <button type="button" role="menuitem" disabled={!canAssign} title={canAssign ? undefined : "Bài đã ẩn hoặc dạng Nói chưa giao được"} onClick={run(() => navigate(`/teacher/assignments/new?exerciseId=${exercise.id}`))} className={itemClass}>
+          <button type="button" role="menuitem" disabled={!canAssign} title={canAssign ? undefined : "Bài đã ẩn không giao được"} onClick={run(() => navigate(`/teacher/assignments/new?exerciseId=${exercise.id}`))} className={itemClass}>
             <UserPlus className="size-4 shrink-0" aria-hidden="true" />
             Giao bài
           </button>

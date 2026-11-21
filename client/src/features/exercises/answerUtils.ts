@@ -29,6 +29,8 @@ const COMPARERS: { [T in AnswerableExerciseType]: Comparer<T> } = {
   error_correction: (value, correct) => [normalizeText(value[0]) === normalizeText(correct[0])],
   // Bài viết do AI chấm, không có đáp án để so
   writing: () => [],
+  // Bài Nói do AI chấm, không có đáp án để so
+  speaking: () => [],
 };
 
 /**

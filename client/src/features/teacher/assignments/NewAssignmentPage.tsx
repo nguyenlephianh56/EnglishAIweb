@@ -44,7 +44,7 @@ export default function NewAssignmentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes.isSuccess]);
 
-  // Chọn sẵn bài theo ?exerciseId= (từ menu "Giao bài" ở Ngân hàng bài tập). Bài ẩn hoặc dạng Nói không giao được nên bỏ qua.
+  // Chọn sẵn bài theo ?exerciseId= (từ menu "Giao bài" ở Ngân hàng bài tập). Bài ẩn không giao được nên bỏ qua.
   const preExercise = useRef(false);
   const wantedExerciseId = Number(params.get("exerciseId"));
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function NewAssignmentPage() {
     preExercise.current = true;
     getExercise(wantedExerciseId)
       .then((e) => {
-        if (e.status !== "HIDDEN" && e.type !== "speaking") setExercise((cur) => cur ?? e);
+        if (e.status !== "HIDDEN") setExercise((cur) => cur ?? e);
       })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
