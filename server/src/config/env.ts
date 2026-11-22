@@ -56,7 +56,7 @@ const envSchema = z.object({
   // Thử lại khi lỗi mạng.
   AI_RETRY_NETWORK_MAX: nonNegativeInt(1, 5),
   AI_RETRY_NETWORK_DELAY_MS: nonNegativeInt(2000, 60000),
-  
+
 
   AI_DAILY_LIMIT_STUDENT: z.coerce.number().default(10),
   AI_DAILY_LIMIT_TEACHER: z.coerce.number().default(50),
@@ -88,6 +88,8 @@ const envSchema = z.object({
   AUDIO_TTL_MINUTES: positiveInt(60, 1440),
   // Chu kỳ quét (phút), 1-59 (dùng cú pháp cron "*/N"). Mặc định 10 phút.
   AUDIO_CLEANUP_INTERVAL_MINUTES: positiveInt(10, 59),
+  // Chu kỳ quét nhắc hạn (T25), số nguyên từ 1 đến 59 phút. Mặc định 5 phút.
+  REMINDER_SCAN_INTERVAL_MINUTES: positiveInt(5, 59),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
