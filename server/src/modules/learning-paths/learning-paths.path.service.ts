@@ -11,6 +11,10 @@
 //
 // Gợi ý bài (recommendExercises) tính NGOÀI transaction vì nó chỉ đọc và dùng kết nối riêng; như vậy
 // transaction không giữ một kết nối trong lúc chờ truy vấn khác.
+//
+// saveWeeklyPath: phần "khóa + kiểm lại + tạo path + tạo item" dùng CHUNG cho bản luật (createCurrentPath) và bản AI
+// (learning-paths.path.ai.service.ts). Nơi gọi chuẩn bị xong danh sách {title, exerciseId} TRƯỚC khi gọi; tuyệt đối
+// không gọi AI (hay bất kỳ việc chậm nào) bên trong hàm này vì nó đang giữ transaction và khóa.
 // studentId luôn do controller lấy từ TOKEN; mọi truy vấn đều lọc theo studentId.
 // =====================================================================
 import type { Prisma } from "@prisma/client";
@@ -38,6 +42,12 @@ export class LearningPathItemNotFoundError extends Error {
     super("LEARNING_PATH_ITEM_NOT_FOUND");
     this.name = "LearningPathItemNotFoundError";
   }
+}
+
+/** Một mục của lộ trình sắp tạo: tiêu đề đã chốt + id bài thật (server tự ánh xạ, không lấy từ client/AI). */
+export interface PathItemInput {
+  title: string;
+  exerciseId: number;
 }
 
 /** Một truy vấn include lấy cả item lẫn bài; items theo id tăng dần (= thứ tự gợi ý). */
@@ -74,6 +84,41 @@ export const getCurrentPath = async (
   return path === null ? null : toLearningPathView(path);
 };
 
+/**
+ * Lưu lộ trình của tuần `weekStart` cho HS, IDEMPOTENT: trong transaction lấy khóa, kiểm tra LẠI, nếu tuần đó đã có
+ * lộ trình thì trả lộ trình cũ (created: false), chưa có thì tạo path + item TUẦN TỰ theo đúng thứ tự `items`
+ * (id tăng dần), `done = false`. `items` rỗng là lỗi lập trình của nơi gọi (không bao giờ tạo lộ trình rỗng).
+ */
+export const saveWeeklyPath = async (
+  studentId: number,
+  weekStart: Date,
+  items: readonly PathItemInput[]
+): Promise<{ created: boolean; path: LearningPathView }> => {
+  if (items.length === 0) throw new NoExercisesAvailableError(); // chặn lộ trình rỗng, chưa ghi gì
+
+  const weekNumber = Math.floor(weekStart.getTime() / MS_PER_DAY);
+
+  return prisma.$transaction(async (tx) => {
+    // ::int bắt buộc: Prisma gửi số dạng bigint, hàm (int, int) sẽ "không tồn tại" nếu thiếu.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${studentId}::int, ${weekNumber}::int)`;
+
+    // Kiểm tra LẠI sau khi có khóa: request song song có thể vừa tạo xong.
+    const again = await findPathOfWeek(tx, studentId, weekStart);
+    if (again !== null) return { created: false, path: toLearningPathView(again) };
+
+    const path = await tx.learningPath.create({ data: { studentId, weekStart }, select: { id: true } });
+    // Tạo từng item theo thứ tự đã chọn để id tăng dần đúng thứ tự.
+    for (const item of items) {
+      await tx.learningPathItem.create({
+        data: { pathId: path.id, title: item.title, exerciseId: item.exerciseId, done: false },
+      });
+    }
+
+    const created = await tx.learningPath.findUniqueOrThrow({ where: { id: path.id }, include: PATH_INCLUDE });
+    return { created: true, path: toLearningPathView(created) };
+  });
+};
+
 export const createCurrentPath = async (
   studentId: number,
   now: Date = new Date(),
@@ -88,32 +133,14 @@ export const createCurrentPath = async (
   const picked = await recommendExercises(studentId, WEEKLY_PATH_SIZE);
   if (picked.length === 0) throw new NoExercisesAvailableError(); // chưa ghi gì -> 0 dòng
 
-  const weekNumber = Math.floor(weekStart.getTime() / MS_PER_DAY);
-
-  return prisma.$transaction(async (tx) => {
-    // ::int bắt buộc: Prisma gửi số dạng bigint, hàm (int, int) sẽ "không tồn tại" nếu thiếu.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${studentId}::int, ${weekNumber}::int)`;
-
-    // Kiểm tra LẠI sau khi có khóa: request song song có thể vừa tạo xong.
-    const again = await findPathOfWeek(tx, studentId, weekStart);
-    if (again !== null) return { created: false, path: toLearningPathView(again) };
-
-    const path = await tx.learningPath.create({ data: { studentId, weekStart }, select: { id: true } });
-    // Tạo từng item theo thứ tự gợi ý để id tăng dần đúng thứ tự.
-    for (const entry of picked) {
-      await tx.learningPathItem.create({
-        data: {
-          pathId: path.id,
-          title: buildItemTitle(entry.skill, entry.level, entry.focusErrorType),
-          exerciseId: entry.exercise.id,
-          done: false,
-        },
-      });
-    }
-
-    const created = await tx.learningPath.findUniqueOrThrow({ where: { id: path.id }, include: PATH_INCLUDE });
-    return { created: true, path: toLearningPathView(created) };
-  });
+  return saveWeeklyPath(
+    studentId,
+    weekStart,
+    picked.map((entry) => ({
+      title: buildItemTitle(entry.skill, entry.level, entry.focusErrorType),
+      exerciseId: entry.exercise.id,
+    }))
+  );
 };
 
 /**

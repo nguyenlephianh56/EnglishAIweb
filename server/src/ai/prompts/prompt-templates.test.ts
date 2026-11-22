@@ -59,6 +59,7 @@ describe("defaults — cấu trúc các mẫu mặc định", () => {
   "speaking_grade",
   "analysis_student",
   "analysis_class",
+  "path_generate",
 ]);
     for (const key of PROMPT_KEYS) {
       expect(DEFAULT_PROMPTS[key].key).toBe(key);

@@ -15,7 +15,7 @@ import type { ExerciseStatus, Level, Skill } from "@prisma/client";
 import { app } from "../../app";
 import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
-import { createCurrentPath, getCurrentPath } from "./learning-paths.path.service";
+import { createCurrentPath, getCurrentPath, saveWeeklyPath } from "./learning-paths.path.service";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -351,6 +351,59 @@ describe("Theo tuần (mức service, tham số now)", () => {
     const id = await readyStudent();
     const result = await createCurrentPath(id, new Date("2026-11-22T20:00:00.000Z"), TZ); // 03:00 thứ Hai 23/11 giờ VN
     expect(result.path.week_start).toBe("2026-11-23");
+  });
+});
+
+describe("saveWeeklyPath (hàm lưu dùng chung với bản AI)", () => {
+  const WEEK = new Date("2026-11-16T00:00:00.000Z");
+
+  it("tạo đúng thứ tự đã đưa (id tăng dần), title nguyên văn, đúng bài, done=false", async () => {
+    const id = await readyStudent();
+    const order = [ex.r1, ex.w2, ex.w1]; // thứ tự KHÁC thứ tự bản luật để chứng minh hàm giữ nguyên thứ tự được đưa
+    const titles = ["Bài đọc trước", "Viết thứ hai", "Viết đầu"];
+
+    const result = await saveWeeklyPath(id, WEEK, order.map((exerciseId, i) => ({ title: titles[i], exerciseId })));
+
+    expect(result.created).toBe(true);
+    expect(result.path.week_start).toBe("2026-11-16");
+    expect(result.path.items.map((item) => item.title)).toEqual(titles);
+    expect(result.path.items.map((item) => item.exercise?.id)).toEqual(order);
+    expect(result.path.items.every((item) => item.done === false)).toBe(true);
+    const ids = result.path.items.map((item) => item.id);
+    expect([...ids].sort((a, b) => a - b)).toEqual(ids);
+    expect(await pathCount(id)).toBe(1);
+    expect(await itemCount(id)).toBe(3);
+  });
+
+  it("tuần đó đã có lộ trình -> trả lộ trình cũ (created=false), không ghi thêm dòng nào", async () => {
+    const id = await readyStudent();
+    const first = await saveWeeklyPath(id, WEEK, [{ title: "Một", exerciseId: ex.w1 }]);
+    const second = await saveWeeklyPath(id, WEEK, [{ title: "Hai", exerciseId: ex.r1 }, { title: "Ba", exerciseId: ex.l1 }]);
+
+    expect(first.created).toBe(true);
+    expect(second.created).toBe(false);
+    expect(second.path).toEqual(first.path);
+    expect(await pathCount(id)).toBe(1);
+    expect(await itemCount(id)).toBe(1);
+  });
+
+  it("gọi song song -> đúng 1 lộ trình, đúng 1 lần created=true, mọi bên thấy cùng một lộ trình", async () => {
+    const id = await readyStudent();
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) => saveWeeklyPath(id, WEEK, [{ title: `Lần ${i}`, exerciseId: ex.w1 }]))
+    );
+
+    expect(results.filter((r) => r.created)).toHaveLength(1);
+    expect(new Set(results.map((r) => r.path.id)).size).toBe(1);
+    expect(await pathCount(id)).toBe(1);
+    expect(await itemCount(id)).toBe(1);
+  });
+
+  it("danh sách rỗng -> NO_EXERCISES_AVAILABLE, 0 dòng DB (không bao giờ tạo lộ trình rỗng)", async () => {
+    const id = await readyStudent();
+    await expect(saveWeeklyPath(id, WEEK, [])).rejects.toThrow("NO_EXERCISES_AVAILABLE");
+    expect(await pathCount(id)).toBe(0);
+    expect(await itemCount(id)).toBe(0);
   });
 });
 

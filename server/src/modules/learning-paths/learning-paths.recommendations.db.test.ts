@@ -19,6 +19,8 @@ import type { ExerciseStatus, Level, Skill } from "@prisma/client";
 import { app } from "../../app";
 import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
+import { MAX_EXERCISES_PER_SKILL } from "./learning-paths.constants";
+import { recommendExercises } from "./learning-paths.service";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -454,5 +456,50 @@ describe("GET /recommendations/me: phân quyền", () => {
     const locked = await createUser("student_locked", "STUDENT", "LOCKED");
     expect((await asUser(pending)).status).toBe(403);
     expect((await asUser(locked)).status).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tham số tùy chọn perSkill (dùng cho lộ trình AI: nhiều ứng viên hơn mỗi kỹ năng, CÙNG bộ lọc)
+// ---------------------------------------------------------------------------
+describe("recommendExercises: tham số perSkill", () => {
+  const idsFrom = (rows: { exercise: { id: number } }[]) => rows.map((row) => row.exercise.id);
+
+  it("không truyền perSkill = truyền MAX_EXERCISES_PER_SKILL = kết quả của API cũ (không đổi hành vi)", async () => {
+    const student = await isolatedStudent();
+    const viaApi = idsOf(await asUser(student, "?limit=10"));
+
+    const omitted = await recommendExercises(student, 10);
+    const explicit = await recommendExercises(student, 10, MAX_EXERCISES_PER_SKILL);
+
+    expect(idsFrom(omitted)).toEqual(viaApi);
+    expect(explicit).toEqual(omitted);
+    expect(idsFrom(omitted)).toEqual(keysOf("l1", "s1", "r1", "w1", "f1", "r2", "w2"));
+  });
+
+  it("perSkill=3, limit=15: thêm bài thứ ba của kỹ năng còn bài (w3), vẫn xen kẽ theo vòng và vẫn đúng bộ lọc", async () => {
+    const student = await isolatedStudent();
+    const rows = await recommendExercises(student, 15, 3);
+
+    expect(idsFrom(rows)).toEqual(keysOf("l1", "s1", "r1", "w1", "f1", "r2", "w2", "w3"));
+    const excluded = keysOf("rDraft", "rProposed", "rHidden", "rNotLib", "lB1", "wA2");
+    for (const id of idsFrom(rows)) expect(excluded).not.toContain(id);
+  });
+
+  it("perSkill=1 -> mỗi kỹ năng một bài; perSkill không hợp lệ -> mảng rỗng", async () => {
+    const student = await isolatedStudent();
+    expect(idsFrom(await recommendExercises(student, 15, 1))).toEqual(keysOf("l1", "s1", "r1", "w1", "f1"));
+    for (const bad of [0, -1, 1.5, Number.NaN]) {
+      expect(await recommendExercises(student, 15, bad)).toEqual([]);
+    }
+  });
+
+  it("vẫn loại bài HS đã làm khi perSkill lớn", async () => {
+    const student = await isolatedStudent();
+    await addAttempt(student, ex.w1);
+    const rows = await recommendExercises(student, 15, 3);
+    expect(idsFrom(rows)).not.toContain(ex.w1);
+    // WRITING còn w2 w3: w2 vào vòng 1 (giữa r1 và f1), w3 vào vòng 2 sau r2
+    expect(idsFrom(rows)).toEqual(keysOf("l1", "s1", "r1", "w2", "f1", "r2", "w3"));
   });
 });

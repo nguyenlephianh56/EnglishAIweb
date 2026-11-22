@@ -26,8 +26,9 @@ import {
   CLASS_ANALYSIS_TEMPLATE,
   STUDENT_ANALYSIS_TEMPLATE,
 } from "./analysis.prompt";
+import { PATH_CANDIDATES_TAG, PATH_GENERATE_TEMPLATE, PATH_PROMPT_KEY } from "./path.prompt";
 
-export const PROMPT_KEYS = ["writing_grade","exercise_generate","listening_generate","speaking_transcribe","speaking_grade",ANALYSIS_PROMPT_KEYS.student,ANALYSIS_PROMPT_KEYS.class,] as const;
+export const PROMPT_KEYS = ["writing_grade","exercise_generate","listening_generate","speaking_transcribe","speaking_grade",ANALYSIS_PROMPT_KEYS.student,ANALYSIS_PROMPT_KEYS.class,PATH_PROMPT_KEY,] as const;
 export type PromptKey = (typeof PROMPT_KEYS)[number];
 
 export interface PromptDefinition {
@@ -317,6 +318,15 @@ const ANALYSIS_DEFINITION = {
   untrusted: { stats: ANALYSIS_STATS_TAG },
 } as const;
 
+const PATH_DEFINITION: PromptDefinition = {
+  key: PATH_PROMPT_KEY,
+  task: "path",
+  template: PATH_GENERATE_TEMPLATE,
+  variables: ["candidates"],
+  required: ["candidates"],
+  untrusted: { candidates: PATH_CANDIDATES_TAG },
+};
+
 export const DEFAULT_PROMPTS: Readonly<
   Record<PromptKey, PromptDefinition>
 > = Object.freeze({
@@ -335,6 +345,7 @@ export const DEFAULT_PROMPTS: Readonly<
     key: ANALYSIS_PROMPT_KEYS.class,
     template: CLASS_ANALYSIS_TEMPLATE,
   },
+  [PATH_PROMPT_KEY]: PATH_DEFINITION,
 });
 
 /** Trả định nghĩa của key, hoặc undefined nếu key lạ (kể cả "constructor", "__proto__"...). */

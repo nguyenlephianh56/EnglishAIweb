@@ -43,14 +43,18 @@ const CANDIDATE_SELECT = {
 export type CandidateRow = ExerciseForSummary & { createdAt: Date };
 
 /**
- * Gợi ý tối đa `limit` bài cho HS. Trả mảng rỗng khi `limit` không hợp lệ hoặc không có bài phù hợp.
+ * Gợi ý tối đa `limit` bài cho HS. Trả mảng rỗng khi `limit`/`perSkill` không hợp lệ hoặc không có bài phù hợp.
+ * `perSkill` (tùy chọn) = số bài tối đa MỖI kỹ năng; mặc định MAX_EXERCISES_PER_SKILL nên mọi nơi gọi cũ không đổi.
+ * Lộ trình AI truyền K lớn hơn để có thêm ứng viên cho AI chọn, nhưng vẫn dùng CÙNG bộ lọc và cách xếp.
  * `studentId` luôn do nơi gọi lấy từ token (controller), không bao giờ từ client.
  */
 export const recommendExercises = async (
   studentId: number,
-  limit: number
+  limit: number,
+  perSkill: number = MAX_EXERCISES_PER_SKILL
 ): Promise<SelectedRecommendation<CandidateRow>[]> => {
   if (!Number.isInteger(limit) || limit <= 0) return [];
+  if (!Number.isInteger(perSkill) || perSkill <= 0) return [];
 
   const profiles = await readSavedSkillProfiles(studentId);
   const ranked = rankSkills(
@@ -73,14 +77,14 @@ export const recommendExercises = async (
           attempts: { none: { studentId } },
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        take: MAX_EXERCISES_PER_SKILL,
+        take: perSkill,
         select: CANDIDATE_SELECT,
       })
     )
   );
 
   const candidatesBySkill = new Map<string, CandidateRow[]>(ranked.map((entry, index) => [entry.skill, found[index]]));
-  return selectRecommendations(ranked, candidatesBySkill, limit);
+  return selectRecommendations(ranked, candidatesBySkill, limit, perSkill);
 };
 
 /** Dữ liệu cho `GET /recommendations/me`: đã chọn field an toàn, đặt tên field theo hợp đồng API. */

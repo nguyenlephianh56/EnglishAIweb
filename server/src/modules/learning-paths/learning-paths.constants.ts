@@ -48,3 +48,19 @@ export const SKILL_LABEL_VI = {
  * đưa vào title hay trả cho client.
  */
 export const ERROR_TYPE_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,31}(?::[A-Za-z0-9_]{1,32})?$/;
+
+// ---------------------------------------------------------------------
+// Lộ trình AI (task `path`). AI chỉ CHỌN + SẮP THỨ TỰ trong danh sách ứng viên do server lọc bằng đúng luật bản không AI.
+// ---------------------------------------------------------------------
+
+/** K: tối đa bao nhiêu bài ỨNG VIÊN cho MỘT kỹ năng gửi cho AI (bản luật dùng M = MAX_EXERCISES_PER_SKILL). */
+export const AI_CANDIDATES_PER_SKILL = 3;
+
+/** Luôn xét đủ 5 kỹ năng (4c mục 11), nên P (tổng ứng viên) <= 5 x K = 15. Dùng làm `limit` cho recommendExercises. */
+export const AI_CANDIDATE_LIMIT = Object.keys(SKILL_LABEL_VI).length * AI_CANDIDATES_PER_SKILL;
+
+/** Độ dài tối đa (theo ký tự Unicode) của `title` do AI viết, sau khi làm sạch. */
+export const AI_TITLE_MAX_LENGTH = 120;
+
+/** Độ dài tối đa của `topic` khi đưa vào prompt (topic do GV/AI nhập nên coi là dữ liệu không tin cậy). */
+export const AI_TOPIC_MAX_LENGTH = 80;
