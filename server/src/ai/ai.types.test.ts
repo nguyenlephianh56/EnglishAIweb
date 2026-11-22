@@ -18,13 +18,14 @@ describe("aiTaskSchema", () => {
     }
   );
 
-  it("đúng 5 task như Project.md", () => {
+  it("đúng 6 task như Project.md (thêm suggest_comment ở T27)", () => {
     expect([...AI_TASKS]).toEqual([
       "grade_writing",
       "grade_speaking",
       "generate",
       "analysis",
       "path",
+      "suggest_comment",
     ]);
   });
 });

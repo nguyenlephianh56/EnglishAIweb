@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-const TEACHER_COMMENT_MAX_LENGTH = 1000;
+export const TEACHER_COMMENT_MAX_LENGTH = 1000;
 
 export const teacherGradeSchema = z
   .object({

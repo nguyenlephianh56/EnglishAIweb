@@ -21,6 +21,13 @@ import type { AiTask } from "../ai.types";
 import { LIMITS } from "../../modules/exercises/exercise-content.schema";
 import { SPEAKING_MAX_WORD_ISSUES } from "../speaking.constants";
 import {
+  COMMENT_SUGGEST_EXERCISE_PROMPT_TAG,
+  COMMENT_SUGGEST_GRADING_DATA_TAG,
+  COMMENT_SUGGEST_PROMPT_KEY,
+  COMMENT_SUGGEST_STUDENT_TEXT_TAG,
+  COMMENT_SUGGEST_TEMPLATE,
+} from "./comment-suggest.prompt";
+import {
   ANALYSIS_PROMPT_KEYS,
   ANALYSIS_STATS_TAG,
   CLASS_ANALYSIS_TEMPLATE,
@@ -28,7 +35,7 @@ import {
 } from "./analysis.prompt";
 import { PATH_CANDIDATES_TAG, PATH_GENERATE_TEMPLATE, PATH_PROMPT_KEY } from "./path.prompt";
 
-export const PROMPT_KEYS = ["writing_grade","exercise_generate","listening_generate","speaking_transcribe","speaking_grade",ANALYSIS_PROMPT_KEYS.student,ANALYSIS_PROMPT_KEYS.class,PATH_PROMPT_KEY,] as const;
+export const PROMPT_KEYS = ["writing_grade","exercise_generate","listening_generate","speaking_transcribe","speaking_grade",ANALYSIS_PROMPT_KEYS.student,ANALYSIS_PROMPT_KEYS.class,PATH_PROMPT_KEY,COMMENT_SUGGEST_PROMPT_KEY,] as const;
 export type PromptKey = (typeof PROMPT_KEYS)[number];
 
 export interface PromptDefinition {
@@ -327,6 +334,19 @@ const PATH_DEFINITION: PromptDefinition = {
   untrusted: { candidates: PATH_CANDIDATES_TAG },
 };
 
+const COMMENT_SUGGEST_DEFINITION: PromptDefinition = {
+  key: COMMENT_SUGGEST_PROMPT_KEY,
+  task: "suggest_comment",
+  template: COMMENT_SUGGEST_TEMPLATE,
+  variables: ["type", "skill", "level", "exercise_prompt", "student_text", "grading_data"],
+  required: ["type", "skill", "level", "exercise_prompt", "student_text", "grading_data"],
+  untrusted: {
+    exercise_prompt: COMMENT_SUGGEST_EXERCISE_PROMPT_TAG,
+    student_text: COMMENT_SUGGEST_STUDENT_TEXT_TAG,
+    grading_data: COMMENT_SUGGEST_GRADING_DATA_TAG,
+  },
+};
+
 export const DEFAULT_PROMPTS: Readonly<
   Record<PromptKey, PromptDefinition>
 > = Object.freeze({
@@ -346,6 +366,7 @@ export const DEFAULT_PROMPTS: Readonly<
     template: CLASS_ANALYSIS_TEMPLATE,
   },
   [PATH_PROMPT_KEY]: PATH_DEFINITION,
+  [COMMENT_SUGGEST_PROMPT_KEY]: COMMENT_SUGGEST_DEFINITION,
 });
 
 /** Trả định nghĩa của key, hoặc undefined nếu key lạ (kể cả "constructor", "__proto__"...). */

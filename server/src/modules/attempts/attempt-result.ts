@@ -121,7 +121,7 @@ const SPEAKING_CRITERIA_KEYS = ["content", "fluency", "pronunciation"] as const;
  *  - comment: chỉ lấy khi là chuỗi không rỗng;
  *  - mọi key khác trong ai_feedback bị bỏ (không lọt ra response).
  */
-function readAiFeedback(raw: unknown): { criteria?: ResultCriteria; comment?: string } {
+export function readAiFeedback(raw: unknown): { criteria?: ResultCriteria; comment?: string } {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
   const f = raw as Record<string, unknown>;
   const out: { criteria?: ResultCriteria; comment?: string } = {};

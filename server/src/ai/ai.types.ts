@@ -23,6 +23,7 @@ export const AI_TASKS = [
   "generate",
   "analysis",
   "path",
+  "suggest_comment",
 ] as const;
 
 export const aiTaskSchema = z.enum(AI_TASKS);

@@ -60,6 +60,7 @@ describe("buildAnalyticsOverview", () => {
           generate: usageStatuses,
           analysis: usageStatuses,
           path: usageStatuses,
+          suggest_comment: usageStatuses,
         },
         total_tokens: 0,
         today_by_status: usageStatuses,

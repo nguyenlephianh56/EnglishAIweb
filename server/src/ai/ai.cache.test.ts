@@ -52,7 +52,7 @@ describe("buildAiCacheKey", () => {
     expect(key("A")).not.toBe(key("B"));
   });
 
-  it("khác task, cùng model + prompt -> khác khóa; 5 task cho 5 khóa khác nhau", () => {
+  it("khác task, cùng model + prompt -> khác khóa; mỗi task một khóa khác nhau", () => {
     const keys = new Set(AI_TASKS.map((t) => key("cùng prompt", t)));
     expect(keys.size).toBe(AI_TASKS.length);
   });
