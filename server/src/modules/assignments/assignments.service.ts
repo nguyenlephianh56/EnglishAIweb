@@ -29,6 +29,13 @@ const businessError = (statusCode: number, code: string, message: string) =>
 
 type AssignmentActor = { id: number; role: Role };
 
+export function studentVisibleAssignmentWhere(studentId: number): Prisma.AssignmentWhereInput {
+  return {
+    class: { members: { some: { studentId } } },
+    exercise: { status: { not: ExerciseStatus.HIDDEN } },
+  };
+}
+
 const managedClassScope = (user: AssignmentActor): Prisma.ClassWhereInput =>
   user.role === Role.ADMIN ? {} : { teacherId: user.id };
 
@@ -196,8 +203,7 @@ const listForStudent = async (
   const now = new Date();
 
   const where: Prisma.AssignmentWhereInput = {
-    class: { members: { some: { studentId: user.id } } },
-    exercise: { status: { not: ExerciseStatus.HIDDEN } },
+    ...studentVisibleAssignmentWhere(user.id),
     ...(classId !== undefined ? { classId } : {}),
     ...statusFilter(status, user.id, now),
   };
@@ -328,8 +334,7 @@ export const getAssignmentDetail = async (
   const assignment = await prisma.assignment.findFirst({
     where: {
       id: assignmentId,
-      class: { members: { some: { studentId: user.id } } },
-      exercise: { status: { not: ExerciseStatus.HIDDEN } },
+      ...studentVisibleAssignmentWhere(user.id),
     },
     select: {
       id: true,
