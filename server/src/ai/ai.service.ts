@@ -30,6 +30,7 @@ export interface AiServiceDeps {
   counter: AiUsageCounter;
   logger: AiUsageLogger;
   limits: AiDailyLimits;
+  getLimits?: () => AiDailyLimits | Promise<AiDailyLimits>;
   model: string;
   cacheableTasks: ReadonlySet<AiTask>;
   now: () => Date;
@@ -38,7 +39,7 @@ export interface AiServiceDeps {
 export interface RunAiTaskInput<S extends z.ZodTypeAny> {
   /** Id người dùng, do server lấy từ token. */
   userId: number;
-  /** Vai trò, do server lấy từ token; quyết định mức giới hạn lượt. */ 
+  /** Vai trò, do server lấy từ token; quyết định mức giới hạn lượt. */
   role: AiRole;
   /** Loại việc (được kiểm lại bằng Zod ở đây). */
   task: AiTask;
@@ -62,14 +63,17 @@ export interface RunAiTaskResult<T> {
   cached: boolean;
 }
 
-async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<AiServiceDeps> {
+type ResolvedAiServiceDeps = Omit<AiServiceDeps, "limits" | "getLimits"> & {
+  getLimits: NonNullable<AiServiceDeps["getLimits"]>;
+};
+
+async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<ResolvedAiServiceDeps> {
   const needDefaults = !(
     partial.provider &&
     partial.cache &&
     partial.counter &&
     partial.logger &&
-    partial.logger &&
-    partial.limits &&
+    (partial.getLimits || partial.limits) &&
     partial.model &&
     partial.cacheableTasks
   );
@@ -78,6 +82,12 @@ async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<AiServiceDe
     ? (await import("./ai.service.defaults")).getDefaultAiDeps()
     : undefined;
 
+  // Ưu tiên cổng được tiêm, rồi limits tĩnh được truyền bởi caller cũ.
+  const staticLimits = partial.limits;
+  const getLimits = partial.getLimits
+    ?? (staticLimits === undefined ? d?.getLimits : undefined)
+    ?? (() => staticLimits ?? d!.limits);
+
   return {
     provider: partial.provider ?? d!.provider,
     cache: partial.cache ?? d!.cache,
@@ -85,7 +95,7 @@ async function resolveDeps(partial: Partial<AiServiceDeps>): Promise<AiServiceDe
     logger: partial.logger ?? d!.logger,
     model: partial.model ?? d!.model,
     cacheableTasks: partial.cacheableTasks ?? d!.cacheableTasks,
-    limits: partial.limits ?? d!.limits,
+    getLimits,
     now: partial.now ?? (() => new Date()),
   };
 }
@@ -112,7 +122,7 @@ export async function runAiTask<S extends z.ZodTypeAny>(
   const task = parsedTask.data;
   const { userId, role, prompt, schema, audio } = input;
 
-   const { provider, cache, counter, logger, limits, model, cacheableTasks, now } = await resolveDeps(deps);
+  const { provider, cache, counter, logger, getLimits, model, cacheableTasks, now } = await resolveDeps(deps);
 
   const continuation = task === "grade_speaking" ? input.speakingUsageContinuation : undefined;
 
@@ -122,7 +132,7 @@ export async function runAiTask<S extends z.ZodTypeAny>(
 
   // (1) Kiểm lượt/ngày khi bắt đầu lượt AI mới.
   if (continuation === undefined) {
-    const limit = dailyLimitForRole(role, limits);
+    const limit = dailyLimitForRole(role, await getLimits());
     const used = await counter.countUsedToday(userId, now());
     if (used >= limit) {
       await writeLog("rate_limited");

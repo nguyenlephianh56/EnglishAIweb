@@ -12,7 +12,7 @@ import { logAiUsage } from "../ai/ai.log";
 export interface AiRateLimitDeps {
   counter: AiUsageCounter;
   logger: AiUsageLogger;
-  /** Hàm (không phải giá trị) để đọc cấu hình MỖI request: đổi .env/giá trị thì đổi hành vi. */
+  /** Đọc hạn mức hiện hành khi kiểm tra request. */
   getLimits: () => AiDailyLimits | Promise<AiDailyLimits>;
   now: () => Date;
 }
@@ -31,7 +31,6 @@ export function aiRateLimit(
 
   const counter = deps.counter ?? createPrismaUsageCounter();
   const logger = deps.logger ?? createPrismaUsageLogger();
-  const getLimits = deps.getLimits ?? defaultGetLimits;
   const now = deps.now ?? (() => new Date());
 
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -44,6 +43,8 @@ export function aiRateLimit(
     let used: number;
     let limit: number;
     try {
+      const routeGetLimits: AiRateLimitDeps["getLimits"] | undefined = res.locals.getAiDailyLimits;
+      const getLimits = deps.getLimits ?? routeGetLimits ?? defaultGetLimits;
       limit = dailyLimitForRole(user.role, await getLimits());
       used = await counter.countUsedToday(user.id, now());
     } catch (error) {

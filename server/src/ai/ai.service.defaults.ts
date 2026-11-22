@@ -11,6 +11,7 @@ import { InMemoryAiCache } from "./ai.cache";
 import type { AiServiceDeps } from "./ai.service";
 import { createPrismaUsageCounter, createPrismaUsageLogger } from "./ai.usage";
 import { dailyLimitsFromEnv } from "./ai.usage.config";
+import { getAiDailyLimitsConfig } from "./ai.usage.settings";
 import { GeminiProvider } from "./gemini.provider";
 import { withResilience } from "./resilience";
 import { resilienceOptionsFromEnv } from "./resilience.config";
@@ -30,6 +31,7 @@ export function getDefaultAiDeps(): Omit<AiServiceDeps, "now"> {
       counter: createPrismaUsageCounter(),
       logger: createPrismaUsageLogger(),
       limits: dailyLimitsFromEnv(),
+      getLimits: getAiDailyLimitsConfig,
     model: env.GEMINI_MODEL,
     cacheableTasks: cacheableTasksFromEnv(),
     };
