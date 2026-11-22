@@ -73,10 +73,14 @@ export const approveTeacher = async (
   next: NextFunction
 ) => {
   try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
     const id = parseId(req, res);
     if (id === null) return;
 
-    const user = await adminService.approveTeacher(id);
+    const user = await adminService.approveTeacher(id, req.user.id);
 
     return success(res, user);
   } catch (error) {
@@ -113,10 +117,14 @@ export const unlockUser = async (
   next: NextFunction
 ) => {
   try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
     const id = parseId(req, res);
     if (id === null) return;
 
-    const user = await adminService.unlockUser(id);
+    const user = await adminService.unlockUser(id, req.user.id);
 
     return success(res, user);
   } catch (error) {

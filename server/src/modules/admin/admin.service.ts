@@ -1,4 +1,4 @@
-import { Role, UserStatus } from "@prisma/client";
+import { Prisma, Role, UserStatus } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { ListUsersQuery } from "./admin.schema";
 
@@ -18,8 +18,10 @@ const createError = (message: string, statusCode: number, code: string) =>
   Object.assign(new Error(message), { statusCode, code });
 
 // Lấy user theo id, không có thì báo 404
-const findUserOrThrow = async (id: number) => {
-  const user = await prisma.user.findUnique({
+const findUserOrThrow = async (tx: Prisma.TransactionClient, id: number) => {
+  // Giữ trạng thái đọc được ổn định cho đến khi đổi trạng thái và ghi audit.
+  await tx.$queryRaw`SELECT id FROM users WHERE id = ${id} FOR NO KEY UPDATE`;
+  const user = await tx.user.findUnique({
     where: { id },
     select: userSelect,
   });
@@ -30,6 +32,30 @@ const findUserOrThrow = async (id: number) => {
 
   return user;
 };
+
+async function updateStatusWithAudit(
+  tx: Prisma.TransactionClient,
+  adminId: number,
+  user: { id: number; status: UserStatus },
+  to: UserStatus,
+  action: "user.approve" | "user.lock" | "user.unlock"
+) {
+  const updated = await tx.user.update({
+    where: { id: user.id },
+    data: { status: to },
+    select: userSelect,
+  });
+
+  await tx.auditLog.create({
+    data: {
+      userId: adminId,
+      action,
+      detail: { target_user_id: user.id, from: user.status, to },
+    },
+  });
+
+  return updated;
+}
 
 // Danh sách tài khoản, lọc theo role/status nếu có
 export const listUsers = async (query: ListUsersQuery) => {
@@ -44,30 +70,28 @@ export const listUsers = async (query: ListUsersQuery) => {
 };
 
 // Duyệt giáo viên: PENDING -> ACTIVE
-export const approveTeacher = async (id: number) => {
-  const user = await findUserOrThrow(id);
+export const approveTeacher = async (id: number, adminId: number) => {
+  return prisma.$transaction(async (tx) => {
+    const user = await findUserOrThrow(tx, id);
 
-  if (user.role !== Role.TEACHER) {
-    throw createError(
-      "Chỉ có thể duyệt tài khoản giáo viên",
-      400,
-      "NOT_A_TEACHER"
-    );
-  }
+    if (user.role !== Role.TEACHER) {
+      throw createError(
+        "Chỉ có thể duyệt tài khoản giáo viên",
+        400,
+        "NOT_A_TEACHER"
+      );
+    }
 
-  if (user.status !== UserStatus.PENDING) {
-    throw createError(
-      "Tài khoản này không ở trạng thái chờ duyệt",
-      409,
-      "INVALID_STATUS"
-    );
-  }
+    if (user.status !== UserStatus.PENDING) {
+      throw createError(
+        "Tài khoản này không ở trạng thái chờ duyệt",
+        409,
+        "INVALID_STATUS"
+      );
+    }
 
-  return prisma.user.update({
-    where: { id },
-    data: { status: UserStatus.ACTIVE },
-    select: userSelect,
-  });
+    return updateStatusWithAudit(tx, adminId, user, UserStatus.ACTIVE, "user.approve");
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 };
 
 // Khóa tài khoản: ACTIVE -> LOCKED
@@ -80,46 +104,42 @@ export const lockUser = async (id: number, adminId: number) => {
     );
   }
 
-  const user = await findUserOrThrow(id);
+  return prisma.$transaction(async (tx) => {
+    const user = await findUserOrThrow(tx, id);
 
-  if (user.role === Role.ADMIN) {
-    throw createError(
-      "Không thể khóa tài khoản quản trị viên",
-      403,
-      "CANNOT_LOCK_ADMIN"
-    );
-  }
+    if (user.role === Role.ADMIN) {
+      throw createError(
+        "Không thể khóa tài khoản quản trị viên",
+        403,
+        "CANNOT_LOCK_ADMIN"
+      );
+    }
 
-  if (user.status !== UserStatus.ACTIVE) {
-    throw createError(
-      "Chỉ có thể khóa tài khoản đang hoạt động",
-      409,
-      "INVALID_STATUS"
-    );
-  }
+    if (user.status !== UserStatus.ACTIVE) {
+      throw createError(
+        "Chỉ có thể khóa tài khoản đang hoạt động",
+        409,
+        "INVALID_STATUS"
+      );
+    }
 
-  return prisma.user.update({
-    where: { id },
-    data: { status: UserStatus.LOCKED },
-    select: userSelect,
-  });
+    return updateStatusWithAudit(tx, adminId, user, UserStatus.LOCKED, "user.lock");
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 };
 
 // Mở khóa tài khoản: LOCKED -> ACTIVE
-export const unlockUser = async (id: number) => {
-  const user = await findUserOrThrow(id);
+export const unlockUser = async (id: number, adminId: number) => {
+  return prisma.$transaction(async (tx) => {
+    const user = await findUserOrThrow(tx, id);
 
-  if (user.status !== UserStatus.LOCKED) {
-    throw createError(
-      "Tài khoản này không bị khóa",
-      409,
-      "INVALID_STATUS"
-    );
-  }
+    if (user.status !== UserStatus.LOCKED) {
+      throw createError(
+        "Tài khoản này không bị khóa",
+        409,
+        "INVALID_STATUS"
+      );
+    }
 
-  return prisma.user.update({
-    where: { id },
-    data: { status: UserStatus.ACTIVE },
-    select: userSelect,
-  });
+    return updateStatusWithAudit(tx, adminId, user, UserStatus.ACTIVE, "user.unlock");
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 };
