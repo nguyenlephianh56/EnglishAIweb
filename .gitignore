@@ -34,3 +34,8 @@ uploads/
 postman/
 .postman/
 *.tsbuildinfo
+
+/data/ai-eval/*
+!/data/ai-eval/out/
+/data/ai-eval/out/*
+!/data/ai-eval/out/writing-summary.md
