@@ -18,11 +18,16 @@ import { audioUploadQuerySchema } from "./attempts.audio.schema";
 import { receiveAudioFile } from "./attempts.audio.upload";
 import { createTeacherGradeRouter } from "./attempts.grade.routes";
 import { updateTeacherGrade } from "./attempts.grade.service";
+import { createCommentSuggestionRouter } from "./attempts.suggest.routes";
+import { runCommentSuggestion } from "./attempts.suggest.service";
 
 export const attemptRoutes = Router();
 
 // PATCH /:id/grade dùng middleware riêng để tài khoản PENDING/LOCKED nhận 403.
 attemptRoutes.use(createTeacherGradeRouter(updateTeacherGrade));
+
+// POST /:id/comment-suggestion (T27): GV chủ lớp/ADMIN xin AI soạn NHÁP nhận xét, không lưu gì.
+attemptRoutes.use(createCommentSuggestionRouter(runCommentSuggestion));
 
 // Các route bên dưới cũng yêu cầu tài khoản ACTIVE.
 attemptRoutes.use(authenticateActiveAccount);
