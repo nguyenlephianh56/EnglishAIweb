@@ -43,3 +43,29 @@ export const deadlineMessageText = ({
   dueLabel: string;
   remaining: string;
 }) => `Bài giao «${topic}» của lớp ${className} sắp đến hạn nộp (${dueLabel}), còn khoảng ${remaining}.`;
+
+// T28 · `teacher_edit`: GV/ADMIN sửa THẬT điểm hoặc nhận xét của bài nộp đã có điểm -> thông báo cho HS.
+// Khóa nằm trong `type` (cùng cách T25, không đổi schema): `teacher_edit:<attemptId>`.
+export const TEACHER_EDIT_NOTIFICATION_TYPE = "teacher_edit";
+export const TEACHER_EDIT_NOTIFICATION_KEY_PATTERN = new RegExp(
+  `^${TEACHER_EDIT_NOTIFICATION_TYPE}:[1-9]\\d*$`
+);
+export const teacherEditNotificationKey = (attemptId: number) =>
+  `${TEACHER_EDIT_NOTIFICATION_TYPE}:${attemptId}`;
+export const TEACHER_EDIT_NOTIFY_FAILED = "TEACHER_EDIT_NOTIFY_FAILED";
+
+export type TeacherEditChange = "score" | "comment" | "both";
+
+// Không đưa điểm số, nhận xét, tên GV, email vào message.
+export const teacherEditMessageText = ({
+  change,
+  topic,
+  className,
+}: {
+  change: TeacherEditChange;
+  topic: string;
+  className: string;
+}) => {
+  const what = { score: "điểm", comment: "nhận xét", both: "điểm và nhận xét" }[change];
+  return `Giáo viên đã cập nhật ${what} bài «${topic}» của lớp ${className}.`;
+};

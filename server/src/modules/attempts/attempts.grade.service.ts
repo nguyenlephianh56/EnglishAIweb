@@ -1,5 +1,10 @@
 import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
+import { TEACHER_EDIT_NOTIFY_FAILED } from "../notifications/notifications.constants";
+import {
+  createTeacherEditNotification,
+  type TeacherEditNotifyInput,
+} from "../notifications/notifications.teacher-edit.service";
 import { finalScoreOf } from "./attempt-list";
 import type { TeacherGradeInput } from "./attempts.grade.schema";
 
@@ -41,12 +46,17 @@ async function lockGradeAttempt(
   return rows[0] ?? null;
 }
 
-export function updateTeacherGrade(
+type TeacherGradeOutcome = {
+  result: TeacherGradeResult;
+  notify: TeacherEditNotifyInput | null;
+};
+
+export async function updateTeacherGrade(
   actor: TeacherGradeActor,
   attemptId: number,
   input: TeacherGradeInput
 ): Promise<TeacherGradeResult | null> {
-  return prisma.$transaction(async (tx) => {
+  const outcome = await prisma.$transaction(async (tx): Promise<TeacherGradeOutcome | null> => {
     const before = await lockGradeAttempt(tx, actor, attemptId);
     if (before === null) return null;
 
@@ -84,13 +94,34 @@ export function updateTeacherGrade(
       });
     }
 
+    // T28: chỉ bài ĐÃ có điểm và có thay đổi THẬT mới báo HS; việc tạo thông báo làm SAU khi commit.
+    const notify = before.score !== null && (scoreChanged || commentChanged)
+      ? { attemptId: before.id, studentId: before.student_id, scoreChanged, commentChanged }
+      : null;
+
     return {
-      id: before.id,
-      score: before.score,
-      teacher_score: teacherScore,
-      teacher_comment: teacherComment,
-      final_score: finalScoreOf(before.score, teacherScore),
-      max_score: before.max_score,
+      result: {
+        id: before.id,
+        score: before.score,
+        teacher_score: teacherScore,
+        teacher_comment: teacherComment,
+        final_score: finalScoreOf(before.score, teacherScore),
+        max_score: before.max_score,
+      },
+      notify,
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+
+  if (outcome === null) return null;
+
+  if (outcome.notify !== null) {
+    try {
+      await createTeacherEditNotification(outcome.notify);
+    } catch {
+      // Best-effort: điểm đã lưu, chỉ log mã (không log message, id HS hay nhận xét).
+      console.error(TEACHER_EDIT_NOTIFY_FAILED);
+    }
+  }
+
+  return outcome.result;
 }
