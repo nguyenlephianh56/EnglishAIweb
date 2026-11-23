@@ -69,3 +69,22 @@ export const teacherEditMessageText = ({
   const what = { score: "điểm", comment: "nhận xét", both: "điểm và nhận xét" }[change];
   return `Giáo viên đã cập nhật ${what} bài «${topic}» của lớp ${className}.`;
 };
+
+// T28 · `graded`: GV/ADMIN chấm tay LẦN ĐẦU cho bài nộp chưa có điểm cuối (`finalScoreOf` từ null thành có điểm) -> thông báo cho HS.
+// Khóa nằm trong `type` (cùng cách T25, không đổi schema): `graded:<attemptId>`.
+export const GRADED_NOTIFICATION_TYPE = "graded";
+export const GRADED_NOTIFICATION_KEY_PATTERN = new RegExp(
+  `^${GRADED_NOTIFICATION_TYPE}:[1-9]\\d*$`
+);
+export const gradedNotificationKey = (attemptId: number) =>
+  `${GRADED_NOTIFICATION_TYPE}:${attemptId}`;
+export const GRADED_NOTIFY_FAILED = "GRADED_NOTIFY_FAILED";
+
+// Không đưa điểm số, nhận xét, tên GV, email vào message.
+export const gradedMessageText = ({
+  topic,
+  className,
+}: {
+  topic: string;
+  className: string;
+}) => `Giáo viên đã chấm bài «${topic}» của lớp ${className}.`;

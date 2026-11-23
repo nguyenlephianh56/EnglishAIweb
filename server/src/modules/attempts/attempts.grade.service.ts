@@ -1,6 +1,10 @@
 import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
-import { TEACHER_EDIT_NOTIFY_FAILED } from "../notifications/notifications.constants";
+import { GRADED_NOTIFY_FAILED, TEACHER_EDIT_NOTIFY_FAILED } from "../notifications/notifications.constants";
+import {
+  createGradedNotification,
+  type GradedNotifyInput,
+} from "../notifications/notifications.graded.service";
 import {
   createTeacherEditNotification,
   type TeacherEditNotifyInput,
@@ -46,9 +50,14 @@ async function lockGradeAttempt(
   return rows[0] ?? null;
 }
 
+// Một PATCH sinh TỐI ĐA MỘT thông báo: `graded` (điểm cuối xuất hiện lần đầu nhờ GV) hoặc `teacher_edit` (đã có điểm cuối rồi mới sửa).
+type TeacherGradeNotify =
+  | ({ kind: "graded" } & GradedNotifyInput)
+  | ({ kind: "teacher_edit" } & TeacherEditNotifyInput);
+
 type TeacherGradeOutcome = {
   result: TeacherGradeResult;
-  notify: TeacherEditNotifyInput | null;
+  notify: TeacherGradeNotify | null;
 };
 
 export async function updateTeacherGrade(
@@ -94,10 +103,26 @@ export async function updateTeacherGrade(
       });
     }
 
-    // T28: chỉ bài ĐÃ có điểm và có thay đổi THẬT mới báo HS; việc tạo thông báo làm SAU khi commit.
-    const notify = before.score !== null && (scoreChanged || commentChanged)
-      ? { attemptId: before.id, studentId: before.student_id, scoreChanged, commentChanged }
-      : null;
+    // T28: điểm cuối = finalScoreOf(score, teacher_score). Việc tạo thông báo làm SAU khi commit.
+    // - chưa có điểm cuối mà GV vừa đặt điểm -> `graded` (HS thấy kết quả lần đầu);
+    // - đã có điểm cuối và có thay đổi THẬT -> `teacher_edit`;
+    // - chưa có điểm cuối và chỉ đổi nhận xét -> không báo (HS vẫn chưa có kết quả).
+    const finalBefore = finalScoreOf(before.score, before.teacher_score);
+    const finalAfter = finalScoreOf(before.score, teacherScore);
+    let notify: TeacherGradeNotify | null = null;
+    if (finalBefore === null) {
+      if (finalAfter !== null) {
+        notify = { kind: "graded", attemptId: before.id, studentId: before.student_id };
+      }
+    } else if (scoreChanged || commentChanged) {
+      notify = {
+        kind: "teacher_edit",
+        attemptId: before.id,
+        studentId: before.student_id,
+        scoreChanged,
+        commentChanged,
+      };
+    }
 
     return {
       result: {
@@ -105,7 +130,7 @@ export async function updateTeacherGrade(
         score: before.score,
         teacher_score: teacherScore,
         teacher_comment: teacherComment,
-        final_score: finalScoreOf(before.score, teacherScore),
+        final_score: finalAfter,
         max_score: before.max_score,
       },
       notify,
@@ -114,12 +139,14 @@ export async function updateTeacherGrade(
 
   if (outcome === null) return null;
 
-  if (outcome.notify !== null) {
+  const { notify } = outcome;
+  if (notify !== null) {
     try {
-      await createTeacherEditNotification(outcome.notify);
+      if (notify.kind === "graded") await createGradedNotification(notify);
+      else await createTeacherEditNotification(notify);
     } catch {
       // Best-effort: điểm đã lưu, chỉ log mã (không log message, id HS hay nhận xét).
-      console.error(TEACHER_EDIT_NOTIFY_FAILED);
+      console.error(notify.kind === "graded" ? GRADED_NOTIFY_FAILED : TEACHER_EDIT_NOTIFY_FAILED);
     }
   }
 
