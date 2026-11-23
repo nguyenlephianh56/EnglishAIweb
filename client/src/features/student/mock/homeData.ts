@@ -22,7 +22,6 @@ export async function fetchHomeData(): Promise<HomeData> {
 
   return {
     streak: 12,
-    unreadCount: 3,
     assignments: [
       {
         id: 101,

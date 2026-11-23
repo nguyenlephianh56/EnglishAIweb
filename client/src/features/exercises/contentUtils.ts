@@ -8,7 +8,7 @@ const asRecord = (v: unknown): Record<string, unknown> => (v && typeof v === "ob
  * error_correction: 1; listening_fill: content.blanks (số hoặc mảng); writing/speaking: "AI chấm".
  * Dùng chung cho Ngân hàng bài tập (giáo viên) và Thư viện luyện tập (học sinh).
  */
-export function questionCount(item: { type: string; content?: unknown }): number | string | null {
+export function questionCount(item: { type: string; content?: unknown }): number | "AI chấm" | null {
   const c = asRecord(item.content);
   switch (item.type) {
     case "multiple_choice":

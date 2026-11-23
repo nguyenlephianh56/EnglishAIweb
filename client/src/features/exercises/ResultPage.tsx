@@ -42,7 +42,7 @@ export default function ResultPage() {
   });
 
   if (!Number.isInteger(attemptId) || attemptId <= 0) {
-    return <PageError error={new Error("Không tìm thấy kết quả này.")} backTo="/student/library" backLabel="Về thư viện" />;
+       return <PageError error={new Error("Không tìm thấy kết quả này.")} onRetry={() => undefined} backTo="/student/library" backLabel="Về thư viện" />;
   }
   if (attemptQ.isLoading) return <PageSkeleton rows={2} />;
   if (attemptQ.isError || !attempt) {
