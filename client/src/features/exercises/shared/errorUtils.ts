@@ -84,13 +84,14 @@ export function locateErrors(text: string, errors: WritingErrorItem[]): LocatedT
   return { segments, unplaced };
 }
 
-export type ErrorGroupKey = "grammar" | "vocabulary" | "spelling" | "punctuation" | "other";
+export type ErrorGroupKey = "grammar" | "vocabulary" | "spelling" | "punctuation" | "pronunciation" | "other";
 
 export const ERROR_GROUPS: { key: ErrorGroupKey; label: string }[] = [
   { key: "grammar", label: "Ngữ pháp" },
   { key: "vocabulary", label: "Từ vựng" },
   { key: "spelling", label: "Chính tả" },
   { key: "punctuation", label: "Dấu câu" },
+  { key: "pronunciation", label: "Phát âm" },
   { key: "other", label: "Khác" },
 ];
 

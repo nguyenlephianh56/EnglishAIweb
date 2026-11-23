@@ -4,14 +4,13 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { ArrowLeft, CircleAlert, SearchX, Users } from "lucide-react";
 import Button from "../../../components/ui/Button";
-import { UserAvatar } from "../../../components/layout/AppLayout";
 import { getErrorMessage } from "../../../api/client";
 import { ANY_SKILL_META } from "../../student/skillMeta";
-import { formatScore } from "../../student/assignmentTime";
-import { formatNumber, formatRegisteredAt } from "../../../utils/format";
-import { PHASE_BADGE, SUBMISSION_STATUS_BADGE, formatDueFull, phaseOf, typeLabel } from "./assignmentMeta";
+import { formatNumber } from "../../../utils/format";
+import { PHASE_BADGE, formatDueFull, phaseOf, typeLabel } from "./assignmentMeta";
+import SubmissionsTable from "./SubmissionsTable";
 import { useAssignmentSubmissions } from "./useTeacherAssignments";
-import type { AssignmentStatus, SubmissionItem } from "../../../types/assignments";
+import type { AssignmentStatus } from "../../../types/assignments";
 
 type Filter = "all" | AssignmentStatus;
 
@@ -21,8 +20,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "SUBMITTED", label: "Đã nộp" },
   { id: "OVERDUE", label: "Quá hạn" },
 ];
-
-const TH = "px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400";
 
 function BackLink() {
   return (
@@ -38,12 +35,6 @@ function BackLink() {
 
 function Skeleton({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-3xl bg-slate-200 ${className}`} aria-hidden="true" />;
-}
-
-/** Điểm cao nhất; đã nộp mà chưa có điểm (ví dụ bài Viết chờ chấm) thì ghi "Chờ chấm" */
-function scoreCell(s: SubmissionItem) {
-  if (s.bestScore !== null) return <span className="font-bold text-slate-900">{formatScore(s.bestScore)}</span>;
-  return s.attemptsUsed > 0 ? <span className="text-xs font-semibold text-slate-500">Chờ chấm</span> : <span className="text-slate-400">—</span>;
 }
 
 /** /teacher/assignments/:assignmentId: bài nộp của cả lớp (GET /assignments/:id/submissions). */
@@ -192,49 +183,7 @@ export default function AssignmentDetailPage() {
               ) : visible.length === 0 ? (
                 <p className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">Không có học sinh nào ở trạng thái này.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[44rem] text-left text-sm">
-                    <caption className="sr-only">Bài nộp của học sinh trong lớp</caption>
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th scope="col" className={TH}>Học sinh</th>
-                        <th scope="col" className={TH}>Trạng thái</th>
-                        <th scope="col" className={TH}>Số lần làm</th>
-                        <th scope="col" className={TH}>Điểm cao nhất</th>
-                        <th scope="col" className={TH}>Nộp gần nhất</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {visible.map((s) => {
-                        const badge = SUBMISSION_STATUS_BADGE[s.status];
-                        return (
-                          <tr key={s.studentId}>
-                            <td className="px-4 py-3">
-                              <span className="flex items-center gap-3">
-                                <UserAvatar name={s.name} />
-                                <span className="min-w-0">
-                                  <span className="block font-bold text-slate-900">{s.name}</span>
-                                  <span className="block truncate text-xs text-slate-500">{s.email}</span>
-                                </span>
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="flex flex-wrap gap-1.5">
-                                <span className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold ${badge.className}`}>{badge.label}</span>
-                                {s.lateSubmission && <span className="whitespace-nowrap rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">Nộp trễ</span>}
-                              </span>
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                              {s.attemptsUsed}/{data.assignment.maxAttempts}
-                            </td>
-                            <td className="px-4 py-3">{scoreCell(s)}</td>
-                            <td className="whitespace-nowrap px-4 py-3 text-slate-600">{s.lastSubmittedAt ? formatRegisteredAt(s.lastSubmittedAt) : "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <SubmissionsTable items={visible} maxAttempts={data.assignment.maxAttempts} />
               )}
             </div>
           </section>

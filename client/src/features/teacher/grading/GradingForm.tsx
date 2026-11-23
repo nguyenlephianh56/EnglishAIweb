@@ -1,181 +1,190 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Sparkles } from "lucide-react";
+import { useBlocker } from "react-router-dom";
+import axios from "axios";
+import { CircleAlert, GraduationCap, Sparkles } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
+import Modal from "../../../components/ui/Modal";
+import Textarea from "../../../components/ui/Textarea";
 import Notice from "../../account/Notice";
 import { getErrorMessage } from "../../../api/client";
-import { averageScore, CRITERIA, formatDateTime, formatScore, isValidScore, parseScore } from "./gradingMeta";
-import { useSaveGrading } from "./useGrading";
-import type { CriteriaKey, GradingSubmission } from "../../../types/grading";
+import { formatScore, isAiGradedType, isValidScore, parseScore, round2 } from "./gradingMeta";
+import { useSaveTeacherGrade } from "./useGrading";
+import type { AttemptReview, TeacherGradeBody } from "../../../types/attemptReview";
 
-type Fields = Record<CriteriaKey | "total", string>;
+const COMMENT_MAX = 1000;
+const NOT_IN_CLASS = "Bài này không thuộc lớp của bạn hoặc không tồn tại";
 
-const toText = (n: number) => formatScore(n);
-
-function initialFields(s: GradingSubmission): Fields {
-  const base = s.teacher ?? { criteria: s.ai.criteria, total: averageScore(s.ai.criteria) };
-  return { ...Object.fromEntries(CRITERIA.map((c) => [c.key, toText(base.criteria[c.key])])), total: toText(base.total) } as Fields;
-}
-
-/** Cột phải: 4 ô điểm theo tiêu chí backend, điểm tổng, nhận xét, lưu, lịch sử. Gắn `key={submission.id}` để đổi bài thì nạp lại. */
-export default function GradingForm({ submission }: { submission: GradingSubmission }) {
-  const save = useSaveGrading(submission.id);
-  const [fields, setFields] = useState<Fields>(() => initialFields(submission));
-  const [comment, setComment] = useState(submission.teacher?.comment ?? submission.ai.comment);
-  const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
+/**
+ * Cột phải: điểm cuối (kèm huy hiệu ai chấm), ô điểm giáo viên, nhận xét. Chỉ gửi field thay đổi (PATCH /attempts/:id/grade).
+ * Gắn `key={attempt_id}` để đổi bài thì nạp lại. Rời trang khi còn thay đổi chưa lưu thì hỏi xác nhận.
+ */
+export default function GradingForm({ review }: { review: AttemptReview }) {
+  const save = useSaveTeacherGrade(review.attempt_id);
+  const [score, setScore] = useState(review.teacher_score === null ? "" : String(review.teacher_score));
+  const [comment, setComment] = useState(review.teacher_comment ?? "");
   const [saved, setSaved] = useState(false);
-  // Điểm tổng tự tính lại theo 4 tiêu chí cho đến khi giáo viên tự sửa ô "Điểm tổng"
-  const [totalTouched, setTotalTouched] = useState(Boolean(submission.teacher));
 
-  function setCriterion(key: CriteriaKey, value: string) {
-    setSaved(false);
-    setErrors((p) => ({ ...p, [key]: undefined, total: undefined }));
-    setFields((prev) => {
-      const next = { ...prev, [key]: value };
-      if (!totalTouched) {
-        const nums = CRITERIA.map((c) => parseScore(next[c.key]));
-        if (nums.every(isValidScore)) next.total = toText(averageScore({ content: nums[0], coherence: nums[1], vocabulary: nums[2], grammar: nums[3] }));
-      }
-      return next;
-    });
-  }
+  // ---- Kiểm tra dữ liệu và phát hiện thay đổi ----
+  const scoreEmpty = score.trim() === "";
+  const scoreNum = parseScore(score);
+  const scoreError = !scoreEmpty && !isValidScore(scoreNum) ? "Điểm phải là số từ 0 đến 10" : undefined;
+  const trimmed = comment.trim();
+  const commentError = trimmed.length > COMMENT_MAX ? `Nhận xét tối đa ${COMMENT_MAX} ký tự` : undefined;
 
-  function applyAiScores() {
-    setSaved(false);
-    setErrors({});
-    setTotalTouched(false);
-    setFields({ ...Object.fromEntries(CRITERIA.map((c) => [c.key, toText(submission.ai.criteria[c.key])])), total: toText(averageScore(submission.ai.criteria)) } as Fields);
-    setComment(submission.ai.comment);
-  }
+  const nextScore = scoreEmpty ? null : round2(scoreNum);
+  const nextComment = trimmed === "" ? null : trimmed;
+  const scoreChanged = !scoreError && nextScore !== review.teacher_score;
+  const commentChanged = !commentError && nextComment !== review.teacher_comment;
+  const dirty = Boolean(scoreError) || Boolean(commentError) || scoreChanged || commentChanged;
+  const canSave = !scoreError && !commentError && (scoreChanged || commentChanged) && !save.isPending;
+
+  // ---- Cảnh báo khi rời trang với thay đổi chưa lưu ----
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!canSave) return;
     setSaved(false);
-    const next: Partial<Record<keyof Fields, string>> = {};
-    const values = {} as Record<keyof Fields, number>;
-    (Object.keys(fields) as (keyof Fields)[]).forEach((k) => {
-      const n = parseScore(fields[k]);
-      values[k] = n;
-      if (fields[k].trim() === "") next[k] = "Nhập điểm từ 0 đến 10";
-      else if (!isValidScore(n)) next[k] = "Điểm phải từ 0 đến 10";
-    });
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-    save.mutate(
-      {
-        criteria: { content: values.content, coherence: values.coherence, vocabulary: values.vocabulary, grammar: values.grammar },
-        total: values.total,
-        comment: comment.trim(),
+    const body: TeacherGradeBody = {};
+    if (scoreChanged) body.teacher_score = nextScore;
+    if (commentChanged) body.teacher_comment = nextComment;
+    save.mutate(body, {
+      onSuccess: (res) => {
+        // Đồng bộ ô nhập với giá trị máy chủ đã lưu (điểm làm tròn 2 chữ số, nhận xét đã bỏ khoảng trắng thừa)
+        setScore(res.teacher_score === null ? "" : String(res.teacher_score));
+        setComment(res.teacher_comment ?? "");
+        setSaved(true);
       },
-      { onSuccess: () => setSaved(true) }
-    );
+    });
   }
 
-  const aiTotal = averageScore(submission.ai.criteria);
+  function clearTeacherScore() {
+    setSaved(false);
+    save.mutate({ teacher_score: null }, { onSuccess: () => { setScore(""); setSaved(true); } });
+  }
+
+  const byTeacher = review.teacher_score !== null;
+  const badge = byTeacher ? "Giáo viên đã chấm" : isAiGradedType(review.exercise.type) ? "AI chấm" : "Chấm tự động";
+  const saveError = save.isError ? (axios.isAxiosError(save.error) && save.error.response?.status === 404 ? NOT_IN_CLASS : getErrorMessage(save.error, "Không lưu được điểm, vui lòng thử lại.")) : null;
 
   return (
     <form onSubmit={onSubmit} noValidate className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="flex items-center gap-2 font-heading text-lg font-bold text-slate-900">
-        <Sparkles className="size-5 text-brand" aria-hidden="true" />
-        Phân tích và gợi ý từ AI
+        <GraduationCap className="size-5 text-brand" aria-hidden="true" />
+        Chấm điểm của giáo viên
       </h2>
 
-      <div className="mt-5 grid grid-cols-2 gap-4">
-        {CRITERIA.map((c) => (
-          <div key={c.key}>
-            <Input
-              label={`${c.label} (0–10)`}
-              inputMode="decimal"
-              autoComplete="off"
-              value={fields[c.key]}
-              onChange={(e) => setCriterion(c.key, e.target.value)}
-              error={errors[c.key]}
-            />
-            <p className="mt-1 text-xs text-slate-500">AI: {formatScore(submission.ai.criteria[c.key])}</p>
-          </div>
-        ))}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Điểm hiện tại của học sinh</p>
+          <p className="font-heading text-3xl font-extrabold text-slate-900" aria-live="polite">
+            {review.final_score === null ? "Chưa có điểm" : formatScore(review.final_score)}
+            {review.final_score !== null && <span className="text-lg font-bold text-slate-400">/{formatScore(review.max_score)}</span>}
+          </p>
+        </div>
+        {review.final_score !== null && (
+          <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${byTeacher ? "bg-teal-50 text-teal-700" : "bg-slate-200 text-slate-700"}`}>{badge}</span>
+        )}
       </div>
 
-      <div className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 p-4">
+      <div className="mt-5 flex items-start gap-3">
         <div className="flex-1">
           <Input
-            label="Điểm tổng (0–10)"
+            label="Điểm giáo viên (0–10)"
+            type="number"
             inputMode="decimal"
+            step={0.5}
+            min={0}
+            max={10}
             autoComplete="off"
-            value={fields.total}
+            value={score}
             onChange={(e) => {
               setSaved(false);
-              setTotalTouched(true);
-              setErrors((p) => ({ ...p, total: undefined }));
-              setFields((p) => ({ ...p, total: e.target.value }));
+              setScore(e.target.value);
             }}
-            error={errors.total}
+            error={scoreError}
           />
-          <p className="mt-1 text-xs text-slate-500">AI gợi ý: {formatScore(aiTotal)}</p>
-        </div>
-        <Button type="button" variant="outline" size="sm" className="mt-8 shrink-0" onClick={applyAiScores}>
-          Dùng điểm AI
-        </Button>
-      </div>
-
-      <div className="mt-5">
-        <label htmlFor="grading-comment" className="mb-1.5 block text-sm font-bold text-slate-900">
-          Nhận xét cho học sinh
-        </label>
-        <textarea
-          id="grading-comment"
-          rows={6}
-          maxLength={1000}
-          value={comment}
-          onChange={(e) => {
-            setSaved(false);
-            setComment(e.target.value);
-          }}
-          className="w-full resize-y rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
-        />
-        <p className="mt-1 text-right text-xs text-slate-400">{comment.length}/1000</p>
-      </div>
-
-      {save.isError && (
-        <div className="mt-3">
-          <Notice type="error">{getErrorMessage(save.error, "Không lưu được điểm, vui lòng thử lại.")}</Notice>
-        </div>
-      )}
-      {saved && (
-        <div className="mt-3">
-          <Notice type="success">Đã lưu điểm chỉnh sửa.</Notice>
-        </div>
-      )}
-
-      <Button type="submit" fullWidth className="mt-4" loading={save.isPending}>
-        Lưu điểm chỉnh sửa
-      </Button>
-
-      <section className="mt-6 border-t border-slate-100 pt-5" aria-labelledby="grading-history">
-        <h3 id="grading-history" className="text-sm font-bold text-slate-900">
-          Lịch sử chỉnh sửa
-        </h3>
-        <ol className="mt-3 space-y-2">
-          {submission.history.map((h, i) => {
-            const prev = submission.history[i - 1];
-            return (
-              <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="text-slate-700">
-                  {h.by === "AI" ? "Điểm AI" : "Giáo viên"}: <strong className="text-slate-900">{formatScore(h.total)}</strong>
-                  {prev && <span className="text-slate-400"> (từ {formatScore(prev.total)})</span>}
-                </span>
-                <span className="text-xs text-slate-400">{formatDateTime(h.at)}</span>
-              </li>
-            );
-          })}
-        </ol>
-        {submission.history.length > 1 && (
-          <p className="mt-2 text-xs text-slate-500">
-            {submission.history.map((h) => `${h.by === "AI" ? "AI" : "Giáo viên"} ${formatScore(h.total)}`).join(" → ")}
+          <p className="mt-1 text-xs text-slate-500">
+            Để trống nếu muốn giữ điểm{isAiGradedType(review.exercise.type) ? " AI" : " tự động"}
+            {review.score !== null && <> ({formatScore(review.score)})</>}.
           </p>
-        )}
-      </section>
+        </div>
+        <div className="mt-8 flex shrink-0 flex-col gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            leftIcon={<Sparkles />}
+            disabled={review.score === null || save.isPending}
+            onClick={() => {
+              setSaved(false);
+              setScore(String(review.score));
+            }}
+          >
+            Dùng điểm AI
+          </Button>
+          {byTeacher && (
+            <Button type="button" variant="outline" size="sm" disabled={save.isPending} onClick={clearTeacherScore}>
+              Xóa điểm giáo viên
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Textarea
+        className="mt-5"
+        label="Nhận xét cho học sinh"
+        rows={6}
+        limit={COMMENT_MAX}
+        value={comment}
+        onChange={(e) => {
+          setSaved(false);
+          setComment(e.target.value);
+        }}
+        error={commentError}
+      />
+
+      {saveError && (
+        <div className="mt-3">
+          <Notice type="error">{saveError}</Notice>
+        </div>
+      )}
+      {saved && !dirty && (
+        <div className="mt-3">
+          <Notice type="success">Đã lưu. Học sinh sẽ thấy điểm và nhận xét này.</Notice>
+        </div>
+      )}
+
+      <Button type="submit" fullWidth className="mt-4" loading={save.isPending} disabled={!canSave}>
+        Lưu
+      </Button>
+      {!dirty && !saved && <p className="mt-2 text-center text-xs text-slate-400">Chưa có thay đổi nào để lưu.</p>}
+
+      <Modal open={blocker.state === "blocked"} onClose={() => blocker.reset?.()} title="Rời trang khi chưa lưu?" description="Điểm hoặc nhận xét thầy/cô vừa nhập chưa được lưu và sẽ mất.">
+        <div className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+          <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          Bấm Lưu trước nếu thầy/cô muốn giữ thay đổi.
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" onClick={() => blocker.reset?.()}>
+            Ở lại chấm tiếp
+          </Button>
+          <Button variant="danger" onClick={() => blocker.proceed?.()}>
+            Rời trang
+          </Button>
+        </div>
+      </Modal>
     </form>
   );
 }

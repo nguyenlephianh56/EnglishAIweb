@@ -10,6 +10,7 @@ import { formatDateTime, formatScore } from "../teacher/grading/gradingMeta";
 import { BackLink, PageError, PageSkeleton } from "./RunnerShell";
 import { attemptKey, useAssignmentDetail, useAttemptDetail, usePracticeExercise } from "./useExerciseData";
 import AutoResult from "./AutoResult";
+import SpeakingResult from "./SpeakingResult";
 import WritingResult from "./WritingResult";
 import type { GradingError, StudentExercise } from "../../types/attempt";
 
@@ -52,8 +53,12 @@ export default function ResultPage() {
   const exercise: StudentExercise | undefined = isAssignment ? assignmentQ.data?.exercise : practiceQ.data;
   const assignment = assignmentQ.data;
   const submitted = attempt.submittedAnswer as { text?: unknown } | null;
-  const isWriting = exercise ? exercise.type === "writing" : typeof submitted?.text === "string";
   const exerciseLoading = isAssignment ? assignmentQ.isLoading : practiceQ.isLoading;
+  // Dạng bài lấy từ đề (exercise.type): bài Nói cũng lưu { text } (bản chữ) nên KHÔNG đoán dạng từ submittedAnswer.
+  // Chỉ khi không tải được đề mới dựa vào điểm tiêu chí (Nói có fluency/pronunciation) rồi mới đến có { text }.
+  const speakingCriteria = typeof attempt.criteria?.fluency === "number" || typeof attempt.criteria?.pronunciation === "number";
+  const isSpeaking = exercise ? exercise.type === "speaking" : !exerciseLoading && speakingCriteria;
+  const isWriting = exercise ? exercise.type === "writing" : !exerciseLoading && !speakingCriteria && typeof submitted?.text === "string";
 
   const shown = attempt.finalScore ?? attempt.score;
   const pending = shown === null;
@@ -119,7 +124,9 @@ export default function ResultPage() {
       </section>
 
       <div className="mt-6">
-        {isWriting ? (
+        {isSpeaking ? (
+          <SpeakingResult attempt={attempt} gradingMessage={gradingMessage} onReload={() => attemptQ.refetch()} reloading={attemptQ.isFetching} retakeTo={retakeTo} />
+        ) : isWriting ? (
           <WritingResult
             attempt={attempt}
             gradingMessage={gradingMessage}

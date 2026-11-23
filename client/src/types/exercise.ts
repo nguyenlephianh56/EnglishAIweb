@@ -51,6 +51,16 @@ export interface ExerciseListParams {
   pageSize?: number;
 }
 
+/** Body của PATCH /exercises/:id: chỉ chứa field đổi (ít nhất một), KHÔNG có type/status. explanation = null để xóa. */
+export interface UpdateExercisePayload {
+  topic?: string;
+  skill?: LibrarySkill;
+  level?: CefrLevel;
+  content?: unknown;
+  answer?: unknown;
+  explanation?: string | null;
+}
+
 /** Body của POST /exercises/generate (backend chặt: không nhận field nào khác) */
 export interface GenerateExercisePayload {
   skill: LibrarySkill;
@@ -73,11 +83,10 @@ export interface CreateExercisePayload {
 
 // ---------------------------------------------------------------------------
 // Nội dung (content) và bài làm (value) của từng dạng bài, khớp backend.
-// "speaking" chưa có màn làm bài nên không nằm trong bộ này.
 // ---------------------------------------------------------------------------
 
-/** Các dạng bài học sinh làm được trên giao diện (chưa gồm "speaking") */
-export type AnswerableExerciseType = Exclude<ExerciseTypeKey, "speaking">;
+/** Các dạng bài học sinh làm được trên giao diện (đủ 7 dạng, gồm "speaking" ghi âm) */
+export type AnswerableExerciseType = ExerciseTypeKey;
 
 export interface MultipleChoiceContent {
   passage?: string;
@@ -109,6 +118,12 @@ export interface WritingContent {
   minWords: number;
 }
 
+/** Bài Nói: chỉ hiện `prompt` cho học sinh; `sample` (câu mẫu) KHÔNG bao giờ được hiển thị */
+export interface SpeakingContent {
+  prompt: string;
+  sample?: string;
+}
+
 export interface ExerciseContentMap {
   multiple_choice: MultipleChoiceContent;
   fill_blank: FillBlankContent;
@@ -116,6 +131,7 @@ export interface ExerciseContentMap {
   error_correction: ErrorCorrectionContent;
   listening_fill: ListeningFillContent;
   writing: WritingContent;
+  speaking: SpeakingContent;
 }
 
 /** Vị trí lựa chọn từng câu, bắt đầu từ 0; -1 = chưa chọn (khi đang làm dở) */
@@ -130,6 +146,12 @@ export interface WritingValue {
   text: string;
 }
 
+/** Bài Nói: bản ghi âm đang giữ trên máy (chưa tải lên) và độ dài tính bằng giây. Không lưu nháp. */
+export interface SpeakingValue {
+  blob: Blob | null;
+  durationSec: number;
+}
+
 /** Giá trị học sinh làm = đúng body `answer` gửi lên backend */
 export interface ExerciseValueMap {
   multiple_choice: MultipleChoiceValue;
@@ -138,6 +160,7 @@ export interface ExerciseValueMap {
   error_correction: ErrorCorrectionValue;
   listening_fill: ListeningFillValue;
   writing: WritingValue;
+  speaking: SpeakingValue;
 }
 
 export type ExerciseContent<T extends AnswerableExerciseType> = ExerciseContentMap[T];
