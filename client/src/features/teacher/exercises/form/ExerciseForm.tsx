@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import Button from "../../../../components/ui/Button";
 import Input from "../../../../components/ui/Input";
 import Textarea from "../../../../components/ui/Textarea";
@@ -34,13 +34,15 @@ interface ExerciseFormProps {
   /** Ẩn thanh nút mặc định (trang cha tự vẽ các nút, ví dụ trang xem lại bản nháp) */
   hideActions?: boolean;
   cancelTo?: string;
+  /** Phần bổ sung đặt ngay trên thanh nút (ví dụ ô "Đăng ngay" của quản trị viên) */
+  extra?: ReactNode;
 }
 
 /**
  * Form bài tập dùng chung: mode "create" (tạo mới) và "edit" (sửa bài đã có, dạng bài chỉ đọc).
  * Trạng thái nằm ở `form` (useExerciseForm) để trang cha đọc được giá trị, thay đổi và gọi lưu.
  */
-export default function ExerciseForm({ mode, form, pending, error, onSubmit, submitLabel, hideActions, cancelTo = "/teacher/exercises" }: ExerciseFormProps) {
+export default function ExerciseForm({ mode, form, pending, error, onSubmit, submitLabel, hideActions, cancelTo = "/teacher/exercises", extra }: ExerciseFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const hasErrors = Object.keys(form.errors).length > 0;
   const skillOptions = SKILL_OPTIONS;
@@ -100,6 +102,8 @@ export default function ExerciseForm({ mode, form, pending, error, onSubmit, sub
           <TypeEditor key={form.type} type={form.type} state={form.state} errors={form.errors} onChange={form.setState} />
         </section>
       </fieldset>
+
+      {extra}
 
       {hasErrors && <Notice type="error">Còn thông tin chưa hợp lệ. Hãy kiểm tra các ô báo đỏ bên trên.</Notice>}
       {error && <Notice type="error">{error}</Notice>}

@@ -3,6 +3,7 @@ import AppLayout, { BellLink } from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import { useAuth } from "../../hooks/useAuth";
 import { usePendingTeachers } from "../../features/admin/useAdminData";
+import { usePendingProposalCount } from "../../features/admin/useAdminExercises";
 
 const ITEMS: NavItem[] = [
   { to: "/admin", label: "Tổng quan", icon: House, end: true },
@@ -20,12 +21,14 @@ export default function AdminLayout() {
   const { user } = useAuth();
   const { data: pending } = usePendingTeachers();
   const pendingCount = pending?.length ?? 0;
+  const { data: proposalCount } = usePendingProposalCount();
+  const items = ITEMS.map((i) => (i.to === "/admin/proposals" ? { ...i, badge: proposalCount } : i));
   const name = user?.name ?? "";
 
   return (
     <AppLayout
       navLabel="Menu quản trị"
-      items={ITEMS}
+      items={items}
       userName={name}
       accountPath="/admin/account"
       userSubtitle="Quản trị hệ thống"

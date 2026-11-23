@@ -8,10 +8,12 @@ interface ModalProps {
   title: string;
   description?: string;
   children: ReactNode;
+  /** "lg" cho nội dung rộng như xem trước bài tập (mặc định "md") */
+  size?: "md" | "lg";
 }
 
 /** Hộp thoại dùng thẻ <dialog> gốc: tự khóa focus bên trong, Esc để đóng, bấm nền mờ để đóng. */
-export default function Modal({ open, onClose, title, description, children }: ModalProps) {
+export default function Modal({ open, onClose, title, description, children, size = "md" }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -30,7 +32,7 @@ export default function Modal({ open, onClose, title, description, children }: M
         if (e.target === ref.current) onClose(); // bấm vào lớp nền mờ
       }}
       aria-labelledby={titleId}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl bg-white p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm"
+      className={`m-auto w-[calc(100%-2rem)] ${size === "lg" ? "max-w-3xl" : "max-w-md"} rounded-3xl bg-white p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm`}
     >
       <div className="p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">

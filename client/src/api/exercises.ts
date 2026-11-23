@@ -32,3 +32,9 @@ export const GENERATE_TIMEOUT_MS = 60_000;
 
 /** POST /exercises/generate: AI soạn MỘT bài và lưu ngay ở trạng thái DRAFT (source AI). Trả 201 kèm bài vừa lưu. */
 export const generateExercise = (body: GenerateExercisePayload) => unwrap<ExerciseListItem>(api.post("/exercises/generate", body, { timeout: GENERATE_TIMEOUT_MS }));
+
+/** POST /exercises/:id/approve (quản trị viên): PROPOSED -> PUBLISHED và vào thư viện. 409 nếu bài không còn ở trạng thái chờ duyệt. */
+export const approveExercise = (id: number) => unwrap<ExerciseListItem>(api.post(`/exercises/${id}/approve`));
+
+/** POST /exercises/:id/reject (quản trị viên): PROPOSED -> DRAFT. `reason` (tối đa 1000 ký tự) chỉ lưu trong nhật ký, không gửi cho giáo viên. */
+export const rejectExercise = (id: number, reason?: string) => unwrap<ExerciseListItem>(api.post(`/exercises/${id}/reject`, reason ? { reason } : {}));

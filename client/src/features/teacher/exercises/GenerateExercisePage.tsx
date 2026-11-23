@@ -13,7 +13,8 @@ import { LEVEL_OPTIONS, SKILL_OPTIONS } from "../../student/libraryFilters";
 import { ANY_SKILL_META } from "../../student/skillMeta";
 import { TYPE_LABEL } from "../assignments/assignmentMeta";
 import SelectField from "./form/SelectField";
-import { TEACHER_EXERCISES_KEY } from "./useTeacherExercises";
+import { refreshExerciseCaches } from "./exerciseCache";
+import { useExerciseBase } from "./useExerciseBase";
 import type { CefrLevel } from "../../../types/student";
 import type { LibrarySkill } from "../../../types/library";
 import type { ExerciseListItem, ExerciseTypeKey, GenerateExercisePayload } from "../../../types/exercise";
@@ -95,10 +96,11 @@ export default function GenerateExercisePage() {
   const countField = COUNT_FIELD[type];
   const errors = submitted ? validate(topic, type, count) : {};
 
+  const { listPath, listLabel, reviewPath } = useExerciseBase();
   const mutation = useMutation({
     mutationFn: generateExercise,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: TEACHER_EXERCISES_KEY });
+      refreshExerciseCaches(queryClient);
     },
   });
   const pending = mutation.isPending;
@@ -132,11 +134,11 @@ export default function GenerateExercisePage() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-8 lg:px-8">
       <Link
-        to="/teacher/exercises"
+        to={listPath}
         className="inline-flex items-center gap-1.5 rounded-lg text-sm font-bold text-slate-500 hover:text-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Ngân hàng bài tập
+        {listLabel}
       </Link>
       <h1 className="mt-4 font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Nhờ AI sinh bài</h1>
       <p className="mt-2 text-slate-500">Chọn dạng bài, cấp độ và chủ đề, AI sẽ soạn một bài tập và lưu vào Bản nháp để thầy/cô xem lại.</p>
@@ -169,7 +171,7 @@ export default function GenerateExercisePage() {
             Đây là bản nháp do AI soạn. Thầy/cô cần xem lại nội dung và đáp án trước khi dùng cho học sinh.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button to={`/teacher/exercises/${result.id}/review`}>Xem và chỉnh bản nháp</Button>
+            <Button to={reviewPath(result.id)}>Xem và chỉnh bản nháp</Button>
             <Button variant="outline" onClick={reset}>
               Sinh bài khác
             </Button>
@@ -227,7 +229,7 @@ export default function GenerateExercisePage() {
           )}
 
           <div className="flex flex-wrap justify-end gap-3">
-            <Button type="button" variant="outline" to="/teacher/exercises" disabled={pending}>
+            <Button type="button" variant="outline" to={listPath} disabled={pending}>
               Hủy
             </Button>
             <Button type="submit" leftIcon={<Sparkles />} disabled={pending} aria-busy={pending || undefined}>

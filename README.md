@@ -2,8 +2,8 @@
 
 ## Chay du an
 
-```bash
-docker compose up -d                      # CSDL PostgreSQL
+ ```bash
+docker compose up -d                     # CSDL PostgreSQL
 cd server && npm install
 cp .env.example .env                      # dien GEMINI_API_KEY
 npx prisma migrate dev --name init

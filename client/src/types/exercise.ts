@@ -72,6 +72,8 @@ export interface GenerateExercisePayload {
 
 /** Body của POST /exercises (giáo viên: bài mới luôn ở trạng thái DRAFT) */
 export interface CreateExercisePayload {
+  /** Chỉ quản trị viên: true = đăng ngay (PUBLISHED, vào thư viện) thay vì bản nháp */
+  publish?: boolean;
   type: ExerciseTypeKey | string;
   skill: LibrarySkill;
   level: CefrLevel;

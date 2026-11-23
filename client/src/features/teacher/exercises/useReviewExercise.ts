@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteExercise, getExercise, proposeExercise, updateExercise } from "../../../api/exercises";
+import { approveExercise, deleteExercise, getExercise, proposeExercise, rejectExercise, updateExercise } from "../../../api/exercises";
+import { refreshExerciseCaches } from "./exerciseCache";
 import { TEACHER_EXERCISES_KEY } from "./useTeacherExercises";
 import type { UpdateExercisePayload } from "../../../types/exercise";
 
@@ -9,13 +10,10 @@ export const exerciseDetailKey = (id: number) => [...TEACHER_EXERCISES_KEY, "det
 export const useExerciseDetail = (id: number) =>
   useQuery({ queryKey: exerciseDetailKey(id), queryFn: () => getExercise(id), enabled: Number.isInteger(id) && id > 0, retry: false });
 
-/** Lưu / gửi duyệt / xóa một bài; mỗi thao tác xong thì làm mới danh sách bài tập, bài đang xem và bộ chọn bài ở trang Giao bài. */
+/** Lưu / gửi duyệt / xóa (với admin: ẩn) / duyệt / từ chối một bài; mỗi thao tác xong thì làm mới danh sách bài tập, bài đang xem và bộ chọn bài ở trang Giao bài. */
 export function useExerciseMutations(id: number) {
   const queryClient = useQueryClient();
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: TEACHER_EXERCISES_KEY });
-    void queryClient.invalidateQueries({ queryKey: ["teacher", "exercise-picker"] });
-  };
+  const refresh = () => refreshExerciseCaches(queryClient);
 
   const update = useMutation({
     mutationFn: (body: UpdateExercisePayload) => updateExercise(id, body),
@@ -32,5 +30,8 @@ export function useExerciseMutations(id: number) {
       refresh();
     },
   });
-  return { update, propose, remove };
+  // Chỉ quản trị viên: duyệt / từ chối bài đang chờ duyệt (409 nếu bài không còn ở trạng thái đó)
+  const approve = useMutation({ mutationFn: () => approveExercise(id), onSettled: refresh });
+  const reject = useMutation({ mutationFn: (reason?: string) => rejectExercise(id, reason), onSettled: refresh });
+  return { update, propose, remove, approve, reject };
 }

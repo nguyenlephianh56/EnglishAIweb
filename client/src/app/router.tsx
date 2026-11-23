@@ -33,7 +33,9 @@ import NewExercisePage from "../features/teacher/exercises/NewExercisePage";
 import GenerateExercisePage from "../features/teacher/exercises/GenerateExercisePage";
 import ReviewExercisePage from "../features/teacher/exercises/ReviewExercisePage";
 import OverviewPage from "../features/admin/OverviewPage";
-import { AiConfigPage, LibraryPage as AdminLibraryPage, LogsPage, ProposalsPage, ReportsPage } from "../features/admin/placeholders";
+import { AiConfigPage, LogsPage, ReportsPage } from "../features/admin/placeholders";
+import AdminLibraryPage from "../features/admin/LibraryPage";
+import ProposalsPage from "../features/admin/ProposalsPage";
 import StatsPage from "../features/admin/StatsPage";
 import UsersPage from "../features/admin/UsersPage";
 
@@ -107,6 +109,9 @@ export const router = createBrowserRouter([
           { index: true, element: <OverviewPage /> },
           { path: "users", element: <UsersPage /> },
           { path: "library", element: <AdminLibraryPage /> },
+          { path: "library/new", element: <NewExercisePage /> },
+          { path: "library/ai", element: <GenerateExercisePage /> },
+          { path: "library/:id", element: <ReviewExercisePage /> },
           { path: "proposals", element: <ProposalsPage /> },
           { path: "reports", element: <ReportsPage /> },
           { path: "ai-config", element: <AiConfigPage /> },
