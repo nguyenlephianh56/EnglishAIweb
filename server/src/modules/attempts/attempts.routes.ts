@@ -20,6 +20,8 @@ import { createTeacherGradeRouter } from "./attempts.grade.routes";
 import { updateTeacherGrade } from "./attempts.grade.service";
 import { createCommentSuggestionRouter } from "./attempts.suggest.routes";
 import { runCommentSuggestion } from "./attempts.suggest.service";
+import { createAttemptReviewRouter } from "./attempts.review.routes";
+import { findAttemptReview } from "./attempts.review.service";
 
 export const attemptRoutes = Router();
 
@@ -28,6 +30,10 @@ attemptRoutes.use(createTeacherGradeRouter(updateTeacherGrade));
 
 // POST /:id/comment-suggestion (T27): GV chủ lớp/ADMIN xin AI soạn NHÁP nhận xét, không lưu gì.
 attemptRoutes.use(createCommentSuggestionRouter(runCommentSuggestion));
+
+// GET /:id/review (T30): GV chủ lớp/ADMIN đọc chi tiết bài nộp (chỉ đọc). Không xung đột với GET /:id của HS
+// vì Express không khớp "/:id" với "/5/review".
+attemptRoutes.use(createAttemptReviewRouter(findAttemptReview));
 
 // Các route bên dưới cũng yêu cầu tài khoản ACTIVE.
 attemptRoutes.use(authenticateActiveAccount);
