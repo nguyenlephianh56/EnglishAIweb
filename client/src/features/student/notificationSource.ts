@@ -1,13 +1,13 @@
-import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "./mock/notificationData";
+import { createNotificationApi } from "../shared/notifications/notificationApi";
 import type { NotificationSource } from "../shared/notifications/notificationSource";
 
-/** Nguồn thông báo của HỌC SINH. TODO: đổi 3 hàm trong mock/notificationData.ts sang API thật. */
+const api = createNotificationApi((assignmentId) => (assignmentId ? `/student/assigned/${assignmentId}` : "/student/assigned"));
+
+/** Nguồn thông báo của HỌC SINH (GET /notifications, PATCH /notifications/:id/read, POST /notifications/read-all). */
 export const STUDENT_NOTIFICATIONS: NotificationSource = {
   queryKey: ["student", "notifications"],
-  fetch: fetchNotifications,
-  markRead: markNotificationRead,
-  markAllRead: markAllNotificationsRead,
+  ...api,
   basePath: "/student/notifications",
-  pageDescription: "Nhắc hạn, bài mới, kết quả và gợi ý từ AI dành cho bạn.",
-  emptyDescription: "Nhắc hạn, bài mới và kết quả sẽ hiện ở đây.",
+  pageDescription: "Nhắc hạn nộp bài và các thông báo khác dành cho bạn.",
+  emptyDescription: "Nhắc hạn nộp bài và thông báo mới sẽ hiện ở đây.",
 };

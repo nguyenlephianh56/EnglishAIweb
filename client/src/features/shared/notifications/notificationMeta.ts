@@ -1,4 +1,4 @@
-import { BookOpen, CircleCheck, Clock, Sparkles } from "lucide-react";
+import { BookOpen, CircleCheck, Clock, Info, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { formatDate, formatTime } from "../../../utils/format";
 import type { AppNotification, NotificationType } from "../../../types/notification";
@@ -9,6 +9,7 @@ export const NOTIFICATION_META: Record<NotificationType, { label: string; icon: 
   ASSIGNED: { label: "Bài mới", icon: BookOpen, tint: "bg-brand-light", text: "text-brand" },
   RESULT: { label: "Kết quả", icon: CircleCheck, tint: "bg-green-100", text: "text-green-600" },
   AI_TIP: { label: "Gợi ý AI", icon: Sparkles, tint: "bg-violet-100", text: "text-violet-600" },
+  GENERAL: { label: "Thông báo", icon: Info, tint: "bg-slate-100", text: "text-slate-500" },
 };
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();

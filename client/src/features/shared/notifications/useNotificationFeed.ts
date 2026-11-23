@@ -10,7 +10,15 @@ const EMPTY: AppNotification[] = [];
  * nhờ cache của TanStack Query nên đánh dấu đã đọc ở đâu thì mọi nơi cùng cập nhật.
  */
 export function useNotificationFeed(source: NotificationSource) {
-  const query = useQuery({ queryKey: source.queryKey, queryFn: source.fetch, staleTime: 5 * 60 * 1000 });
+  const query = useQuery({
+    queryKey: source.queryKey,
+    queryFn: source.fetch,
+    staleTime: 30 * 1000,
+    // Tự cập nhật để chuông/badge đổi mà không cần tải lại trang: mỗi phút (chỉ khi tab đang hiện) và khi quay lại tab
+    refetchInterval: 60 * 1000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+  });
   const items = query.data ?? EMPTY;
   const unread = items.reduce((count, n) => count + (n.read ? 0 : 1), 0);
   return { ...query, items, unread };
@@ -20,7 +28,7 @@ interface Snapshot {
   previous?: AppNotification[];
 }
 
-/** Đánh dấu đã đọc: cập nhật giao diện ngay (lạc quan), lỗi thì hoàn lại */
+/** Đánh dấu đã đọc: cập nhật giao diện ngay (lạc quan), lỗi thì hoàn lại; xong (thành công hay lỗi) thì tải lại từ máy chủ */
 export function useNotificationActions(source: NotificationSource) {
   const queryClient = useQueryClient();
   const key = source.queryKey;
@@ -40,13 +48,14 @@ export function useNotificationActions(source: NotificationSource) {
     mutationFn: source.markRead,
     onMutate: (id: number) => applyOptimistic((list) => list.map((n) => (n.id === id ? { ...n, read: true } : n))),
     onError: rollback,
-    // TODO khi nối API thật: onSettled: () => queryClient.invalidateQueries({ queryKey: key })
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 
   const markAllRead = useMutation({
     mutationFn: source.markAllRead,
     onMutate: () => applyOptimistic((list) => list.map((n) => ({ ...n, read: true }))),
     onError: rollback,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 
   return { markRead: markRead.mutate, markAllRead: markAllRead.mutate, markingAll: markAllRead.isPending };

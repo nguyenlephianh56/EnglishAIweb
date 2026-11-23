@@ -1,0 +1,23 @@
+import type { AppNotification, BackendNotification, NotificationType } from "../../../types/notification";
+
+/** Đích khi bấm vào thông báo, tùy vai trò: nhận assignment_id (có thể null) và trả đường dẫn. */
+export type NotificationTarget = (assignmentId: number | null) => string;
+
+/** Loại backend -> loại giao diện + tiêu đề. Loại lạ rơi về GENERAL "Thông báo". */
+const KNOWN: Record<string, { type: NotificationType; title: string }> = {
+  deadline: { type: "DEADLINE", title: "Sắp đến hạn nộp bài" },
+};
+const FALLBACK = { type: "GENERAL" as const, title: "Thông báo" };
+
+export function mapNotification(n: BackendNotification, buildTo: NotificationTarget): AppNotification {
+  const kind = KNOWN[n.type] ?? FALLBACK;
+  return {
+    id: n.id,
+    type: kind.type,
+    title: kind.title,
+    description: n.message,
+    createdAt: n.created_at,
+    read: n.read,
+    to: buildTo(n.assignment_id),
+  };
+}
