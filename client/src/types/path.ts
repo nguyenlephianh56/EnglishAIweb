@@ -1,29 +1,29 @@
 import type { LibrarySkill } from "./library";
 import type { CefrLevel } from "./student";
 
-export type StageStatus = "DONE" | "CURRENT" | "LOCKED";
-
-export interface PathLesson {
+export interface PathExercise {
   id: number;
-  title: string;
-  minutes: number;
-  done: boolean;
-}
-
-export interface PathStage {
-  id: number;
-  title: string;
+  type: string;
   skill: LibrarySkill;
-  /** Vì sao AI đưa chặng này vào lộ trình */
-  reason: string;
-  status: StageStatus;
-  lessons: PathLesson[];
+  level: CefrLevel;
+  topic: string;
 }
 
-export interface LearningPath {
-  fromLevel: CefrLevel;
-  toLevel: CefrLevel;
-  /** Mục tiêu tuần: số bài đã làm / số bài cần làm */
-  weeklyGoal: { done: number; total: number };
-  stages: PathStage[];
+export interface PathItem {
+  id: number;
+  title: string;
+  /** Học sinh tự bấm đánh dấu, hệ thống không tự hoàn thành khi làm bài */
+  done: boolean;
+  /** null = bài không còn khả dụng (bị ẩn/xóa) */
+  exercise: PathExercise | null;
+}
+
+/** Lộ trình tuần của học sinh (GET /learning-path/me) */
+export interface LearningPathView {
+  id: number;
+  /** Thứ Hai của tuần, dạng YYYY-MM-DD */
+  week_start: string;
+  created_at: string;
+  items: PathItem[];
+  progress: { done: number; total: number };
 }

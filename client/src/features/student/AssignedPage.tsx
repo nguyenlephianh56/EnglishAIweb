@@ -11,7 +11,6 @@ import { useStudentClasses, STUDENT_CLASSES_KEY } from "../account/useAccountCla
 import { ASSIGNMENTS_KEY, ASSIGNMENTS_PAGE_SIZE, useAssignmentCounts, useAssignmentList } from "./useAssignments";
 import { parseAssignmentFilters } from "./assignmentFilters";
 import { ASSIGNMENT_TABS } from "./assignmentTime";
-import { HOME_KEY } from "./useHomeData";
 import { formatNumber } from "../../utils/format";
 import type { JoinedClass } from "../../types/student";
 
@@ -72,7 +71,6 @@ export default function AssignedPage() {
     setJoinedName(joined.name);
     queryClient.invalidateQueries({ queryKey: STUDENT_CLASSES_KEY });
     queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY });
-    queryClient.invalidateQueries({ queryKey: HOME_KEY });
   }
 
   const selectedTab = filters.status ?? "all";
