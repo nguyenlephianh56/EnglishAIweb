@@ -20,7 +20,7 @@ function Section<T extends AnswerableExerciseType>({ type, locked }: { type: T; 
   const sample = SAMPLES[type];
   const [value, setValue] = useState<ExerciseValueMap[T]>(() => def.emptyValue(sample.content));
   const answered = def.isAnswered(value, sample.content);
-  const verdict = type === "writing" ? [] : compareAnswer(type, sample.review.value, sample.review.correctAnswer);
+  const verdict = type === "writing" || type === "speaking" ? [] : compareAnswer(type, sample.review.value, sample.review.correctAnswer);
 
   return (
     <section id={type} className="scroll-mt-24 space-y-5" aria-labelledby={`dev-${type}`}>

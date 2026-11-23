@@ -169,7 +169,7 @@ export default function GenerateExercisePage() {
             Đây là bản nháp do AI soạn. Thầy/cô cần xem lại nội dung và đáp án trước khi dùng cho học sinh.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button to="/teacher/exercises?tab=draft">Xem trong Bản nháp</Button>
+            <Button to={`/teacher/exercises/${result.id}/review`}>Xem và chỉnh bản nháp</Button>
             <Button variant="outline" onClick={reset}>
               Sinh bài khác
             </Button>

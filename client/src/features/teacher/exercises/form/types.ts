@@ -39,6 +39,8 @@ export interface FormDef<S> {
   skill?: LibrarySkill;
   editor: ComponentType<EditorProps<S>>;
   initial: () => S;
+  /** Dựng trạng thái nhập liệu từ content/answer đã lưu (chế độ sửa); dữ liệu thiếu hoặc sai dạng thì để trống */
+  fromExercise: (content: unknown, answer: unknown) => S;
   validate: (state: S) => FieldErrors;
   build: (state: S) => BuiltExercise;
 }
@@ -88,3 +90,5 @@ export interface StateMap {
 }
 
 export type FormRegistry = { [T in ExerciseTypeKey]: FormDef<StateMap[T]> };
+
+export type FormMode = "create" | "edit";

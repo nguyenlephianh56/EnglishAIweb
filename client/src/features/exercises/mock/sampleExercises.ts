@@ -59,6 +59,10 @@ export const SAMPLES: { [T in AnswerableExerciseType]: Sample<T> } = {
       explanation: "Bài viết được AI chấm điểm sau khi nộp.",
     },
   },
+  speaking: {
+    content: { prompt: "Talk about your favourite hobby. Say what it is, how often you do it and why you like it." },
+    review: { value: { blob: null, durationSec: 0 }, correctAnswer: { blob: null, durationSec: 0 }, explanation: "Bài Nói được AI chấm điểm sau khi nộp." },
+  },
 };
 
 /** Bài Nghe mẫu để thử các tình huống: thiếu spoken, số "___" không khớp blanks */

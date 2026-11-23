@@ -1,6 +1,6 @@
 import { api, unwrap } from "./client";
 import type { StudentExercise } from "../types/attempt";
-import type { CreateExercisePayload, ExerciseListItem, ExerciseListParams, ExerciseListResult, GenerateExercisePayload } from "../types/exercise";
+import type { CreateExercisePayload, ExerciseListItem, ExerciseListParams, ExerciseListResult, GenerateExercisePayload, UpdateExercisePayload } from "../types/exercise";
 
 /**
  * GET /exercises?skill=&level=&type=&topic=&status=&page=&pageSize=
@@ -17,6 +17,9 @@ export const createExercise = (body: CreateExercisePayload) => unwrap<ExerciseLi
 
 /** POST /exercises/:id/propose: giáo viên đề xuất bài NHÁP của mình vào thư viện (DRAFT → PROPOSED) */
 export const proposeExercise = (id: number) => unwrap<ExerciseListItem>(api.post(`/exercises/${id}/propose`));
+
+/** PATCH /exercises/:id: sửa bài NHÁP của chính mình. Chỉ gửi field đổi (topic, skill, level, content, answer, explanation). */
+export const updateExercise = (id: number, body: UpdateExercisePayload) => unwrap<ExerciseListItem>(api.patch(`/exercises/${id}`, body));
 
 /** DELETE /exercises/:id: xóa mềm (bài chuyển sang HIDDEN) */
 export const deleteExercise = (id: number) => unwrap<unknown>(api.delete(`/exercises/${id}`));

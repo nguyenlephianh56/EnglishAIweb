@@ -22,7 +22,7 @@ interface ExercisePickerProps {
 
 /**
  * Chọn bài tập để giao: danh sách THẬT từ GET /exercises (bài của giáo viên + bài thư viện), có tìm theo chủ đề.
- * Không hiện bài đã ẩn (HIDDEN) và dạng Nói (backend chưa cho giao, trả 422).
+ * Không hiện bài đã ẩn (HIDDEN). Dạng Nói giao được (backend đã nhận).
  */
 export default function ExercisePicker({ value, onChange, error }: ExercisePickerProps) {
   const [text, setText] = useState("");
@@ -38,7 +38,7 @@ export default function ExercisePicker({ value, onChange, error }: ExercisePicke
     staleTime: 30 * 1000,
   });
 
-  const items = (query.data?.items ?? []).filter((e) => e.status !== "HIDDEN" && e.type !== "speaking");
+  const items = (query.data?.items ?? []).filter((e) => e.status !== "HIDDEN");
   const pageCount = Math.max(1, Math.ceil((query.data?.total ?? 0) / PICKER_PAGE_SIZE));
 
   return (

@@ -7,6 +7,7 @@ import FillBlank from "./renderers/FillBlank";
 import ListeningFill from "./renderers/ListeningFill";
 import Matching from "./renderers/Matching";
 import MultipleChoice from "./renderers/MultipleChoice";
+import SpeakingRecorder, { MIN_SPEAKING_SECONDS } from "./renderers/SpeakingRecorder";
 import WritingEditor from "./renderers/WritingEditor";
 
 export interface ExerciseTypeDefinition<T extends AnswerableExerciseType> {
@@ -110,6 +111,20 @@ export const EXERCISE_REGISTRY: { [T in AnswerableExerciseType]: ExerciseTypeDef
     allowPartialSubmit: false,
     toPayload: (v) => ({ text: v.text }),
     fromPayload: (raw) => ({ text: raw && typeof raw === "object" && typeof (raw as { text?: unknown }).text === "string" ? (raw as { text: string }).text : "" }),
+  },
+  speaking: {
+    label: "Nói",
+    Renderer: SpeakingRecorder,
+    emptyValue: () => ({ blob: null, durationSec: 0 }),
+    // Phải có bản ghi (dừng xong) dài ít nhất 3 giây; đang ghi thì blob còn null nên chưa nộp được
+    isAnswered: (v) => v.blob !== null && v.durationSec >= MIN_SPEAKING_SECONDS,
+    unit: "bản ghi",
+    progress: (v) => ({ done: v.blob !== null && v.durationSec >= MIN_SPEAKING_SECONDS ? 1 : 0, total: 1 }),
+    allowPartialSubmit: false,
+    // KHÔNG dùng để nộp: bản ghi phải tải lên (uploadAttemptAudio) rồi nộp { audio_id } (xem ExerciseRunner)
+    toPayload: () => ({}),
+    // Bài Nói chỉ lưu bản chữ { text }, không có bản ghi để dựng lại
+    fromPayload: () => ({ blob: null, durationSec: 0 }),
   },
 };
 

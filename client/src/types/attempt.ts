@@ -11,11 +11,17 @@ export interface AttemptError {
   explanation?: string;
 }
 
+/**
+ * Điểm theo tiêu chí (thang 10). Bài Viết: content, coherence, vocabulary, grammar.
+ * Bài Nói: content, fluency, pronunciation.
+ */
 export interface AttemptCriteria {
   content: number;
-  coherence: number;
-  vocabulary: number;
-  grammar: number;
+  coherence?: number;
+  vocabulary?: number;
+  grammar?: number;
+  fluency?: number;
+  pronunciation?: number;
 }
 
 /** Kết quả một lần nộp. Backend KHÔNG trả đúng/sai từng câu: tự suy ra bằng compareAnswer khi có `answer`. */
@@ -42,7 +48,14 @@ export interface AssignmentAttemptExtras {
   attemptsLeft: number;
 }
 
-/** Lỗi AI khi chấm bài Viết: bài ĐÃ được lưu nhưng chưa có điểm */
+/** Kết quả POST /attempts/audio. audio_id dùng được trong khoảng 60 phút. */
+export interface AudioUploadResult {
+  audio_id: string;
+  size_bytes: number;
+  mime: string;
+}
+
+/** Lỗi AI khi chấm bài Viết/Nói: bài ĐÃ được lưu nhưng chưa có điểm */
 export interface GradingError {
   code: string;
   message: string;
@@ -51,7 +64,7 @@ export interface GradingError {
 export interface SubmitAttemptBody {
   exerciseId?: number;
   assignmentId?: number;
-  /** Đúng dạng backend nhận (xem registry.toPayload) */
+  /** Đúng dạng backend nhận (xem registry.toPayload). Bài Nói: { audio_id } */
   answer: unknown;
 }
 

@@ -1,5 +1,6 @@
 import { countBlanks } from "../../../exercises/answerUtils";
 import { checkText, optionLetter, parseIntIn, resizeStrings } from "./helpers";
+import { arr, asInt, asObj, asStr, asStrs } from "./parse";
 import { LIMITS } from "./types";
 import type {
   BuiltExercise,
@@ -161,3 +162,71 @@ export function spValidate(s: SpeakingState): FieldErrors {
 }
 
 export const spBuild = (s: SpeakingState): BuiltExercise => ({ content: { prompt: t(s.prompt), ...(optional(s.sample) ? { sample: t(s.sample) } : {}) } });
+
+// ---------------------------------------------------------------------------
+// Dựng trạng thái nhập liệu từ bài đã lưu (chế độ sửa). Phòng thủ: sai dạng thì để trống thay vì ném lỗi.
+// ---------------------------------------------------------------------------
+export function mcFrom(content: unknown, answer: unknown): MultipleChoiceState {
+  const c = asObj(content);
+  const ans = arr(answer);
+  const questions = arr(c.questions).map((raw, i) => {
+    const q = asObj(raw);
+    const options = asStrs(q.options);
+    const correct = asInt(ans[i], -1);
+    return { q: asStr(q.q), options, correct: correct >= 0 && correct < options.length ? correct : -1 };
+  });
+  return { passage: asStr(c.passage), questions: questions.length > 0 ? questions : [newQuestion()] };
+}
+
+export function fbFrom(content: unknown, answer: unknown): FillBlankState {
+  const c = asObj(content);
+  const text = asStr(c.text);
+  return { text, hint: asStr(c.hint), answers: resizeStrings(asStrs(answer), Math.min(countBlanks(text.trim()), LIMITS.blanks.max)) };
+}
+
+export function mtFrom(content: unknown, answer: unknown): MatchingState {
+  const c = asObj(content);
+  const left = asStrs(c.left);
+  const right = asStrs(c.right);
+  const rows: MatchingState["pairs"] = [];
+  const usedL = new Set<number>();
+  const usedR = new Set<number>();
+  // Đáp án có thể nối chéo (cặp [l, r] với l khác r): dựng lại từng dòng theo đúng cặp đã lưu
+  for (const raw of arr(answer)) {
+    const pair = arr(raw);
+    const l = asInt(pair[0], -1);
+    const r = asInt(pair[1], -1);
+    if (l >= 0 && l < left.length && r >= 0 && r < right.length && !usedL.has(l) && !usedR.has(r)) {
+      rows.push({ left: left[l], right: right[r] });
+      usedL.add(l);
+      usedR.add(r);
+    }
+  }
+  // Phần chưa có cặp (đáp án thiếu/sai dạng) ghép theo thứ tự còn lại
+  const restL = left.filter((_, i) => !usedL.has(i));
+  const restR = right.filter((_, i) => !usedR.has(i));
+  for (let i = 0; i < Math.max(restL.length, restR.length); i++) rows.push({ left: restL[i] ?? "", right: restR[i] ?? "" });
+  return { pairs: rows.length > 0 ? rows : mtInitial().pairs };
+}
+
+export function ecFrom(content: unknown, answer: unknown): ErrorCorrectionState {
+  const c = asObj(content);
+  return { sentence: asStr(c.sentence), wrong: asStr(c.wrong), correction: asStr(arr(answer)[0]) };
+}
+
+export function lfFrom(content: unknown, answer: unknown): ListeningFillState {
+  const c = asObj(content);
+  const answers = asStrs(answer);
+  const n = asInt(c.blanks, answers.length);
+  return { script: asStr(c.script), blanks: String(n), answers: resizeStrings(answers, n > 0 ? Math.min(n, LIMITS.blanks.max) : answers.length) };
+}
+
+export function wrFrom(content: unknown): WritingState {
+  const c = asObj(content);
+  return { prompt: asStr(c.prompt), minWords: String(asInt(c.minWords, 50)) };
+}
+
+export function spFrom(content: unknown): SpeakingState {
+  const c = asObj(content);
+  return { prompt: asStr(c.prompt), sample: asStr(c.sample) };
+}
