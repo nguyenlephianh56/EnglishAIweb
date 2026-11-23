@@ -48,7 +48,7 @@ export const deadlineMessageText = ({
 // Khóa nằm trong `type` (cùng cách T25, không đổi schema): `teacher_edit:<attemptId>`.
 export const TEACHER_EDIT_NOTIFICATION_TYPE = "teacher_edit";
 export const TEACHER_EDIT_NOTIFICATION_KEY_PATTERN = new RegExp(
-  `^${TEACHER_EDIT_NOTIFICATION_TYPE}:[1-9]\\d*$`
+  `^${TEACHER_EDIT_NOTIFICATION_TYPE}:([1-9]\\d*)$`
 );
 export const teacherEditNotificationKey = (attemptId: number) =>
   `${TEACHER_EDIT_NOTIFICATION_TYPE}:${attemptId}`;
@@ -74,7 +74,7 @@ export const teacherEditMessageText = ({
 // Khóa nằm trong `type` (cùng cách T25, không đổi schema): `graded:<attemptId>`.
 export const GRADED_NOTIFICATION_TYPE = "graded";
 export const GRADED_NOTIFICATION_KEY_PATTERN = new RegExp(
-  `^${GRADED_NOTIFICATION_TYPE}:[1-9]\\d*$`
+  `^${GRADED_NOTIFICATION_TYPE}:([1-9]\\d*)$`
 );
 export const gradedNotificationKey = (attemptId: number) =>
   `${GRADED_NOTIFICATION_TYPE}:${attemptId}`;

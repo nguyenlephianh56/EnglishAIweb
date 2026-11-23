@@ -216,13 +216,89 @@ describe("T28 teacher_edit – tạo thông báo khi PATCH chấm tay đổi TH�
     expect(rows[0].userId).toBe(fixtures.actors.studentA.id);
   });
 
-  it("hành vi hiện tại: hai PATCH liên tiếp đều đổi thật → 2 thông báo (chưa gộp; dòng chống spam sau sẽ đổi test này)", async () => {
+  it("sửa liên tiếp khi chưa đọc: còn 1 dòng, hợp cờ, created_at tăng, lên đầu và unread_count vẫn 1", async () => {
     const id = await createAttempt();
+    const userId = fixtures.actors.studentA.id;
+    const oldTime = new Date("2000-01-01T00:00:00Z");
+    await prisma.notification.updateMany({
+      where: { userId },
+      data: { readAt: oldTime, createdAt: oldTime },
+    });
 
     expect((await patchGrade(id, "teacherA", { teacher_score: 6.5 })).status).toBe(200);
-    expect((await patchGrade(id, "teacherA", { teacher_score: 7.5 })).status).toBe(200);
+    const [first] = await rowsOf(id);
+    await prisma.notification.update({ where: { id: first.id }, data: { createdAt: oldTime } });
+    const marker = await prisma.notification.create({
+      data: {
+        userId,
+        type: "system",
+        message: "Thông báo đọc trước để so thứ tự",
+        createdAt: new Date("2000-01-02T00:00:00Z"),
+        readAt: new Date("2000-01-02T00:00:00Z"),
+      },
+    });
+    const before = (await listNotifications("studentA")).body as {
+      data: { items: { id: number }[]; unread_count: number };
+    };
+    expect(before.data.items.slice(0, 2).map(({ id }) => id)).toEqual([marker.id, first.id]);
+    expect(before.data.unread_count).toBe(1);
 
-    expect(await rowsOf(id)).toHaveLength(2);
+    expect((await patchGrade(id, "teacherA", { teacher_comment: "Đã xem lại" })).status).toBe(200);
+
+    const rows = await rowsOf(id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: first.id,
+      readAt: null,
+      message: `Giáo viên đã cập nhật điểm và nhận xét bài «${topic}» của lớp ${className}.`,
+    });
+    expect(rows[0].createdAt.getTime()).toBeGreaterThan(oldTime.getTime());
+    const after = (await listNotifications("studentA")).body as typeof before;
+    expect(after.data.items[0].id).toBe(first.id);
+    expect(after.data.unread_count).toBe(1);
+  });
+
+  it("đã đọc rồi sửa lại: tạo dòng mới và unread_count tăng", async () => {
+    const id = await createAttempt();
+    expect((await patchGrade(id, "teacherA", { teacher_score: 7 })).status).toBe(200);
+    const [first] = await rowsOf(id);
+    const read = await app.request(`/notifications/${first.id}/read`, {
+      method: "PATCH",
+      headers: authorizationHeaders(fixtures.actors.studentA),
+    });
+    expect(read.status).toBe(200);
+    const [readRow] = await rowsOf(id);
+    expect(readRow.readAt).not.toBeNull();
+    const before = (await listNotifications("studentA")).body as { data: { unread_count: number } };
+
+    expect((await patchGrade(id, "teacherA", { teacher_comment: "Bổ sung nhận xét" })).status).toBe(200);
+
+    const rows = await rowsOf(id);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual(readRow);
+    expect(rows[1]).toMatchObject({
+      readAt: null,
+      message: `Giáo viên đã cập nhật nhận xét bài «${topic}» của lớp ${className}.`,
+    });
+    const after = (await listNotifications("studentA")).body as { data: { unread_count: number } };
+    expect(after.data.unread_count).toBe(before.data.unread_count + 1);
+  });
+
+  it("hai PATCH song song: đúng 1 dòng chưa đọc cho khóa, đủ cả hai cờ", async () => {
+    const id = await createAttempt();
+
+    const replies = await Promise.all([
+      patchGrade(id, "teacherA", { teacher_score: 7 }),
+      patchGrade(id, "teacherA", { teacher_comment: "Bổ sung nhận xét" }),
+    ]);
+
+    expect(replies.map(({ status }) => status)).toEqual([200, 200]);
+    const rows = await rowsOf(id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      readAt: null,
+      message: `Giáo viên đã cập nhật điểm và nhận xét bài «${topic}» của lớp ${className}.`,
+    });
   });
 });
 
@@ -238,7 +314,7 @@ describe("T28 teacher_edit – các ca KHÔNG tạo thông báo", () => {
     expect(await rowsOf(id)).toHaveLength(0);
   });
 
-  it("bài nộp chưa có điểm (score null, chấm tay lần đầu) → lưu điểm, 0 dòng", async () => {
+  it("bài nộp chưa có điểm (chấm tay lần đầu) → lưu điểm, 0 dòng teacher_edit", async () => {
     const id = await createAttempt({ score: null });
 
     expect(await patchGrade(id, "teacherA", { teacher_score: 7 })).toEqual(
@@ -336,7 +412,7 @@ describe("T28 teacher_edit – best-effort", () => {
 });
 
 describe("T28 teacher_edit – API thông báo T25", () => {
-  it("HS nhận thấy item teacher_edit (assignment_id null, chưa đọc), unread_count +1; HS khác và GV không thấy", async () => {
+  it("HS thấy teacher_edit với attempt_id đúng và unread_count +1; HS khác, GV và ADMIN không thấy", async () => {
     const id = await createAttempt();
     const before = await listNotifications("studentA");
     expect(before.status).toBe(200);
@@ -357,6 +433,7 @@ describe("T28 teacher_edit – API thông báo T25", () => {
       read_at: null,
       created_at: row.createdAt.toISOString(),
       assignment_id: null,
+      attempt_id: id,
     });
 
     for (const actor of ["studentB", "teacherA", "teacherB", "admin"] as const) {

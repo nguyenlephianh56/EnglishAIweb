@@ -203,7 +203,7 @@ describe("T28 graded – GV/ADMIN chấm tay lần đầu cho bài chưa có đi
     expect(await editRows(id)).toHaveLength(0);
   });
 
-  it("lần sửa sau chỉ sinh teacher_edit: graded vẫn đúng 1 dòng", async () => {
+  it("graded rồi teacher_edit cùng bài nộp: giữ hai dòng khác khóa", async () => {
     const id = await createAttempt();
 
     expect((await patchGrade(id, "teacherA", { teacher_score: 6 })).status).toBe(200);
@@ -337,14 +337,17 @@ describe("T28 teacher_edit mở rộng – đã có điểm cuối nhờ chấm 
     expect(await gradedRows(id)).toHaveLength(0);
   });
 
-  it("giới hạn đã biết: GV xóa điểm về null rồi chấm lại có thể tạo graded lần nữa (chưa chống spam)", async () => {
+  it("GV xóa điểm rồi chấm lại: graded chưa đọc gộp vào dòng cũ, teacher_edit vẫn riêng", async () => {
     const id = await createAttempt();
 
     expect((await patchGrade(id, "teacherA", { teacher_score: 7 })).status).toBe(200);
+    const [first] = await gradedRows(id);
     expect((await patchGrade(id, "teacherA", { teacher_score: null })).status).toBe(200);
     expect((await patchGrade(id, "teacherA", { teacher_score: 8 })).status).toBe(200);
 
-    expect(await gradedRows(id)).toHaveLength(2);
+    const rows = await gradedRows(id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(first.id);
     expect(await editRows(id)).toHaveLength(1);
   });
 });
@@ -387,8 +390,81 @@ describe("T28 graded – best-effort", () => {
   });
 });
 
+describe("T28 – nội dung thông báo graded và teacher_edit", () => {
+  it.each([
+    {
+      name: "HTML, xuống dòng và email trong cả hai nhãn",
+      rawTopic: "<b>Unit</b>\nliên hệ a.b@example.test",
+      rawClassName: "Lớp\r\n<i>B</i> gv@example.test",
+      expectedTopic: "Unit liên hệ",
+      expectedClassName: "Lớp B",
+    },
+    {
+      name: "topic và tên lớp quá dài",
+      rawTopic: "x".repeat(85),
+      rawClassName: "y".repeat(65),
+      expectedTopic: "x".repeat(80),
+      expectedClassName: "y".repeat(60),
+    },
+    {
+      name: "topic và tên lớp rỗng sau làm sạch",
+      rawTopic: "<br>\t",
+      rawClassName: "<i></i>\ngv@example.test",
+      expectedTopic: "Không có tiêu đề",
+      expectedClassName: "chưa đặt tên",
+    },
+  ])("message làm sạch $name và không đưa dữ liệu chấm điểm hay danh tính GV", async ({
+    rawTopic, rawClassName, expectedTopic, expectedClassName,
+  }) => {
+    const id = await createAttempt();
+    const classId = fixtures.classes.classA.id;
+    const teacher = await prisma.user.findUniqueOrThrow({
+      where: { id: fixtures.actors.teacherA.id },
+      select: { name: true, email: true },
+    });
+    const explanation = "Giải thích riêng trong bài tập";
+    const firstComment = "Nhận xét riêng khi chấm";
+    const secondComment = "Nhận xét riêng khi sửa";
+
+    try {
+      await prisma.exercise.update({
+        where: { id: exerciseId },
+        data: { topic: rawTopic, explanation },
+      });
+      await prisma.class.update({ where: { id: classId }, data: { name: rawClassName } });
+
+      expect((await patchGrade(id, "teacherA", {
+        teacher_score: 8.5,
+        teacher_comment: firstComment,
+      })).status).toBe(200);
+      expect((await patchGrade(id, "teacherA", {
+        teacher_score: 9.25,
+        teacher_comment: secondComment,
+      })).status).toBe(200);
+
+      const graded = (await gradedRows(id)).map(({ message }) => message);
+      const edited = (await editRows(id)).map(({ message }) => message);
+      expect(graded).toEqual([
+        `Giáo viên đã chấm bài «${expectedTopic}» của lớp ${expectedClassName}.`,
+      ]);
+      expect(edited).toEqual([
+        `Giáo viên đã cập nhật điểm và nhận xét bài «${expectedTopic}» của lớp ${expectedClassName}.`,
+      ]);
+      for (const message of [...graded, ...edited]) {
+        expect(message).not.toMatch(/[\d<>@\r\n]/u);
+        for (const privateText of [firstComment, secondComment, "Hello.", explanation, teacher.name, teacher.email]) {
+          expect(message).not.toContain(privateText);
+        }
+      }
+    } finally {
+      await prisma.exercise.update({ where: { id: exerciseId }, data: { topic, explanation: null } });
+      await prisma.class.update({ where: { id: classId }, data: { name: className } });
+    }
+  });
+});
+
 describe("T28 graded – API thông báo T25", () => {
-  it("HS nhận thấy item graded (assignment_id null, chưa đọc), unread_count +1; HS khác, GV và ADMIN không thấy", async () => {
+  it("HS thấy graded với attempt_id đúng và unread_count +1; HS khác, GV và ADMIN không thấy", async () => {
     const id = await createAttempt();
     const before = await listNotifications("studentA");
     expect(before.status).toBe(200);
@@ -409,6 +485,7 @@ describe("T28 graded – API thông báo T25", () => {
       read_at: null,
       created_at: row.createdAt.toISOString(),
       assignment_id: null,
+      attempt_id: id,
     });
 
     for (const actor of ["studentB", "teacherA", "teacherB", "admin"] as const) {

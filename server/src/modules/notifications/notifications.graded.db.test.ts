@@ -160,13 +160,24 @@ describe("createGradedNotification", () => {
     expect(await prisma.auditLog.count({ where: { userId: fixtures.actors.studentA.id } })).toBe(auditBefore);
   });
 
-  it("hành vi hiện tại: mỗi lần gọi là 1 dòng mới (chưa gộp, dòng chống spam sau sẽ đổi test này)", async () => {
+    it("graded chưa đọc: giữ cùng dòng và message, chỉ làm mới created_at", async () => {
     const attemptId = await createAttempt(fixtures.actors.studentA.id);
     const input = { attemptId, studentId: fixtures.actors.studentA.id };
 
     await createGradedNotification(input);
+    const [first] = await rowsOf(attemptId);
+    const oldTime = new Date("2000-01-01T00:00:00Z");
+    const message = "Giáo viên đã chấm bài «Tên cũ» của lớp T22 Class A.";
+    await prisma.notification.update({
+      where: { id: first.id },
+      data: { message, createdAt: oldTime },
+    });
+
     await createGradedNotification(input);
 
-    expect(await rowsOf(attemptId)).toHaveLength(2);
+    const rows = await rowsOf(attemptId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: first.id, message, readAt: null });
+    expect(rows[0].createdAt.getTime()).toBeGreaterThan(oldTime.getTime());
   });
 });

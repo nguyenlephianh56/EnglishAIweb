@@ -12,22 +12,26 @@ interface TeacherEditMessageInput {
   className: string;
 }
 
-/** Chọn mẫu theo cờ đổi. Không đổi gì thì trả null (không có thông báo để tạo). */
-export const buildTeacherEditMessage = ({
-  scoreChanged,
-  commentChanged,
-  topic,
-  className,
-}: TeacherEditMessageInput): string | null => {
-  let change: TeacherEditChange;
-  if (scoreChanged && commentChanged) change = "both";
-  else if (scoreChanged) change = "score";
-  else if (commentChanged) change = "comment";
-  else return null;
+/** Chọn mẫu theo cờ đổi và gộp cờ của dòng chưa đọc nếu nhận diện được mẫu cũ. */
+export const buildTeacherEditMessage = (
+  { scoreChanged, commentChanged, topic, className }: TeacherEditMessageInput,
+  previousMessage?: string
+): string | null => {
+  if (!scoreChanged && !commentChanged) return null;
 
-  return teacherEditMessageText({
-    change,
+  const labels = {
     topic: cleanLabel(topic, REMINDER_LABELS.topic),
     className: cleanLabel(className, REMINDER_LABELS.className),
-  });
+  };
+  if (previousMessage !== undefined) {
+    const previousChange = (["score", "comment", "both"] as const).find(
+      (change) => teacherEditMessageText({ change, ...labels }) === previousMessage
+    );
+    scoreChanged ||= previousChange === "score" || previousChange === "both";
+    commentChanged ||= previousChange === "comment" || previousChange === "both";
+  }
+
+  let change: TeacherEditChange = scoreChanged ? "score" : "comment";
+  if (scoreChanged && commentChanged) change = "both";
+  return teacherEditMessageText({ change, ...labels });
 };

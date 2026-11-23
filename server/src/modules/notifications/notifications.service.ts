@@ -1,6 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/prisma";
-import { DEADLINE_NOTIFICATION_KEY_PATTERN, MAX_INT4 } from "./notifications.constants";
+import {
+  DEADLINE_NOTIFICATION_KEY_PATTERN,
+  GRADED_NOTIFICATION_KEY_PATTERN,
+  MAX_INT4,
+  TEACHER_EDIT_NOTIFICATION_KEY_PATTERN,
+} from "./notifications.constants";
 import type { NotificationsListQuery } from "./notifications.schema";
 
 const notificationSelect = {
@@ -17,6 +22,9 @@ const toNotificationItem = (row: NotificationRow) => {
   const type = row.type.split(":", 1)[0];
   const match = DEADLINE_NOTIFICATION_KEY_PATTERN.exec(row.type);
   const assignmentId = match ? Number(match[1]) : null;
+  const attemptMatch = TEACHER_EDIT_NOTIFICATION_KEY_PATTERN.exec(row.type)
+    ?? GRADED_NOTIFICATION_KEY_PATTERN.exec(row.type);
+  const attemptId = attemptMatch ? Number(attemptMatch[1]) : null;
 
   return {
     id: row.id,
@@ -26,6 +34,7 @@ const toNotificationItem = (row: NotificationRow) => {
     read_at: row.readAt,
     created_at: row.createdAt,
     assignment_id: assignmentId !== null && assignmentId <= MAX_INT4 ? assignmentId : null,
+    attempt_id: attemptId !== null && attemptId <= MAX_INT4 ? attemptId : null,
   };
 };
 

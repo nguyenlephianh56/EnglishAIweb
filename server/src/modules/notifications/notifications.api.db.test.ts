@@ -27,7 +27,12 @@ function seed(actor: Actor, message: string, fields: Partial<Pick<Notification, 
   });
 }
 
-function item(row: Notification, type = "system", assignmentId: number | null = null) {
+function item(
+  row: Notification,
+  type = "system",
+  assignmentId: number | null = null,
+  attemptId: number | null = null
+) {
   return {
     id: row.id,
     type,
@@ -36,6 +41,7 @@ function item(row: Notification, type = "system", assignmentId: number | null = 
     read_at: row.readAt?.toISOString() ?? null,
     created_at: row.createdAt.toISOString(),
     assignment_id: assignmentId,
+    attempt_id: attemptId,
   };
 }
 
@@ -211,5 +217,29 @@ describe("API thông báo", () => {
         });
       }
     }
+  });
+
+  it("trả attempt_id đến giới hạn INT4 và null cho khóa sai hoặc vượt giới hạn", async () => {
+    const boundary = await seed("studentA", "Đã chấm", {
+      type: "graded:2147483647", readAt: readTime,
+    });
+    const overflow = await seed("studentA", "Khóa vượt INT4", { type: "teacher_edit:2147483648" });
+    const malformed = await seed("studentA", "Khóa sai", { type: "graded:01" });
+
+    expect(await request("?limit=50")).toMatchObject({
+      status: 200,
+      body: {
+        data: {
+          items: expect.arrayContaining([
+            item(boundary, "graded", null, 2_147_483_647),
+            item(overflow, "teacher_edit"),
+            item(malformed, "graded"),
+          ]),
+        },
+      },
+    });
+    expect(await request(`/${boundary.id}/read`, "studentA", { method: "PATCH" })).toEqual(
+      ok(item(boundary, "graded", null, 2_147_483_647))
+    );
   });
 });

@@ -1,10 +1,33 @@
 import { randomUUID } from "node:crypto";
 import type { UserStatus } from "@prisma/client";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "../../config/prisma";
 import { createAuthorizationFixtures } from "../../testing/authorization-fixtures";
 import { teacherEditNotificationKey } from "./notifications.constants";
 import { createTeacherEditNotification } from "./notifications.teacher-edit.service";
+
+const race = vi.hoisted(() => ({
+  markRead: undefined as (() => Promise<unknown>) | undefined,
+}));
+
+vi.mock("../../config/prisma", async (importOriginal) => {
+  const { prisma } = await importOriginal<typeof import("../../config/prisma")>();
+  return {
+    prisma: prisma.$extends({
+      query: {
+        notification: {
+          async updateMany({ args, query }) {
+            if (race.markRead === undefined) return query(args);
+            await race.markRead();
+            const result = await query(args);
+            expect(result.count).toBe(0);
+            return result;
+          },
+        },
+      },
+    }),
+  };
+});
 
 let fixtures: Awaited<ReturnType<typeof createAuthorizationFixtures>>;
 let exerciseId: number;
@@ -192,15 +215,73 @@ describe("createTeacherEditNotification", () => {
     expect(await prisma.auditLog.count({ where: { userId: fixtures.actors.studentA.id } })).toBe(auditBefore);
   });
 
-  it("hành vi hiện tại: mỗi lần gọi đổi thật là 1 dòng mới (chưa gộp, dòng chống spam sau sẽ đổi test này)", async () => {
-    const attemptId = await createAttempt(fixtures.actors.studentA.id);
-    const input = {
-      attemptId, studentId: fixtures.actors.studentA.id, scoreChanged: true, commentChanged: false,
+    it("dọn các dòng chưa đọc trùng cũ, giữ dòng mới nhất và dòng đã đọc", async () => {
+    const studentId = fixtures.actors.studentA.id;
+    const attemptId = await createAttempt(studentId);
+    const createdAt = new Date("2000-01-02T00:00:00Z");
+    const data = {
+      userId: studentId,
+      type: teacherEditNotificationKey(attemptId),
+      message: "Mẫu cũ",
+      createdAt,
     };
+    await prisma.notification.create({ data });
+    const latest = await prisma.notification.create({ data });
+    await prisma.notification.create({
+      data: { ...data, createdAt: new Date("2000-01-01T00:00:00Z") },
+    });
+    const read = await prisma.notification.create({
+      data: { ...data, readAt: createdAt },
+    });
 
-    await createTeacherEditNotification(input);
-    await createTeacherEditNotification(input);
+    await createTeacherEditNotification({
+      attemptId,
+      studentId,
+      scoreChanged: true,
+      commentChanged: false,
+    });
 
-    expect(await rowsOf(attemptId)).toHaveLength(2);
+    const rows = await rowsOf(attemptId);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      id: latest.id,
+      readAt: null,
+      message: `Giáo viên đã cập nhật điểm bài «${topic}» của lớp ${className}.`,
+    });
+    expect(rows[1]).toEqual(read);
+  });
+
+  it("HS đọc xong ngay trước updateMany (count = 0): giữ dòng đã đọc và tạo dòng mới", async () => {
+    const studentId = fixtures.actors.studentA.id;
+    const attemptId = await createAttempt(studentId);
+    await createTeacherEditNotification({
+      attemptId,
+      studentId,
+      scoreChanged: true,
+      commentChanged: false,
+    });
+    const [first] = await rowsOf(attemptId);
+    const readAt = new Date();
+    race.markRead = () =>
+      prisma.notification.update({ where: { id: first.id }, data: { readAt } });
+
+    try {
+      expect(await createTeacherEditNotification({
+        attemptId,
+        studentId,
+        scoreChanged: false,
+        commentChanged: true,
+      })).toBe(true);
+    } finally {
+      race.markRead = undefined;
+    }
+
+    const rows = await rowsOf(attemptId);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({ ...first, readAt });
+    expect(rows[1]).toMatchObject({
+      readAt: null,
+      message: `Giáo viên đã cập nhật nhận xét bài «${topic}» của lớp ${className}.`,
+    });
   });
 });
