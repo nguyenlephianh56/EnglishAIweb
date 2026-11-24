@@ -8,6 +8,7 @@ import { getErrorMessage } from "../../api/client";
 import { regradeAttempt } from "../../api/attempts";
 import { formatDateTime, formatScore } from "../teacher/grading/gradingMeta";
 import { BackLink, PageError, PageSkeleton } from "./RunnerShell";
+import ReportExerciseButton from "./ReportExerciseButton";
 import { attemptKey, useAssignmentDetail, useAttemptDetail, usePracticeExercise } from "./useExerciseData";
 import AutoResult from "./AutoResult";
 import SpeakingResult from "./SpeakingResult";
@@ -42,7 +43,7 @@ export default function ResultPage() {
   });
 
   if (!Number.isInteger(attemptId) || attemptId <= 0) {
-       return <PageError error={new Error("Không tìm thấy kết quả này.")} onRetry={() => undefined} backTo="/student/library" backLabel="Về thư viện" />;
+    return <PageError error={new Error("Không tìm thấy kết quả này.")} backTo="/student/library" backLabel="Về thư viện" />;
   }
   if (attemptQ.isLoading) return <PageSkeleton rows={2} />;
   if (attemptQ.isError || !attempt) {
@@ -85,6 +86,7 @@ export default function ResultPage() {
           </span>
           {attempt.isLate && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">Nộp trễ</span>}
         </p>
+        <ReportExerciseButton exerciseId={attempt.exerciseId} />
       </header>
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-label="Điểm số">

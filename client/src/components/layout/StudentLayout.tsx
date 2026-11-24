@@ -1,19 +1,19 @@
-import { Bell, ChartNoAxesColumn, ClipboardList, Flame, Home, Library, Route, Sparkles } from "lucide-react";
+import { Bell, ChartNoAxesColumn, ClipboardList, Home, Library, Route, Sparkles } from "lucide-react";
 import AppLayout from "./AppLayout";
 import type { NavItem } from "./AppLayout";
 import Button from "../ui/Button";
 import { useAuth } from "../../hooks/useAuth";
-import { useHomeData } from "../../features/student/useHomeData";
+import { useSkillProfile } from "../../features/student/useSkillProfile";
 import NotificationBell from "../../features/student/NotificationBell";
 import { useNotifications } from "../../features/student/useNotifications";
 
 /** Khung học sinh: chỉ khai báo menu và các phần riêng, phần còn lại do AppLayout lo. */
 export default function StudentLayout() {
   const { user } = useAuth();
-  const { data } = useHomeData();
+  const { data: profile } = useSkillProfile("30d"); // dùng chung cache với Trang chủ và Hồ sơ kỹ năng
   const name = user?.name ?? "";
   const { unread } = useNotifications(); // dùng chung với chuông và trang Thông báo
-  const level = data?.skillProfile.level;
+  const level = profile?.hasData ? profile.level : undefined; // chưa có dữ liệu thì chỉ hiện "Học sinh"
 
   const items: NavItem[] = [
     { to: "/student", label: "Trang chủ", icon: Home, end: true },
@@ -31,19 +31,7 @@ export default function StudentLayout() {
       userName={name}
       accountPath="/student/account"
       userSubtitle={`Học sinh${level ? ` • ${level}` : ""}`}
-      topbar={
-        <>
-          {data && (
-            <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700" title="Chuỗi ngày học liên tiếp">
-              <Flame className="size-4 text-amber-500" aria-hidden="true" />
-              <span>
-                <strong className="font-bold">{data.streak}</strong> ngày
-              </span>
-            </span>
-          )}
-          <NotificationBell />
-        </>
-      }
+      topbar={<NotificationBell />}
       sidebarExtra={
         <div className="rounded-3xl bg-linear-to-br from-brand-light to-violet-50 p-5">
           <span className="grid size-11 place-items-center rounded-xl bg-brand text-white" aria-hidden="true">

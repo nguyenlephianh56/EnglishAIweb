@@ -1,16 +1,22 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CircleAlert, CircleCheck, ClipboardCheck, Flame, Users } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, ClipboardCheck, Users } from "lucide-react";
 import Button from "../../components/ui/Button";
 import { useAuth } from "../../hooks/useAuth";
-import { HOME_KEY, useHomeData } from "./useHomeData";
-import AssignmentCard from "./AssignmentCard";
+import { ASSIGNMENTS_KEY, useAssignmentList } from "./useAssignments";
+import { useSkillProfile } from "./useSkillProfile";
+import { RECOMMENDATIONS_KEY, useRecommendations } from "./useRecommendations";
+import AssignedCard from "./AssignedCard";
 import RecommendationCard from "./RecommendationCard";
 import JoinClassModal from "./JoinClassModal";
-import type { JoinedClass } from "../../types/student";
+import type { SkillProfileData } from "../../types/profile";
+import type { JoinedClass, SkillProfileSummary } from "../../types/student";
 
 // Recharts khá nặng: chỉ tải khi vào trang Trang chủ, không làm chậm trang giới thiệu/đăng nhập
 const SkillProfileCard = lazy(() => import("./SkillProfileCard"));
+
+const HOME_ASSIGNMENT_COUNT = 3;
+const HOME_ASSIGNMENT_FILTERS = { status: "NOT_STARTED", page: 1 } as const;
 
 function greeting(hour: number) {
   if (hour >= 5 && hour < 12) return "Chào buổi sáng";
@@ -22,47 +28,106 @@ function Skeleton({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-3xl bg-slate-200 ${className}`} aria-hidden="true" />;
 }
 
-function StreakBanner({ days }: { days: number }) {
+/** Lỗi của MỘT khối: các khối khác vẫn hiện bình thường */
+function SectionError({ text, onRetry }: { text: string; onRetry: () => void }) {
   return (
-    <section
-      className="relative overflow-hidden rounded-3xl bg-linear-to-br from-brand-dark via-brand to-indigo-500 p-8 text-white shadow-lg shadow-brand/20 md:p-10"
-      aria-label="Chuỗi học tập"
-    >
-      <span className="absolute -right-24 -top-32 size-[28rem] rounded-full bg-white/5" aria-hidden="true" />
-      <span className="absolute -bottom-40 right-10 size-96 rounded-full bg-white/5" aria-hidden="true" />
+    <div role="alert" className="flex h-full flex-wrap items-center justify-between gap-3 rounded-3xl border border-red-200 bg-red-50 p-6 text-sm font-semibold text-red-700">
+      <span className="flex items-center gap-2">
+        <CircleAlert className="size-5 shrink-0" aria-hidden="true" />
+        {text}
+      </span>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Thử lại
+      </Button>
+    </div>
+  );
+}
 
-      <div className="relative flex items-center justify-between gap-6">
+const toSummary = (d: SkillProfileData): SkillProfileSummary => ({ level: d.level, levelLabel: d.levelLabel, overall: d.overall, monthlyDelta: d.deltaPoints, axes: d.radar });
+
+function AssignmentsSection() {
+  const list = useAssignmentList(HOME_ASSIGNMENT_FILTERS);
+  const items = (list.data?.items ?? []).slice(0, HOME_ASSIGNMENT_COUNT);
+
+  return (
+    <section className="mt-10" aria-labelledby="h-upcoming">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-amber-300">
-            <Flame className="size-4" aria-hidden="true" />
-            CHUỖI HỌC TẬP ẤN TƯỢNG
-          </p>
-          <h2 className="mt-3 font-heading text-3xl font-extrabold tracking-tight">
-            {days > 0 ? `${days} ngày liên tiếp, tuyệt lắm!` : "Bắt đầu chuỗi học của bạn hôm nay!"}
+          <h2 id="h-upcoming" className="font-heading text-xl font-bold text-slate-900">
+            Bài cần làm
           </h2>
-          <p className="mt-2 max-w-md text-indigo-100">Chỉ cần hoàn thành một bài hôm nay để duy trì chuỗi học của bạn.</p>
-          <div className="mt-6">
-            <Button to="/student/library" variant="outline" size="lg" rightIcon={<ArrowRight />}>
-              Luyện tập ngay
-            </Button>
-          </div>
+          <p className="mt-1 text-sm text-slate-500">Hoàn thành đúng hạn để không bỏ lỡ tiến độ.</p>
         </div>
+        <Button to="/student/assigned" variant="ghost" size="sm" rightIcon={<ArrowRight />}>
+          Xem tất cả
+        </Button>
+      </div>
 
-        <div className="hidden shrink-0 text-center sm:block" aria-hidden="true">
-          <div className="flex items-center gap-2">
-            <span className="font-heading text-8xl font-extrabold leading-none">{days}</span>
-            <Flame className="size-16 text-amber-400" strokeWidth={1.75} />
+      <div className="mt-5">
+        {list.isError ? (
+          <SectionError text="Không tải được bài được giao." onRetry={() => void list.refetch()} />
+        ) : list.isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-56" />
+            ))}
           </div>
-          <p className="mt-2 text-sm font-bold tracking-widest text-indigo-100">NGÀY</p>
-        </div>
+        ) : items.length > 0 ? (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((a) => (
+              <AssignedCard key={a.id} item={a} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400" aria-hidden="true">
+              <ClipboardCheck className="size-6" />
+            </span>
+            <p className="mt-3 font-heading text-lg font-bold text-slate-900">Chưa có bài cần làm</p>
+            <p className="mt-1 text-sm text-slate-500">Khi giáo viên giao bài, các bài chưa làm sẽ hiện ở đây.</p>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
+function SkillProfileSection() {
+  const profile = useSkillProfile("30d");
+
+  if (profile.isError) return <SectionError text="Không tải được hồ sơ kỹ năng." onRetry={() => void profile.refetch()} />;
+  if (profile.isLoading || !profile.data) return <Skeleton className="h-96" />;
+  if (!profile.data.hasData) {
+    return (
+      <section className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="h-skill-profile">
+        <h2 id="h-skill-profile" className="font-heading text-xl font-bold text-slate-900">
+          Hồ sơ kỹ năng
+        </h2>
+        <p className="mt-4 flex-1 text-sm text-slate-500">Chưa có dữ liệu kỹ năng. Hãy làm vài bài luyện tập để AI đánh giá điểm mạnh và điểm yếu của bạn.</p>
+        <div className="mt-4">
+          <Button to="/student/library" rightIcon={<ArrowRight />}>
+            Đến Thư viện luyện tập
+          </Button>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <Suspense fallback={<Skeleton className="h-96" />}>
+      <SkillProfileCard profile={toSummary(profile.data)} />
+    </Suspense>
+  );
+}
+
+function RecommendationSection() {
+  const rec = useRecommendations(1);
+  if (rec.isError) return <SectionError text="Không tải được bài gợi ý." onRetry={() => void rec.refetch()} />;
+  if (rec.isLoading) return <Skeleton className="h-96" />;
+  return <RecommendationCard recommendation={rec.data?.[0] ?? null} />;
+}
+
 export default function HomePage() {
   const { user } = useAuth();
-  const { data, isLoading, isError, refetch } = useHomeData();
   const queryClient = useQueryClient();
 
   const [joinOpen, setJoinOpen] = useState(false);
@@ -78,7 +143,9 @@ export default function HomePage() {
   function handleJoined(joined: JoinedClass) {
     setJoinOpen(false);
     setJoinedName(joined.name);
-    queryClient.invalidateQueries({ queryKey: HOME_KEY }); // bài của lớp mới sẽ xuất hiện khi có API thật
+    // Bài của lớp mới xuất hiện trong danh sách; bài gợi ý cũng có thể đổi
+    void queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY });
+    void queryClient.invalidateQueries({ queryKey: RECOMMENDATIONS_KEY });
   }
 
   const givenName = user?.name.trim().split(/\s+/).pop() ?? "";
@@ -104,80 +171,16 @@ export default function HomePage() {
         </div>
       )}
 
-      {isError && (
-        <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-          <span className="flex items-center gap-2">
-            <CircleAlert className="size-5 shrink-0" aria-hidden="true" />
-            Không tải được dữ liệu trang chủ.
-          </span>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Thử lại
-          </Button>
+      <AssignmentsSection />
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <SkillProfileSection />
         </div>
-      )}
-
-      {isLoading && (
-        <div className="mt-8 space-y-8" role="status" aria-label="Đang tải">
-          <Skeleton className="h-60" />
-          <div className="grid gap-6 md:grid-cols-2">
-            <Skeleton className="h-52" />
-            <Skeleton className="h-52" />
-          </div>
-          <div className="grid gap-6 lg:grid-cols-5">
-            <Skeleton className="h-96 lg:col-span-3" />
-            <Skeleton className="h-96 lg:col-span-2" />
-          </div>
+        <div className="lg:col-span-2">
+          <RecommendationSection />
         </div>
-      )}
-
-      {data && (
-        <>
-          <div className="mt-8">
-            <StreakBanner days={data.streak} />
-          </div>
-
-          <section className="mt-10" aria-labelledby="h-upcoming">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 id="h-upcoming" className="font-heading text-xl font-bold text-slate-900">
-                  Bài sắp đến hạn
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">Hoàn thành đúng hạn để không bỏ lỡ tiến độ.</p>
-              </div>
-              <Button to="/student/assigned" variant="ghost" size="sm" rightIcon={<ArrowRight />}>
-                Xem tất cả
-              </Button>
-            </div>
-
-            {data.assignments.length > 0 ? (
-              <div className="mt-5 grid gap-6 md:grid-cols-2">
-                {data.assignments.map((a) => (
-                  <AssignmentCard key={a.id} assignment={a} />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-                <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400" aria-hidden="true">
-                  <ClipboardCheck className="size-6" />
-                </span>
-                <p className="mt-3 font-heading text-lg font-bold text-slate-900">Chưa có bài sắp đến hạn</p>
-                <p className="mt-1 text-sm text-slate-500">Khi giáo viên giao bài, các bài cần làm sẽ hiện ở đây.</p>
-              </div>
-            )}
-          </section>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-5">
-            <div className="lg:col-span-3">
-              <Suspense fallback={<Skeleton className="h-96" />}>
-                <SkillProfileCard profile={data.skillProfile} />
-              </Suspense>
-            </div>
-            <div className="lg:col-span-2">
-              <RecommendationCard recommendation={data.recommendation} />
-            </div>
-          </div>
-        </>
-      )}
+      </div>
 
       <JoinClassModal open={joinOpen} onClose={() => setJoinOpen(false)} onJoined={handleJoined} />
     </div>

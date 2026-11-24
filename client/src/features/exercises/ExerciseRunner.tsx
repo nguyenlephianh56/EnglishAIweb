@@ -12,6 +12,7 @@ import { ANY_SKILL_META } from "../student/skillMeta";
 import { ASSIGNMENTS_KEY } from "../student/useAssignments";
 import { DynamicExerciseView } from "./ExerciseView";
 import { BackLink } from "./RunnerShell";
+import ReportExerciseButton from "./ReportExerciseButton";
 import { countWords } from "./answerUtils";
 import { EXERCISE_REGISTRY, emptyValueFor, exerciseTypeLabel, isAnswerableType, isAnsweredFor, progressFor, toPayloadFor } from "./registry";
 import { assignmentDetailKey } from "./useExerciseData";
@@ -185,6 +186,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">{exercise.level}</span>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{exerciseTypeLabel(exercise.type)}</span>
       </p>
+      <ReportExerciseButton exerciseId={exercise.id} />
 
       {assignment && (
         <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" aria-label="Thông tin bài giao">

@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, CircleAlert, Copy, School, ShieldCheck, Users } from "lucide-react";
 import Button from "../../components/ui/Button";
 import JoinClassModal from "../student/JoinClassModal";
-import { HOME_KEY } from "../student/useHomeData";
+import { ASSIGNMENTS_KEY } from "../student/useAssignments";
 import { useTeacherClasses } from "../teacher/useTeacherData";
 import { STUDENT_CLASSES_KEY, useStudentClasses } from "./useAccountClasses";
 import Notice from "./Notice";
@@ -58,7 +58,7 @@ function StudentSection() {
     setJoinOpen(false);
     setJoinedName(joined.name);
     queryClient.invalidateQueries({ queryKey: STUDENT_CLASSES_KEY }); // làm mới danh sách lớp
-    queryClient.invalidateQueries({ queryKey: HOME_KEY });
+    queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY }); // bài của lớp mới
   }
 
   return (

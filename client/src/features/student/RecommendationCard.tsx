@@ -1,10 +1,18 @@
 import { ArrowRight, Sparkles } from "lucide-react";
 import Button from "../../components/ui/Button";
-import { SKILL_META } from "./skillMeta";
-import type { Recommendation } from "../../types/student";
+import { ANY_SKILL_META } from "./skillMeta";
+import { errorLabel } from "./mapSkillProfile";
+import type { RecommendationItem } from "../../types/recommendation";
 
-export default function RecommendationCard({ recommendation: r }: { recommendation: Recommendation | null }) {
-  const skill = r ? SKILL_META[r.skill] : null;
+/** Lời giải thích vì sao bài này được gợi ý */
+function describe(r: RecommendationItem): string {
+  const skill = (ANY_SKILL_META[r.exercise.skill] ?? ANY_SKILL_META.FOUNDATION).label;
+  const base = r.reason === "weakest_skill" ? `Đây là kỹ năng ${skill} bạn đang yếu nhất.` : `Bạn chưa có dữ liệu kỹ năng ${skill}, hãy thử bài này.`;
+  return r.focus_error_type ? `${base} Bạn hay mắc lỗi ${errorLabel(r.focus_error_type)}.` : base;
+}
+
+export default function RecommendationCard({ recommendation: r }: { recommendation: RecommendationItem | null }) {
+  const skill = r ? (ANY_SKILL_META[r.exercise.skill] ?? ANY_SKILL_META.FOUNDATION) : null;
   const SkillIcon = skill?.icon;
 
   return (
@@ -29,24 +37,29 @@ export default function RecommendationCard({ recommendation: r }: { recommendati
             </span>
             <div>
               <p className={`text-[11px] font-bold tracking-widest ${skill.text}`}>AI ĐỀ XUẤT</p>
-              <h3 className="mt-1 font-heading text-lg font-bold text-slate-900">{r.title}</h3>
-              <p className="mt-1 text-sm text-slate-500">{r.description}</p>
+              <h3 className="mt-1 font-heading text-lg font-bold text-slate-900">{r.exercise.topic}</h3>
+              <p className="mt-1 text-sm text-slate-500">{describe(r)}</p>
               <p className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">{r.level}</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">{r.minutes} phút</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1">{r.topic}</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1">{skill.label}</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1">{r.exercise.level}</span>
               </p>
             </div>
           </div>
           <div className="mt-6">
-            {/* TODO: trỏ thẳng tới bài được gợi ý khi có route làm bài */}
-            <Button to="/student/library" variant="secondary" size="lg" fullWidth rightIcon={<ArrowRight />}>
-              Bắt đầu luyện
+            <Button to={`/student/library/${r.exercise.id}`} variant="secondary" size="lg" fullWidth rightIcon={<ArrowRight />}>
+              Làm bài
             </Button>
           </div>
         </>
       ) : (
-        <p className="mt-6 flex-1 text-sm text-slate-500">Chưa có gợi ý. Hãy làm thêm vài bài để AI hiểu rõ điểm mạnh và điểm yếu của bạn.</p>
+        <div className="mt-6 flex-1 text-sm text-slate-500">
+          <p>Chưa có bài gợi ý, hãy vào Thư viện để luyện tập.</p>
+          <div className="mt-3">
+            <Button to="/student/library" variant="outline" size="sm" rightIcon={<ArrowRight />}>
+              Vào Thư viện
+            </Button>
+          </div>
+        </div>
       )}
     </section>
   );
