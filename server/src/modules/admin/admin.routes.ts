@@ -18,6 +18,7 @@ import {
 import { resetPromptTemplateBodySchema, updatePromptTemplateBodySchema } from "./admin.prompts.schema";
 import { updateUserHandler } from "./admin.users-update.controller";
 import { updateUserBodySchema } from "./admin.users-update.schema";
+import { deleteUserHandler } from "./admin.users-delete.controller";
 
 export const adminRoutes = Router();
 
@@ -36,6 +37,9 @@ adminRoutes.get("/users/:id", adminController.getUser);
 // validate(...) chạy trước controller: body .strict(), trim, email chữ thường
 adminRoutes.patch("/users/:id", validate(updateUserBodySchema), updateUserHandler);
 
+// DELETE /api/v1/admin/users/:id (T29 - Xóa)
+adminRoutes.delete("/users/:id", deleteUserHandler);
+
 // PATCH /api/v1/admin/users/:id/approve
 adminRoutes.patch("/users/:id/approve", adminController.approveTeacher);
 
@@ -50,7 +54,7 @@ adminRoutes.get("/audit-logs", validateQuery(listAuditLogsQuerySchema), listAudi
 
 // Cấu hình mẫu prompt (T26)
 adminRoutes.get("/prompts", listAdminPromptsHandler);
-adminRoutes.get("/prompts/:key", getAdminPromptHandler);
+adminRoutes.get("/prompts/:key", requireKnownPromptKey, getAdminPromptHandler);
 adminRoutes.put("/prompts/:key", requireKnownPromptKey, validate(updatePromptTemplateBodySchema), updateAdminPromptHandler);
 adminRoutes.post("/prompts/:key/reset", requireKnownPromptKey, validate(resetPromptTemplateBodySchema), resetAdminPromptHandler);
 
