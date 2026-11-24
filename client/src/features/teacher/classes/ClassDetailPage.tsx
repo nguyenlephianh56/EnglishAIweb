@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
-import { ArrowLeft, CircleAlert, SearchX, UserMinus, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CircleAlert, SearchX, Sparkles, UserMinus, UserPlus, Users } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Notice from "../../account/Notice";
 import { UserAvatar } from "../../../components/layout/AppLayout";
@@ -11,6 +11,7 @@ import { useClassDetail } from "../useTeacherData";
 import CopyCodeButton from "./CopyCodeButton";
 import AddStudentModal from "./AddStudentModal";
 import RemoveStudentModal from "./RemoveStudentModal";
+import StudentAnalysisModal from "../analytics/StudentAnalysisModal";
 import type { ClassStudent } from "../../../types/teacher";
 
 function BackLink() {
@@ -36,6 +37,7 @@ export default function ClassDetailPage() {
   const { data, isLoading, isError, error, refetch } = useClassDetail(id);
   const [addOpen, setAddOpen] = useState(false);
   const [removing, setRemoving] = useState<ClassStudent | null>(null);
+  const [analyzing, setAnalyzing] = useState<ClassStudent | null>(null);
   const [notice, setNotice] = useState<string>();
 
   const idValid = Number.isInteger(id) && id > 0;
@@ -146,7 +148,10 @@ export default function ClassDetailPage() {
                         </td>
                         <td className="px-6 py-3 text-slate-600">{s.email}</td>
                         <td className="whitespace-nowrap px-6 py-3 text-slate-600">{formatDate(new Date(s.joinedAt))}</td>
-                        <td className="px-6 py-3 text-right">
+                        <td className="whitespace-nowrap px-6 py-3 text-right">
+                          <Button variant="ghost" size="sm" leftIcon={<Sparkles />} aria-label={`Phân tích học sinh ${s.name}`} onClick={() => setAnalyzing(s)}>
+                            Phân tích
+                          </Button>
                           <Button variant="ghost" size="sm" leftIcon={<UserMinus />} aria-label={`Xóa ${s.name} khỏi lớp`} onClick={() => setRemoving(s)}>
                             Xóa khỏi lớp
                           </Button>
@@ -159,6 +164,7 @@ export default function ClassDetailPage() {
             )}
           </section>
 
+          <StudentAnalysisModal student={analyzing} onClose={() => setAnalyzing(null)} />
           <AddStudentModal open={addOpen} onClose={() => setAddOpen(false)} classId={data.id} onAdded={(s) => setNotice(`Đã thêm ${s.name} vào lớp.`)} />
           <RemoveStudentModal student={removing} className={data.name} classId={data.id} onClose={() => setRemoving(null)} onRemoved={(s) => setNotice(`Đã xóa ${s.name} khỏi lớp.`)} />
         </>
