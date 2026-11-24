@@ -1,7 +1,9 @@
 import { createNotificationApi } from "../shared/notifications/notificationApi";
 import type { NotificationSource } from "../shared/notifications/notificationSource";
 
-const api = createNotificationApi((assignmentId) => (assignmentId ? `/student/assigned/${assignmentId}` : "/student/assigned"));
+const api = createNotificationApi(({ assignmentId, attemptId }) =>
+  attemptId ? `/student/results/${attemptId}` : assignmentId ? `/student/assigned/${assignmentId}` : "/student/assigned",
+);
 
 /** Nguồn thông báo của HỌC SINH (GET /notifications, PATCH /notifications/:id/read, POST /notifications/read-all). */
 export const STUDENT_NOTIFICATIONS: NotificationSource = {
