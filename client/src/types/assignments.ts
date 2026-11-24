@@ -76,6 +76,22 @@ export interface TeacherAssignmentListParams {
   limit?: number;
 }
 
+/** Một lần nộp trong SubmissionItem.attempts (backend trả snake_case). Điểm thang 0..10. */
+export interface SubmissionAttempt {
+  id: number;
+  attempt_no: number;
+  submitted_at: string;
+  is_late: boolean;
+  /** Điểm AI/chấm tự động; null = chưa có */
+  score: number | null;
+  max_score: number;
+  teacher_score: number | null;
+  /** teacher_score ?? score */
+  final_score: number | null;
+  grading_status: "PENDING" | "GRADED";
+  is_best: boolean;
+}
+
 /** Một học sinh trong GET /assignments/:id/submissions */
 export interface SubmissionItem {
   studentId: number;
@@ -88,6 +104,8 @@ export interface SubmissionItem {
   bestAttemptId: number | null;
   lastSubmittedAt: string | null;
   lateSubmission: boolean;
+  /** Các lần nộp (thiếu = []); cần sắp theo attempt_no */
+  attempts?: SubmissionAttempt[];
 }
 
 /** GET /assignments/:id/submissions */

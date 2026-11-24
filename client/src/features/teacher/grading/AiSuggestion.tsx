@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import Notice from "../../account/Notice";
 import AIFeedbackCard from "../../exercises/shared/AIFeedbackCard";
 import { SPEAKING_CRITERIA, formatScore } from "../../exercises/shared/scoreFormat";
 import { autoVerdict, isAiGradedType } from "./gradingMeta";
@@ -10,6 +11,20 @@ import type { AttemptReview } from "../../../types/attemptReview";
  */
 export default function AiSuggestion({ review }: { review: AttemptReview }) {
   const { type } = review.exercise;
+  const pending = review.grading_status === "PENDING" && review.score === null;
+
+  if (pending) {
+    return (
+      <section className="space-y-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="ai-pending-title">
+        <h2 id="ai-pending-title" className="flex items-center gap-2 font-heading text-lg font-bold text-slate-900">
+          <Sparkles className="size-5 text-brand" aria-hidden="true" />
+          Gợi ý của AI
+        </h2>
+        <Notice type="warning">AI đang chấm hoặc chưa có điểm AI</Notice>
+        <p className="text-sm text-slate-500">Thầy/cô vẫn có thể nhập điểm và nhận xét ở bên dưới.</p>
+      </section>
+    );
+  }
 
   if (isAiGradedType(type)) {
     if (review.score === null) {

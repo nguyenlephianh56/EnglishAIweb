@@ -89,8 +89,8 @@ export default function GradingForm({ review }: { review: AttemptReview }) {
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Điểm hiện tại của học sinh</p>
           <p className="font-heading text-3xl font-extrabold text-slate-900" aria-live="polite">
-            {review.final_score === null ? "Chưa có điểm" : formatScore(review.final_score)}
-            {review.final_score !== null && <span className="text-lg font-bold text-slate-400">/{formatScore(review.max_score)}</span>}
+            {review.final_score === null ? "—" : formatScore(review.final_score)}
+            <span className="text-lg font-bold text-slate-400">/10</span>
           </p>
         </div>
         {review.final_score !== null && (
@@ -126,7 +126,7 @@ export default function GradingForm({ review }: { review: AttemptReview }) {
             variant="outline"
             size="sm"
             leftIcon={<Sparkles />}
-            disabled={review.score === null || save.isPending}
+            disabled={review.grading_status === "PENDING" || review.score === null || save.isPending}
             onClick={() => {
               setSaved(false);
               setScore(String(review.score));

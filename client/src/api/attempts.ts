@@ -1,5 +1,5 @@
 import { api, unwrap } from "./client";
-import type { AttemptReview, TeacherGradeBody, TeacherGradeResult } from "../types/attemptReview";
+import type { AttemptReview, AttemptReviewRaw, TeacherGradeBody, TeacherGradeResult } from "../types/attemptReview";
 import type { AttemptDetail, AttemptResult, AssignmentAttemptExtras, AudioUploadResult, GradingError, SubmitAttemptBody, SubmitOutcome } from "../types/attempt";
 
 type ResultWithExtras = AttemptResult & Partial<AssignmentAttemptExtras>;
@@ -41,8 +41,30 @@ export const getAttempt = (id: number) => unwrap<AttemptDetail>(api.get(`/attemp
 /** POST /attempts/:id/regrade: chấm lại bài Viết đang chờ chấm (200 = xong, 202 = AI lại lỗi) */
 export const regradeAttempt = async (id: number): Promise<SubmitOutcome> => normalize(await unwrap<SubmitResponse>(api.post(`/attempts/${id}/regrade`)));
 
+/** Đổi phản hồi lồng nhau của backend sang AttemptReview phẳng mà giao diện đang dùng */
+export const toAttemptReview = (raw: AttemptReviewRaw): AttemptReview => {
+  const { attempt } = raw;
+  return {
+    attempt_id: attempt.id,
+    student: raw.student,
+    assignment: raw.assignment ?? null,
+    exercise: raw.exercise,
+    submitted_answer: attempt.answer,
+    score: attempt.score,
+    max_score: attempt.max_score,
+    teacher_score: attempt.teacher_score,
+    teacher_comment: attempt.teacher_comment,
+    final_score: attempt.final_score,
+    ai_feedback: attempt.ai_feedback,
+    errors: attempt.errors ?? [],
+    is_late: attempt.is_late,
+    submitted_at: attempt.submitted_at,
+    grading_status: attempt.grading_status,
+  };
+};
+
 /** GET /attempts/:id/review: giáo viên/quản trị xem bài nộp (404 nếu không thuộc lớp của mình hoặc không tồn tại) */
-export const getAttemptReview = (id: number) => unwrap<AttemptReview>(api.get(`/attempts/${id}/review`));
+export const getAttemptReview = async (id: number) => toAttemptReview(await unwrap<AttemptReviewRaw>(api.get(`/attempts/${id}/review`)));
 
 /** PATCH /attempts/:id/grade: giáo viên chấm/sửa điểm và nhận xét. Chỉ gửi field thay đổi. */
 export const saveTeacherGrade = (id: number, body: TeacherGradeBody) => unwrap<TeacherGradeResult>(api.patch(`/attempts/${id}/grade`, body));

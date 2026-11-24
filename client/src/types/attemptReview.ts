@@ -6,7 +6,8 @@ import type { AttemptCriteria, AttemptError } from "./attempt";
 export interface AttemptReview {
   attempt_id: number;
   student: { id: number; name: string };
-  assignment: { id: number; due_at: string; class: { id: number; name: string } };
+  /** null nếu lần nộp không thuộc bài giao nào */
+  assignment: { id: number; due_at: string; class: { id: number; name: string } } | null;
   exercise: {
     id: number;
     type: string;
@@ -31,6 +32,29 @@ export interface AttemptReview {
   errors: AttemptError[];
   is_late: boolean;
   submitted_at: string;
+  grading_status: "PENDING" | "GRADED";
+}
+
+/** Phản hồi thô của GET /attempts/:id/review (lồng nhau); api/attempts.ts đổi sang AttemptReview */
+export interface AttemptReviewRaw {
+  attempt: {
+    id: number;
+    mode: string;
+    answer: unknown;
+    submitted_at: string;
+    is_late: boolean;
+    score: number | null;
+    max_score: number;
+    teacher_score: number | null;
+    teacher_comment: string | null;
+    final_score: number | null;
+    ai_feedback: AttemptReview["ai_feedback"];
+    errors?: AttemptError[] | null;
+    grading_status: "PENDING" | "GRADED";
+  };
+  student: AttemptReview["student"];
+  exercise: AttemptReview["exercise"];
+  assignment: AttemptReview["assignment"];
 }
 
 /** Body của PATCH /attempts/:id/grade: ít nhất một key, không key nào khác. null = xóa. */

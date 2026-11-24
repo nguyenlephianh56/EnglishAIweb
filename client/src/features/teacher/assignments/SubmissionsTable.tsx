@@ -3,6 +3,7 @@ import { UserAvatar } from "../../../components/layout/AppLayout";
 import { formatScore } from "../../student/assignmentTime";
 import { formatRegisteredAt } from "../../../utils/format";
 import { SUBMISSION_STATUS_BADGE } from "./assignmentMeta";
+import { attemptScoreText, sortedAttempts } from "./attemptMeta";
 import type { SubmissionItem } from "../../../types/assignments";
 
 const TH = "px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400";
@@ -37,6 +38,7 @@ export default function SubmissionsTable({ items, maxAttempts }: { items: Submis
         <tbody className="divide-y divide-slate-100">
           {items.map((s) => {
             const badge = SUBMISSION_STATUS_BADGE[s.status];
+            const attempts = sortedAttempts(s);
             return (
               <tr key={s.studentId}>
                 <td className="px-4 py-3">
@@ -60,6 +62,23 @@ export default function SubmissionsTable({ items, maxAttempts }: { items: Submis
                 <td className="px-4 py-3">{scoreCell(s)}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-600">{s.lastSubmittedAt ? formatRegisteredAt(s.lastSubmittedAt) : "—"}</td>
                 <td className="px-4 py-3 text-right">
+                  {attempts.length > 0 && (
+                    <span className="mb-1 flex flex-wrap justify-end gap-1.5">
+                      {attempts.map((a) => (
+                        <Link
+                          key={a.id}
+                          to={`/teacher/grading/${a.id}`}
+                          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 ${
+                            a.is_best ? "border-brand bg-brand-light text-brand" : "border-slate-200 bg-white text-slate-600 hover:border-brand hover:text-brand"
+                          }`}
+                        >
+                          Lần {a.attempt_no} · {attemptScoreText(a)}
+                          {a.is_late && <span className="rounded-full bg-red-50 px-1.5 text-[10px] font-bold text-red-700">Trễ</span>}
+                          <span className="sr-only"> của {s.name}</span>
+                        </Link>
+                      ))}
+                    </span>
+                  )}
                   {s.bestAttemptId !== null && (
                     <Link
                       to={`/teacher/grading/${s.bestAttemptId}`}

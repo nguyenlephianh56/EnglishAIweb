@@ -25,6 +25,7 @@ export function useSaveTeacherGrade(id: number) {
       queryClient.setQueryData<AttemptReview>(reviewKey(id), (old) =>
         old ? { ...old, score: res.score, teacher_score: res.teacher_score, teacher_comment: res.teacher_comment, final_score: res.final_score, max_score: res.max_score } : old,
       );
+      void queryClient.invalidateQueries({ queryKey: reviewKey(id) });
       void queryClient.invalidateQueries({ queryKey: [...TEACHER_ASSIGNMENTS_KEY, "submissions"] });
     },
   });
