@@ -1,6 +1,7 @@
 import { round2 } from "../attempts/attempt-result";
 import { MAX_ATTEMPTS_PER_ASSIGNMENT } from "../attempts/attempts.constants";
 import { isAnswerRevealed, isPastDue } from "../attempts/attempts-detail";
+import type { GradingStatus } from "../attempts/attempts.review.service";
 import {
   toStudentView,
   type StudentExerciseView,
@@ -191,7 +192,20 @@ export interface SubmissionStudent {
   email: string;
 }
 
-/** Số liệu attempts của MỘT HS cho bài giao này (đã gộp trong SQL). */
+export interface SubmissionAttempt {
+  id: number;
+  attempt_no: number;
+  submitted_at: Date;
+  is_late: boolean;
+  score: number | null;
+  max_score: number;
+  teacher_score: number | null;
+  final_score: number | null;
+  grading_status: GradingStatus;
+  is_best: boolean;
+}
+
+/** Số liệu attempts của một HS cho bài giao này. */
 export interface SubmissionStats {
   attemptsUsed: number;
   /** MAX(COALESCE(teacher_score, score)); null nếu chưa lần nào có điểm. */
@@ -200,6 +214,7 @@ export interface SubmissionStats {
   bestAttemptId: number;
   late: boolean;
   lastSubmittedAt: Date;
+  attempts?: SubmissionAttempt[];
 }
 
 export interface SubmissionItem {
@@ -213,6 +228,7 @@ export interface SubmissionItem {
   bestAttemptId: number | null;
   lastSubmittedAt: Date | null;
   lateSubmission: boolean;
+  attempts: SubmissionAttempt[];
 }
 
 export const toSubmissionItem = (
@@ -234,6 +250,7 @@ export const toSubmissionItem = (
     bestAttemptId: stats !== undefined && best !== null ? stats.bestAttemptId : null,
     lastSubmittedAt: stats?.lastSubmittedAt ?? null,
     lateSubmission: stats?.late ?? false,
+    attempts: stats?.attempts ?? [],
   };
 };
 

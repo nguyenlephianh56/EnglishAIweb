@@ -15,6 +15,7 @@
 // =====================================================================
 import { Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
+import { attemptAssignmentScope } from "./attempts.scope";
 
 export type SuggestActor = { id: number; role: Role };
 
@@ -33,9 +34,7 @@ export async function findSuggestAttempt(actor: SuggestActor, attemptId: number)
   return prisma.attempt.findFirst({
     where: {
       id: attemptId,
-      assignment: actor.role === Role.ADMIN
-        ? { isNot: null }
-        : { is: { class: { teacherId: actor.id } } },
+      assignment: attemptAssignmentScope(actor),
     },
     select: suggestAttemptSelect,
   });

@@ -16,6 +16,11 @@ import {
   updateAdminPromptHandler,
 } from "./admin.prompts.controller";
 import { resetPromptTemplateBodySchema, updatePromptTemplateBodySchema } from "./admin.prompts.schema";
+import { updateUserHandler } from "./admin.users-update.controller";
+import { updateUserBodySchema } from "./admin.users-update.schema";
+import { deleteUserHandler } from "./admin.users-delete.controller";
+import { promoteAdminHandler, revokeAdminHandler, validatePromoteAdminBody } from "./admin.users-role.controller";
+import { revokeAdminBodySchema } from "./admin.users-role.schema";
 
 export const adminRoutes = Router();
 
@@ -24,8 +29,22 @@ export const adminRoutes = Router();
 // rồi requireRole mới đọc được req.user.role
 adminRoutes.use(authenticateActiveAccount, requireRole(Role.ADMIN));
 
-// GET /api/v1/admin/users?role=&status=
+// GET /api/v1/admin/users?role=&status=&q=
 adminRoutes.get("/users", adminController.listUsers);
+
+// GET /api/v1/admin/users/:id  (hồ sơ + số liệu, chỉ đọc)
+adminRoutes.get("/users/:id", adminController.getUser);
+
+// PATCH /api/v1/admin/users/:id  body { name?, email? } (T29 - Sửa)
+// validate(...) chạy trước controller: body .strict(), trim, email chữ thường
+adminRoutes.patch("/users/:id", validate(updateUserBodySchema), updateUserHandler);
+
+// DELETE /api/v1/admin/users/:id (T29 - Xóa)
+adminRoutes.delete("/users/:id", deleteUserHandler);
+
+// Đổi vai trò admin (T29)
+adminRoutes.patch("/users/:id/promote-admin", validatePromoteAdminBody, promoteAdminHandler);
+adminRoutes.patch("/users/:id/revoke-admin", validate(revokeAdminBodySchema), revokeAdminHandler);
 
 // PATCH /api/v1/admin/users/:id/approve
 adminRoutes.patch("/users/:id/approve", adminController.approveTeacher);
@@ -41,7 +60,7 @@ adminRoutes.get("/audit-logs", validateQuery(listAuditLogsQuerySchema), listAudi
 
 // Cấu hình mẫu prompt (T26)
 adminRoutes.get("/prompts", listAdminPromptsHandler);
-adminRoutes.get("/prompts/:key", getAdminPromptHandler);
+adminRoutes.get("/prompts/:key", requireKnownPromptKey, getAdminPromptHandler);
 adminRoutes.put("/prompts/:key", requireKnownPromptKey, validate(updatePromptTemplateBodySchema), updateAdminPromptHandler);
 adminRoutes.post("/prompts/:key/reset", requireKnownPromptKey, validate(resetPromptTemplateBodySchema), resetAdminPromptHandler);
 

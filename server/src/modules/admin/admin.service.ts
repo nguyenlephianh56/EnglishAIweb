@@ -57,12 +57,26 @@ async function updateStatusWithAudit(
   return updated;
 }
 
-// Danh sách tài khoản, lọc theo role/status nếu có
+// Escape cho mẫu LIKE/ILIKE của PostgreSQL: biến %, _ và dấu \ thành ký tự thường.
+// Lý do: Prisma `contains` KHÔNG tự escape (đã kiểm bằng test DB): q=% hoặc q=_ sẽ khớp mọi dòng,
+// còn q=\ bị hiểu là ký tự escape nên không khớp gì. PostgreSQL mặc định dùng dấu \ làm
+// ký tự escape của LIKE, nên đặt \ trước mỗi ký tự đặc biệt là đủ.
+// Giá trị vẫn đi qua tham số của câu SQL, không nối chuỗi vào SQL.
+const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, "\\$&");
+
+// Danh sách tài khoản, lọc theo role/status/q nếu có (các điều kiện kết hợp AND).
+// q: tìm không phân biệt hoa/thường, khớp một phần trên name HOẶC email, ký tự đặc biệt khớp nghĩa đen.
 export const listUsers = async (query: ListUsersQuery) => {
   return prisma.user.findMany({
     where: {
       ...(query.role && { role: query.role }),
       ...(query.status && { status: query.status }),
+      ...(query.q && {
+        OR: [
+          { name: { contains: escapeLikePattern(query.q), mode: "insensitive" } },
+          { email: { contains: escapeLikePattern(query.q), mode: "insensitive" } },
+        ],
+      }),
     },
     select: userSelect,
     orderBy: { createdAt: "desc" },

@@ -53,7 +53,7 @@ export const formatRemaining = (ms: number): string | null => {
   return `${Math.floor(ms / REMINDER_DAY_MS)} ${REMINDER_TIME_UNITS.day}`;
 };
 
-const cleanLabel = (text: string, { maxChars, fallback }: { maxChars: number; fallback: string }) =>
+export const cleanLabel = (text: string, { maxChars, fallback }: { maxChars: number; fallback: string }) =>
   sanitizeOneLine(text.replace(REMINDER_EMAIL_PATTERN, " "), maxChars) || fallback;
 
 interface DeadlineMessageInput {

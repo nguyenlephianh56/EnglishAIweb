@@ -6,26 +6,46 @@
  * - Tự tạo dữ liệu riêng, xóa sạch sau khi chạy. Tiền tố "t5sub_" riêng.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { Server } from "http";
 import jwt from "jsonwebtoken";
 import { app } from "../../app";
 import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
 
+const queries = vi.hoisted(() => ({ attempts: 0 }));
+
+vi.mock("../../config/prisma", async () => {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient({ log: [{ level: "query", emit: "event" }] });
+  prisma.$on("query", ({ query }) => {
+    if (/\b(?:FROM|JOIN)\s+(?:(?:"\w+"|\w+)\.)?"?attempts\b/i.test(query)) {
+      queries.attempts += 1;
+    }
+  });
+  return { prisma };
+});
+
 const PREFIX = "t5sub_";
 const RUN_ID = `${PREFIX}${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 const HOUR = 60 * 60 * 1000;
 const MINUTE = 60 * 1000;
+const FIXTURE_TIME = Date.now();
 
 const SECRET_ANSWER = "zebraquux";
 const SECRET_EXPLANATION = "EXPL_secret_zebra";
+const SUBMITTED_ANSWER = "submitted_answer_test";
+const AI_FEEDBACK = "ai_feedback_test";
+const ATTEMPT_ERROR = "attempt_error_test";
+const TEACHER_COMMENT = "teacher_comment_test";
 const PASSWORD_HASH = "not-a-real-hash"; // phải KHÔNG xuất hiện trong response
 
 const users = {
   admin: 0,
   teacher: 0,
   teacher2: 0,
+  pendingTeacher: 0,
+  lockedTeacher: 0,
   s1: 0,
   s2: 0,
   s3: 0,
@@ -44,21 +64,24 @@ const ids = {
   future: 0, // lớp A, hạn +24h (kiểm hòa điểm, điểm null)
   other: 0, // lớp B (teacher2)
   join: 0, // lớp C
-  // id các lần nộp để so với bestAttemptId
+  // id các lần nộp để kiểm tra thứ tự và bestAttemptId
+  pastS1First: 0,
   pastS1Best: 0,
+  pastS1Last: 0,
   pastS2Best: 0,
   pastS3Only: 0,
   futureS1Tie1: 0,
   futureS2Null: 0,
 };
-const times = { pastS1Last: new Date(0), pastS2Last: new Date(0) };
+const times = { pastS1First: new Date(0), pastS1Last: new Date(0), pastS2Last: new Date(0) };
 
 let server: Server;
 let baseUrl = "";
 
 const createUser = async (
   label: string,
-  role: "ADMIN" | "TEACHER" | "STUDENT"
+  role: "ADMIN" | "TEACHER" | "STUDENT",
+  status: "ACTIVE" | "PENDING" | "LOCKED" = "ACTIVE"
 ) => {
   const user = await prisma.user.create({
     data: {
@@ -66,7 +89,7 @@ const createUser = async (
       email: `${RUN_ID}_${label}@test.local`,
       passwordHash: PASSWORD_HASH,
       role,
-      status: "ACTIVE",
+      status,
     },
     select: { id: true },
   });
@@ -93,12 +116,13 @@ const createClass = async (teacherId: number, name: string) => {
 const newAssignment = async (
   classId: number,
   assignedById: number,
-  dueOffsetHours: number
+  dueOffsetHours: number,
+  exerciseId = ids.ex
 ) => {
   const row = await prisma.assignment.create({
     data: {
       classId,
-      exerciseId: ids.ex,
+      exerciseId,
       assignedById,
       dueAt: new Date(Date.now() + dueOffsetHours * HOUR),
     },
@@ -109,22 +133,25 @@ const newAssignment = async (
 
 const newAttempt = async (input: {
   studentId: number;
-  assignmentId: number;
+  assignmentId: number | null;
   score: number | null;
   teacherScore?: number;
   isLate?: boolean;
   minutesAgo: number;
 }) => {
-  const submittedAt = new Date(Date.now() - input.minutesAgo * MINUTE);
+  const submittedAt = new Date(FIXTURE_TIME - input.minutesAgo * MINUTE);
   const row = await prisma.attempt.create({
     data: {
       studentId: input.studentId,
       exerciseId: ids.ex,
       assignmentId: input.assignmentId,
       mode: "practice",
-      answer: ["x"],
+      answer: [SUBMITTED_ANSWER],
       score: input.score,
       teacherScore: input.teacherScore,
+      teacherComment: input.teacherScore === undefined ? undefined : TEACHER_COMMENT,
+      aiFeedback: { comment: AI_FEEDBACK },
+      errors: [{ type: "grammar:tense", text: ATTEMPT_ERROR }],
       maxScore: 10,
       isLate: input.isLate ?? false,
       submittedAt,
@@ -154,6 +181,8 @@ beforeAll(async () => {
   users.admin = await createUser("admin", "ADMIN");
   users.teacher = await createUser("teacher", "TEACHER");
   users.teacher2 = await createUser("teacher2", "TEACHER");
+  users.pendingTeacher = await createUser("pending", "TEACHER", "PENDING");
+  users.lockedTeacher = await createUser("locked", "TEACHER", "LOCKED");
   for (const label of ["s1", "s2", "s3", "s4", "ghost", "c1", "c2", "outsider"] as const) {
     users[label] = await createUser(label, "STUDENT");
   }
@@ -195,11 +224,14 @@ beforeAll(async () => {
   ids.join = await newAssignment(ids.classC, users.teacher, 24);
 
   // --- bài giao quá hạn (past) ---
-  // s1: 3 lần đều trễ (3, 7, 5) -> điểm cao nhất 7 ở lần thứ 2.
-  await newAttempt({ studentId: users.s1, assignmentId: ids.past, score: 3, isLate: true, minutesAgo: 90 });
-  const s1Best = await newAttempt({ studentId: users.s1, assignmentId: ids.past, score: 7, isLate: true, minutesAgo: 60 });
+  // Tạo lần nộp muộn nhất trước. Hai lần còn lại trùng giờ nên được xếp theo id.
   const s1Last = await newAttempt({ studentId: users.s1, assignmentId: ids.past, score: 5, isLate: true, minutesAgo: 30 });
+  const s1First = await newAttempt({ studentId: users.s1, assignmentId: ids.past, score: 3, isLate: true, minutesAgo: 90 });
+  const s1Best = await newAttempt({ studentId: users.s1, assignmentId: ids.past, score: 7, isLate: true, minutesAgo: 90 });
+  ids.pastS1First = s1First.id;
   ids.pastS1Best = s1Best.id;
+  ids.pastS1Last = s1Last.id;
+  times.pastS1First = s1First.submittedAt;
   times.pastS1Last = s1Last.submittedAt;
   // s2: lần 1 score 4 nhưng GV chấm lại 9 (điểm cuối 9), lần 2 score 6 -> cao nhất 9 ở lần 1.
   const s2Best = await newAttempt({ studentId: users.s2, assignmentId: ids.past, score: 4, teacherScore: 9, minutesAgo: 60 });
@@ -220,6 +252,9 @@ beforeAll(async () => {
   // s2: một lần nộp chưa có điểm (score null, ví dụ chờ chấm AI).
   const s2Null = await newAttempt({ studentId: users.s2, assignmentId: ids.future, score: null, minutesAgo: 20 });
   ids.futureS2Null = s2Null.id;
+
+  await newAttempt({ studentId: users.s1, assignmentId: null, score: 10, minutesAgo: 10 });
+  await newAttempt({ studentId: users.outsider, assignmentId: ids.other, score: 10, minutesAgo: 10 });
 
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
@@ -313,6 +348,13 @@ describe("GET /api/v1/assignments/:id/submissions - GV chủ lớp", () => {
       lateSubmission: false,
     });
     expect(new Date(s2.lastSubmittedAt).getTime()).toBe(times.pastS2Last.getTime());
+    expect(s2.attempts[0]).toMatchObject({
+      id: s2.bestAttemptId,
+      score: 4,
+      teacher_score: 9,
+      final_score: 9,
+      is_best: true,
+    });
   });
 
   it("s3: teacher_score 0 ghi đè score 8 -> bestScore 0 (không phải 8)", async () => {
@@ -321,6 +363,16 @@ describe("GET /api/v1/assignments/:id/submissions - GV chủ lớp", () => {
     expect(s3.bestScore).toBe(0);
     expect(s3.bestAttemptId).toBe(ids.pastS3Only);
     expect(s3.attemptsUsed).toBe(1);
+    expect(s3.attempts).toMatchObject([
+      {
+        id: ids.pastS3Only,
+        attempt_no: 1,
+        score: 8,
+        teacher_score: 0,
+        final_score: 0,
+        is_best: true,
+      },
+    ]);
   });
 
   it("s4 (không nộp, bài đã quá hạn): OVERDUE, số liệu rỗng", async () => {
@@ -332,6 +384,7 @@ describe("GET /api/v1/assignments/:id/submissions - GV chủ lớp", () => {
       bestAttemptId: null,
       lastSubmittedAt: null,
       lateSubmission: false,
+      attempts: [],
     });
   });
 
@@ -349,7 +402,12 @@ describe("GET /api/v1/assignments/:id/submissions - GV chủ lớp", () => {
       attemptsUsed: 1,
       bestScore: null,
       bestAttemptId: null,
+      attempts: [{ id: ids.futureS2Null, final_score: null, is_best: false }],
     });
+    expect(itemOf(res.body, users.s1).attempts).toMatchObject([
+      { id: ids.futureS1Tie1, is_best: true },
+      { is_best: false },
+    ]);
     expect(itemOf(res.body, users.s3).status).toBe("NOT_STARTED");
     expect(itemOf(res.body, users.s4).status).toBe("NOT_STARTED");
     expect(res.body.data!.submittedCount).toBe(2);
@@ -378,6 +436,7 @@ describe("GET /api/v1/assignments/:id/submissions - GV chủ lớp", () => {
     for (const item of res.body.data!.items) {
       expect(Object.keys(item).sort()).toEqual(
         [
+          "attempts",
           "attemptsUsed",
           "bestAttemptId",
           "bestScore",
@@ -394,8 +453,119 @@ describe("GET /api/v1/assignments/:id/submissions - GV chủ lớp", () => {
     expect(res.text).not.toContain("passwordHash");
     expect(res.text).not.toContain(SECRET_ANSWER);
     expect(res.text).not.toContain(SECRET_EXPLANATION);
+    expect(res.text).not.toContain(SUBMITTED_ANSWER);
+    expect(res.text).not.toContain(AI_FEEDBACK);
+    expect(res.text).not.toContain(ATTEMPT_ERROR);
+    expect(res.text).not.toContain(TEACHER_COMMENT);
     expect(res.text).not.toContain('"answer"');
     expect(res.text).not.toContain('"code"');
+  });
+});
+
+describe("T31 - các lần nộp trong danh sách submissions", () => {
+  it("xếp theo thời gian rồi id và chỉ lấy lần nộp của đúng lượt giao", async () => {
+    const res = await getSubmissions(ids.past, users.teacher);
+    expect(res.status).toBe(200);
+    expect(itemOf(res.body, users.s1).attempts).toEqual([
+      {
+        id: ids.pastS1First,
+        attempt_no: 1,
+        submitted_at: times.pastS1First.toISOString(),
+        is_late: true,
+        score: 3,
+        max_score: 10,
+        teacher_score: null,
+        final_score: 3,
+        grading_status: "GRADED",
+        is_best: false,
+      },
+      {
+        id: ids.pastS1Best,
+        attempt_no: 2,
+        submitted_at: times.pastS1First.toISOString(),
+        is_late: true,
+        score: 7,
+        max_score: 10,
+        teacher_score: null,
+        final_score: 7,
+        grading_status: "GRADED",
+        is_best: true,
+      },
+      {
+        id: ids.pastS1Last,
+        attempt_no: 3,
+        submitted_at: times.pastS1Last.toISOString(),
+        is_late: true,
+        score: 5,
+        max_score: 10,
+        teacher_score: null,
+        final_score: 5,
+        grading_status: "GRADED",
+        is_best: false,
+      },
+    ]);
+  });
+
+  it("bài viết chờ AI trả PENDING và điểm null", async () => {
+    const exercise = await prisma.exercise.create({
+      data: {
+        type: "writing",
+        skill: "WRITING",
+        level: "B1",
+        topic: `${RUN_ID} writing`,
+        content: { prompt: "Describe a place you visited.", minWords: 5 },
+        status: "PUBLISHED",
+        source: "TEACHER",
+        inLibrary: false,
+        createdById: users.teacher,
+      },
+      select: { id: true },
+    });
+    const assignmentId = await newAssignment(ids.classA, users.teacher, 24, exercise.id);
+    const pending = await prisma.attempt.create({
+      data: {
+        studentId: users.s2,
+        exerciseId: exercise.id,
+        assignmentId,
+        answer: { text: "I visited the local library." },
+        score: null,
+      },
+      select: { id: true },
+    });
+
+    const res = await getSubmissions(assignmentId, users.teacher);
+    expect(res.status).toBe(200);
+    expect(itemOf(res.body, users.s2)).toMatchObject({
+      status: "SUBMITTED",
+      attemptsUsed: 1,
+      bestScore: null,
+      bestAttemptId: null,
+      attempts: [
+        {
+          id: pending.id,
+          attempt_no: 1,
+          score: null,
+          teacher_score: null,
+          final_score: null,
+          grading_status: "PENDING",
+          is_best: false,
+        },
+      ],
+    });
+  });
+
+  it("chỉ truy vấn attempts một lần khi lớp có 1 hoặc 4 HS", async () => {
+    const beforeSmall = queries.attempts;
+    const small = await getSubmissions(ids.other, users.teacher2);
+    expect(small.status).toBe(200);
+    expect(small.body.data).toMatchObject({ totalStudents: 1, submittedCount: 1 });
+    expect(queries.attempts - beforeSmall).toBe(1);
+
+    const beforeLarge = queries.attempts;
+    const large = await getSubmissions(ids.past, users.teacher);
+    expect(large.status).toBe(200);
+    expect(large.body.data).toMatchObject({ totalStudents: 4, submittedCount: 3 });
+    expect(queries.attempts - beforeLarge).toBe(1);
   });
 });
 
@@ -449,6 +619,12 @@ describe("GET /api/v1/assignments/:id/submissions - phân quyền", () => {
     const res = await getSubmissions(ids.past, users.admin);
     expect(res.status).toBe(200);
     expect(res.body).toEqual((await getSubmissions(ids.past, users.teacher)).body);
+  });
+
+  it.each(["pendingTeacher", "lockedTeacher"] as const)("%s -> 403", async (teacher) => {
+    const res = await getSubmissions(ids.past, users[teacher]);
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ data: null, error: { code: "FORBIDDEN" } });
   });
 
   it("HS gửi id sai vẫn nhận 403 (kiểm quyền trước kiểm id)", async () => {

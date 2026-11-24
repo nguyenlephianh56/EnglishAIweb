@@ -1,5 +1,14 @@
 import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
+import { GRADED_NOTIFY_FAILED, TEACHER_EDIT_NOTIFY_FAILED } from "../notifications/notifications.constants";
+import {
+  createGradedNotification,
+  type GradedNotifyInput,
+} from "../notifications/notifications.graded.service";
+import {
+  createTeacherEditNotification,
+  type TeacherEditNotifyInput,
+} from "../notifications/notifications.teacher-edit.service";
 import { finalScoreOf } from "./attempt-list";
 import type { TeacherGradeInput } from "./attempts.grade.schema";
 
@@ -41,12 +50,22 @@ async function lockGradeAttempt(
   return rows[0] ?? null;
 }
 
-export function updateTeacherGrade(
+// Một PATCH sinh TỐI ĐA MỘT thông báo: `graded` (điểm cuối xuất hiện lần đầu nhờ GV) hoặc `teacher_edit` (đã có điểm cuối rồi mới sửa).
+type TeacherGradeNotify =
+  | ({ kind: "graded" } & GradedNotifyInput)
+  | ({ kind: "teacher_edit" } & TeacherEditNotifyInput);
+
+type TeacherGradeOutcome = {
+  result: TeacherGradeResult;
+  notify: TeacherGradeNotify | null;
+};
+
+export async function updateTeacherGrade(
   actor: TeacherGradeActor,
   attemptId: number,
   input: TeacherGradeInput
 ): Promise<TeacherGradeResult | null> {
-  return prisma.$transaction(async (tx) => {
+  const outcome = await prisma.$transaction(async (tx): Promise<TeacherGradeOutcome | null> => {
     const before = await lockGradeAttempt(tx, actor, attemptId);
     if (before === null) return null;
 
@@ -84,13 +103,52 @@ export function updateTeacherGrade(
       });
     }
 
+    // T28: điểm cuối = finalScoreOf(score, teacher_score). Việc tạo thông báo làm SAU khi commit.
+    // - chưa có điểm cuối mà GV vừa đặt điểm -> `graded` (HS thấy kết quả lần đầu);
+    // - đã có điểm cuối và có thay đổi THẬT -> `teacher_edit`;
+    // - chưa có điểm cuối và chỉ đổi nhận xét -> không báo (HS vẫn chưa có kết quả).
+    const finalBefore = finalScoreOf(before.score, before.teacher_score);
+    const finalAfter = finalScoreOf(before.score, teacherScore);
+    let notify: TeacherGradeNotify | null = null;
+    if (finalBefore === null) {
+      if (finalAfter !== null) {
+        notify = { kind: "graded", attemptId: before.id, studentId: before.student_id };
+      }
+    } else if (scoreChanged || commentChanged) {
+      notify = {
+        kind: "teacher_edit",
+        attemptId: before.id,
+        studentId: before.student_id,
+        scoreChanged,
+        commentChanged,
+      };
+    }
+
     return {
-      id: before.id,
-      score: before.score,
-      teacher_score: teacherScore,
-      teacher_comment: teacherComment,
-      final_score: finalScoreOf(before.score, teacherScore),
-      max_score: before.max_score,
+      result: {
+        id: before.id,
+        score: before.score,
+        teacher_score: teacherScore,
+        teacher_comment: teacherComment,
+        final_score: finalAfter,
+        max_score: before.max_score,
+      },
+      notify,
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+
+  if (outcome === null) return null;
+
+  const { notify } = outcome;
+  if (notify !== null) {
+    try {
+      if (notify.kind === "graded") await createGradedNotification(notify);
+      else await createTeacherEditNotification(notify);
+    } catch {
+      // Best-effort: điểm đã lưu, chỉ log mã (không log message, id HS hay nhận xét).
+      console.error(notify.kind === "graded" ? GRADED_NOTIFY_FAILED : TEACHER_EDIT_NOTIFY_FAILED);
+    }
+  }
+
+  return outcome.result;
 }
