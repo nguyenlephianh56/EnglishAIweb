@@ -1,5 +1,7 @@
 import { ExerciseStatus, Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
+import { finalScoreOf } from "../attempts/attempt-list";
+import { gradingStatusOf } from "../attempts/attempts.review.service";
 import {
   NON_ASSIGNABLE_TYPES,
   type AssignmentStatus,
@@ -361,7 +363,7 @@ export const getAssignmentDetail = async (
  * - Bài giao không tồn tại và bài giao của lớp GV khác cùng một lỗi 404.
  * - Trả MỌI HS hiện có trong lớp (kể cả chưa làm); HS đã rời lớp không có dòng.
  * - Tránh N+1: 1 truy vấn bài giao, 1 truy vấn thành viên lớp (chỉ id/name/email,
- *   KHÔNG lấy passwordHash), 1 SQL gộp theo HS.
+ *   KHÔNG lấy passwordHash), 1 SQL lấy số liệu và các lần nộp của cả lớp.
  * - Điểm cao nhất = MAX(COALESCE(teacher_score, score)). bestAttemptId = lần đạt điểm đó
  *   (DISTINCT ON; hòa điểm lấy lần sớm nhất; điểm null xếp cuối).
  * - JOIN class_members để attempt của người không còn trong lớp không bị tính.
@@ -386,7 +388,7 @@ export const getSubmissions = async (
 
   const now = new Date();
 
-  const [members, statRows] = await Promise.all([
+  const [members, submissionRows] = await Promise.all([
     prisma.classMember.findMany({
       where: { classId: assignment.classId },
       orderBy: [{ student: { name: "asc" } }, { studentId: "asc" }],
@@ -400,10 +402,17 @@ export const getSubmissions = async (
         lastSubmittedAt: Date;
         best: number | null;
         bestAttemptId: number;
+        attemptId: number;
+        submittedAt: Date;
+        isLate: boolean;
+        score: number | null;
+        maxScore: number;
+        teacherScore: number | null;
       }[]
     >(Prisma.sql`
       WITH scoped AS (
         SELECT a.id, a.student_id, a.is_late, a.submitted_at,
+               a.score, a.max_score, a.teacher_score,
                COALESCE(a.teacher_score, a.score) AS final
         FROM attempts a
         JOIN class_members cm
@@ -428,20 +437,46 @@ export const getSubmissions = async (
              agg.late AS "late",
              agg.last_submitted_at AS "lastSubmittedAt",
              best.final AS "best",
-             best.best_attempt_id AS "bestAttemptId"
-      FROM agg
-      JOIN best ON best.student_id = agg.student_id
+             best.best_attempt_id AS "bestAttemptId",
+             scoped.id AS "attemptId",
+             scoped.submitted_at AS "submittedAt",
+             scoped.is_late AS "isLate",
+             scoped.score,
+             scoped.max_score AS "maxScore",
+             scoped.teacher_score AS "teacherScore"
+      FROM scoped
+      JOIN agg ON agg.student_id = scoped.student_id
+      JOIN best ON best.student_id = scoped.student_id
+      ORDER BY scoped.student_id, scoped.submitted_at ASC, scoped.id ASC
     `),
   ]);
 
-  const statsByStudent = new Map<number, SubmissionStats>();
-  for (const row of statRows) {
-    statsByStudent.set(row.studentId, {
-      attemptsUsed: row.attemptsUsed,
-      best: row.best,
-      bestAttemptId: row.bestAttemptId,
-      late: row.late,
-      lastSubmittedAt: row.lastSubmittedAt,
+  const statsByStudent = new Map<number, Required<SubmissionStats>>();
+  for (const row of submissionRows) {
+    let stats = statsByStudent.get(row.studentId);
+    if (!stats) {
+      stats = {
+        attemptsUsed: row.attemptsUsed,
+        best: row.best,
+        bestAttemptId: row.bestAttemptId,
+        late: row.late,
+        lastSubmittedAt: row.lastSubmittedAt,
+        attempts: [],
+      };
+      statsByStudent.set(row.studentId, stats);
+    }
+
+    stats.attempts.push({
+      id: row.attemptId,
+      attempt_no: stats.attempts.length + 1,
+      submitted_at: row.submittedAt,
+      is_late: row.isLate,
+      score: row.score,
+      max_score: row.maxScore,
+      teacher_score: row.teacherScore,
+      final_score: finalScoreOf(row.score, row.teacherScore),
+      grading_status: gradingStatusOf(row.score, assignment.exercise.type),
+      is_best: row.best !== null && row.attemptId === row.bestAttemptId,
     });
   }
 

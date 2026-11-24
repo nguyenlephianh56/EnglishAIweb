@@ -6,6 +6,7 @@ import { getAiDailyLimitsConfig } from "./ai/ai.usage.settings";
 import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { adminRoutes } from "./modules/admin/admin.routes";
+import { analysisRoutes } from "./modules/analysis/analysis.routes";
 import { analyticsRoutes } from "./modules/analytics/analytics.routes";
 import { classRoutes } from "./modules/classes/classes.routes";
 import { exerciseRoutes } from "./modules/exercises/exercises.routes";
@@ -89,6 +90,9 @@ app.use("/api/v1/assignments", assignmentRoutes);
 
 // Skill profile routes (hồ sơ kỹ năng)
 app.use("/api/v1/skill-profiles", skillProfileRoutes);
+
+// Phân tích điểm yếu của học sinh và lớp (T23)
+app.use("/api/v1/analysis", analysisRoutes);
 
 // Gợi ý bài cho học sinh (T24)
 app.use("/api/v1/recommendations", recommendationRoutes);

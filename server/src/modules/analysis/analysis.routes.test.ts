@@ -1,11 +1,10 @@
-import express from "express";
-import type { Server } from "node:http";
 import jwt from "jsonwebtoken";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import request from "supertest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { app } from "../../app";
 import { getDefaultAiDeps } from "../../ai/ai.service.defaults";
 import type { AiUsageStatus } from "../../ai/ai.types";
 import { AIProviderError, type AIErrorKind, type AIRequest } from "../../ai/provider";
-import { analysisRoutes } from "./analysis.routes";
 
 const { db, generate } = vi.hoisted(() => ({
   db: {
@@ -21,6 +20,7 @@ const { db, generate } = vi.hoisted(() => ({
 vi.mock("../../config/prisma", () => ({ prisma: db }));
 vi.mock("../../config/env", () => ({
   env: {
+    CLIENT_ORIGIN: "http://localhost:5173",
     JWT_SECRET: "analysis-test-key",
     GEMINI_API_KEY: "analysis-fake-gemini-secret",
     GEMINI_MODEL: "analysis-test-model",
@@ -61,19 +61,15 @@ const validAnalysis = {
 const privateText = "analysis-raw-private-canary";
 const privateValues = [privateText, testKey, "analysis-fake-gemini-secret", "JWT_SECRET", "GEMINI_API_KEY"];
 
-let server: Server;
-let baseUrl: string;
-
 function sign(userId: number, key = testKey, expiresIn = 60) {
   return jwt.sign({ userId }, key, { expiresIn });
 }
 
 async function post(path: string, token?: string) {
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: "POST",
-    headers: token === undefined ? {} : { Authorization: `Bearer ${token}` },
-  });
-  return { status: response.status, body: await response.json() };
+  const req = request(app).post(`/api/v1/analysis${path}`);
+  if (token !== undefined) req.set("Authorization", `Bearer ${token}`);
+  const { status, body } = await req;
+  return { status, body };
 }
 
 function reply(text = JSON.stringify(validAnalysis)) {
@@ -100,19 +96,6 @@ function studentWithData() {
   db.skillProfile.findMany.mockResolvedValue([scoredRow]);
 }
 
-beforeAll(async () => {
-  const app = express();
-  app.use("/api/v1/analysis", analysisRoutes);
-  await new Promise<void>((resolve) => { server = app.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Không mở được server test");
-  baseUrl = `http://127.0.0.1:${address.port}/api/v1/analysis`;
-});
-
-afterAll(async () => {
-  if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
-});
-
 beforeEach(async () => {
   vi.resetAllMocks();
   await getDefaultAiDeps().cache.clear();
@@ -129,6 +112,17 @@ afterEach(() => {
 });
 
 describe("POST analysis", () => {
+  it("route lạ dưới /api/v1/analysis dùng response 404 chung", async () => {
+    const result = await post("/khong-ton-tai", sign(teacher.id));
+    expect(result).toEqual({
+      status: 404,
+      body: { data: null, error: { code: "NOT_FOUND", message: "Không tìm thấy" } },
+    });
+    expect(db.user.findFirst).not.toHaveBeenCalled();
+    expect(db.class.findFirst).not.toHaveBeenCalled();
+    expectNoAi();
+  });
+
   it.each([
     ["thiếu token", undefined],
     ["token hết hạn", sign(teacher.id, testKey, -60)],
@@ -285,6 +279,13 @@ describe("POST analysis", () => {
     });
     expectNoAi();
   });
+});
+
+it("GET /api/v1/health trả status ok qua app", async () => {
+  const result = await request(app).get("/api/v1/health");
+  expect(result.status).toBe(200);
+  expect(result.body).toEqual({ data: { status: "ok" }, error: null });
+  expectNoAi();
 });
 
 describe("luồng AI phân tích", () => {

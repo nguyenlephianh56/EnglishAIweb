@@ -379,6 +379,7 @@ describe("toSubmissionItem / buildSubmissionsResponse", () => {
       bestAttemptId: null,
       lastSubmittedAt: null,
       lateSubmission: false,
+      attempts: [],
     });
   });
 
@@ -431,6 +432,7 @@ describe("toSubmissionItem / buildSubmissionsResponse", () => {
     const item = toSubmissionItem(student(1, "an"), undefined, at(24), now);
     expect(Object.keys(item).sort()).toEqual(
       [
+        "attempts",
         "attemptsUsed",
         "bestAttemptId",
         "bestScore",
@@ -469,7 +471,7 @@ describe("toSubmissionItem / buildSubmissionsResponse", () => {
     expect(res.assignment).toEqual({
       assignmentId: 5,
       exercise: assignment.exercise,
-      class: { id: 3, name: "Lớp A" },
+      class: assignment.class,
       dueAt: assignment.dueAt,
       maxAttempts: 3,
     });
