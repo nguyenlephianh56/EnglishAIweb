@@ -19,6 +19,8 @@ import { resetPromptTemplateBodySchema, updatePromptTemplateBodySchema } from ".
 import { updateUserHandler } from "./admin.users-update.controller";
 import { updateUserBodySchema } from "./admin.users-update.schema";
 import { deleteUserHandler } from "./admin.users-delete.controller";
+import { promoteAdminHandler, revokeAdminHandler, validatePromoteAdminBody } from "./admin.users-role.controller";
+import { revokeAdminBodySchema } from "./admin.users-role.schema";
 
 export const adminRoutes = Router();
 
@@ -39,6 +41,10 @@ adminRoutes.patch("/users/:id", validate(updateUserBodySchema), updateUserHandle
 
 // DELETE /api/v1/admin/users/:id (T29 - Xóa)
 adminRoutes.delete("/users/:id", deleteUserHandler);
+
+// Đổi vai trò admin (T29)
+adminRoutes.patch("/users/:id/promote-admin", validatePromoteAdminBody, promoteAdminHandler);
+adminRoutes.patch("/users/:id/revoke-admin", validate(revokeAdminBodySchema), revokeAdminHandler);
 
 // PATCH /api/v1/admin/users/:id/approve
 adminRoutes.patch("/users/:id/approve", adminController.approveTeacher);

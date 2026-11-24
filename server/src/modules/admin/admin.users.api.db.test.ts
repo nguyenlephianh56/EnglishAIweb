@@ -305,13 +305,15 @@ describe("GET /api/v1/admin/users?q=", () => {
 describe("hai endpoint chỉ đọc", () => {
   it("không tạo dòng audit_logs và không đổi dữ liệu user", async () => {
     const targetId = fixtures.actors.teacherA.id;
-    const auditBefore = await prisma.auditLog.count();
+    // Chỉ đếm audit của admin gửi hai GET để các suite chạy song song không ảnh hưởng.
+    const auditWhere = { userId: fixtures.actors.admin.id };
+    const auditBefore = await prisma.auditLog.count({ where: auditWhere });
     const userBefore = await prisma.user.findUnique({ where: { id: targetId } });
 
     expect((await asAdmin(`/admin/users/${targetId}`)).status).toBe(200);
     expect((await asAdmin(`/admin/users?q=${scope}`)).status).toBe(200);
 
-    expect(await prisma.auditLog.count()).toBe(auditBefore);
+    expect(await prisma.auditLog.count({ where: auditWhere })).toBe(auditBefore);
     expect(await prisma.user.findUnique({ where: { id: targetId } })).toEqual(userBefore);
   });
 });
