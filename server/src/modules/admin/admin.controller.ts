@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as adminService from "./admin.service";
 import { userIdParamSchema, listUsersQuerySchema } from "./admin.schema";
+import { getAdminUserDetail } from "./admin.users.detail.service";
 import { success, failure } from "../../utils/response";
 
 // Chuyển lỗi có statusCode + code thành response chuẩn,
@@ -40,7 +41,7 @@ const parseId = (req: Request, res: Response): number | null => {
   return result.data.id;
 };
 
-// GET /api/v1/admin/users?role=&status=
+// GET /api/v1/admin/users?role=&status=&q=
 export const listUsers = async (
   req: Request,
   res: Response,
@@ -61,6 +62,28 @@ export const listUsers = async (
     const users = await adminService.listUsers(result.data);
 
     return success(res, users);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
+// GET /api/v1/admin/users/:id  (chỉ đọc: hồ sơ + số liệu, không ghi audit)
+export const getUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+    }
+
+    const id = parseId(req, res);
+    if (id === null) return;
+
+    const user = await getAdminUserDetail(id);
+
+    return success(res, user);
   } catch (error) {
     handleError(error, res, next);
   }

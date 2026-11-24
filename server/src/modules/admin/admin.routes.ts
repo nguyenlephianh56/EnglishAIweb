@@ -16,6 +16,8 @@ import {
   updateAdminPromptHandler,
 } from "./admin.prompts.controller";
 import { resetPromptTemplateBodySchema, updatePromptTemplateBodySchema } from "./admin.prompts.schema";
+import { updateUserHandler } from "./admin.users-update.controller";
+import { updateUserBodySchema } from "./admin.users-update.schema";
 
 export const adminRoutes = Router();
 
@@ -24,8 +26,15 @@ export const adminRoutes = Router();
 // rồi requireRole mới đọc được req.user.role
 adminRoutes.use(authenticateActiveAccount, requireRole(Role.ADMIN));
 
-// GET /api/v1/admin/users?role=&status=
+// GET /api/v1/admin/users?role=&status=&q=
 adminRoutes.get("/users", adminController.listUsers);
+
+// GET /api/v1/admin/users/:id  (hồ sơ + số liệu, chỉ đọc)
+adminRoutes.get("/users/:id", adminController.getUser);
+
+// PATCH /api/v1/admin/users/:id  body { name?, email? } (T29 - Sửa)
+// validate(...) chạy trước controller: body .strict(), trim, email chữ thường
+adminRoutes.patch("/users/:id", validate(updateUserBodySchema), updateUserHandler);
 
 // PATCH /api/v1/admin/users/:id/approve
 adminRoutes.patch("/users/:id/approve", adminController.approveTeacher);

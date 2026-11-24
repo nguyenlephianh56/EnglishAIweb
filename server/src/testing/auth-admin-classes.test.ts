@@ -50,6 +50,7 @@ const adminOnly = ["studentA", "teacherA"] as const;
 const protectedRoutes = [
   ["GET", "/auth/me", []],
   ["GET", "/admin/users", adminOnly],
+  ["GET", "/admin/users/:teacherId", adminOnly],
   ["PATCH", "/admin/users/:pendingId/approve", adminOnly],
   ["PATCH", "/admin/users/:teacherId/lock", adminOnly],
   ["PATCH", "/admin/users/:lockedId/unlock", adminOnly],

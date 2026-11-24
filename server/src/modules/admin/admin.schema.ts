@@ -10,8 +10,11 @@ export const userIdParamSchema = z.object({
     .positive("ID không hợp lệ"),
 });
 
-// Kiểm tra query lọc danh sách (vd ?role=TEACHER&status=PENDING)
-// Cả hai đều tùy chọn: không gửi thì không lọc theo mục đó
+// Độ dài tối đa của từ khóa tìm kiếm `q` (một nơi duy nhất, test cũng dùng hằng số này)
+export const USER_SEARCH_MAX_LENGTH = 100;
+
+// Kiểm tra query lọc danh sách (vd ?role=TEACHER&status=PENDING&q=an)
+// Cả ba đều tùy chọn: không gửi thì không lọc theo mục đó
 export const listUsersQuerySchema = z.object({
   role: z
     .nativeEnum(Role, {
@@ -25,6 +28,16 @@ export const listUsersQuerySchema = z.object({
         message: "status phải là PENDING, ACTIVE hoặc LOCKED",
       }),
     })
+    .optional(),
+
+  // Tìm theo tên HOẶC email (không phân biệt hoa/thường, khớp một phần).
+  // trim trước rồi mới đếm độ dài; rỗng/toàn khoảng trắng -> undefined = không lọc.
+  // Gửi nhiều lần (?q=a&q=b) -> không phải chuỗi -> 400.
+  q: z
+    .string({ invalid_type_error: "q phải là một chuỗi" })
+    .trim()
+    .max(USER_SEARCH_MAX_LENGTH, `q tối đa ${USER_SEARCH_MAX_LENGTH} ký tự`)
+    .transform((value) => (value === "" ? undefined : value))
     .optional(),
 });
 
