@@ -1,19 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useBlocker } from "react-router-dom";
 import axios from "axios";
-import { CircleAlert, GraduationCap, Sparkles } from "lucide-react";
+import { CircleAlert, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import Modal from "../../../components/ui/Modal";
 import Textarea from "../../../components/ui/Textarea";
 import Notice from "../../account/Notice";
 import { getErrorMessage } from "../../../api/client";
+import { suggestAttemptComment } from "../../../api/attempts";
+import { COMMENT_MAX, appendSuggestion, canSuggestComment, suggestErrorMessage } from "./commentSuggestion";
 import { formatScore, isAiGradedType, isValidScore, parseScore, round2 } from "./gradingMeta";
 import { useSaveTeacherGrade } from "./useGrading";
 import type { AttemptReview, TeacherGradeBody } from "../../../types/attemptReview";
 
-const COMMENT_MAX = 1000;
 const NOT_IN_CLASS = "Bài này không thuộc lớp của bạn hoặc không tồn tại";
 
 /**
@@ -25,6 +27,11 @@ export default function GradingForm({ review }: { review: AttemptReview }) {
   const [score, setScore] = useState(review.teacher_score === null ? "" : String(review.teacher_score));
   const [comment, setComment] = useState(review.teacher_comment ?? "");
   const [saved, setSaved] = useState(false);
+  // Gợi ý nhận xét của AI đang chờ giáo viên chọn (chỉ khi ô nhận xét đã có chữ). Form gắn key theo bài nên đổi bài là reset hết.
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const suggest = useMutation({ mutationFn: () => suggestAttemptComment(review.attempt_id) });
+  const commentRef = useRef(comment);
+  commentRef.current = comment;
 
   // ---- Kiểm tra dữ liệu và phát hiện thay đổi ----
   const scoreEmpty = score.trim() === "";
@@ -64,9 +71,34 @@ export default function GradingForm({ review }: { review: AttemptReview }) {
         // Đồng bộ ô nhập với giá trị máy chủ đã lưu (điểm làm tròn 2 chữ số, nhận xét đã bỏ khoảng trắng thừa)
         setScore(res.teacher_score === null ? "" : String(res.teacher_score));
         setComment(res.teacher_comment ?? "");
+        setSuggestion(null);
+        suggest.reset();
         setSaved(true);
       },
     });
+  }
+
+  function onSuggest() {
+    if (suggest.isPending || save.isPending) return;
+    setSuggestion(null);
+    suggest.mutate(undefined, {
+      onSuccess: (res) => {
+        // Đọc nhận xét mới nhất (giáo viên có thể đã gõ trong lúc chờ AI)
+        if (commentRef.current.trim() === "") {
+          setSaved(false);
+          setComment(res.comment);
+        } else {
+          setSuggestion(res.comment);
+        }
+      },
+    });
+  }
+
+  function applySuggestion(mode: "replace" | "append") {
+    if (suggestion === null) return;
+    setSaved(false);
+    setComment((cur) => (mode === "replace" ? suggestion : appendSuggestion(cur, suggestion)));
+    setSuggestion(null);
   }
 
   function clearTeacherScore() {
@@ -154,6 +186,45 @@ export default function GradingForm({ review }: { review: AttemptReview }) {
         }}
         error={commentError}
       />
+
+      {canSuggestComment(review) && (
+        <div className="mt-2">
+          <Button type="button" variant="outline" size="sm" leftIcon={<Sparkles />} disabled={suggest.isPending || save.isPending} onClick={onSuggest}>
+            Gợi ý nhận xét bằng AI
+          </Button>
+          <p className="mt-1.5 text-xs text-slate-500">Mỗi lần gợi ý tính 1 lượt AI. Nhận xét chỉ là bản nháp, thầy/cô cần đọc lại và bấm Lưu.</p>
+          <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-600" aria-live="polite">
+            {suggest.isPending && (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                AI đang soạn nhận xét, có thể mất 10–20 giây…
+              </>
+            )}
+          </p>
+          {suggest.isError && (
+            <div className="mt-2">
+              <Notice type="error">{suggestErrorMessage(suggest.error)}</Notice>
+            </div>
+          )}
+          {suggestion !== null && (
+            <div className="mt-3 rounded-2xl border border-brand/30 bg-brand-light/40 p-4" role="region" aria-label="Gợi ý nhận xét của AI">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Gợi ý của AI (bản nháp)</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">{suggestion}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={() => applySuggestion("replace")}>
+                  Thay thế nhận xét hiện tại
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => applySuggestion("append")}>
+                  Thêm vào cuối
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setSuggestion(null)}>
+                  Bỏ qua
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {saveError && (
         <div className="mt-3">

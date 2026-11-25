@@ -57,6 +57,12 @@ export interface AttemptReviewRaw {
   assignment: AttemptReview["assignment"];
 }
 
+/** POST /attempts/:id/comment-suggestion: bản nháp nhận xét do AI soạn (không lưu ở máy chủ), tối đa 1000 ký tự */
+export interface CommentSuggestion {
+  attempt_id: number;
+  comment: string;
+}
+
 /** Body của PATCH /attempts/:id/grade: ít nhất một key, không key nào khác. null = xóa. */
 export interface TeacherGradeBody {
   /** 0..10, tối đa 2 chữ số thập phân */

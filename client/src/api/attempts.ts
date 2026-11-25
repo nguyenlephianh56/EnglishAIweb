@@ -1,5 +1,5 @@
 import { api, unwrap } from "./client";
-import type { AttemptReview, AttemptReviewRaw, TeacherGradeBody, TeacherGradeResult } from "../types/attemptReview";
+import type { AttemptReview, AttemptReviewRaw, CommentSuggestion, TeacherGradeBody, TeacherGradeResult } from "../types/attemptReview";
 import type { AttemptDetail, AttemptResult, AssignmentAttemptExtras, AudioUploadResult, GradingError, SubmitAttemptBody, SubmitOutcome } from "../types/attempt";
 
 type ResultWithExtras = AttemptResult & Partial<AssignmentAttemptExtras>;
@@ -68,3 +68,12 @@ export const getAttemptReview = async (id: number) => toAttemptReview(await unwr
 
 /** PATCH /attempts/:id/grade: giáo viên chấm/sửa điểm và nhận xét. Chỉ gửi field thay đổi. */
 export const saveTeacherGrade = (id: number, body: TeacherGradeBody) => unwrap<TeacherGradeResult>(api.patch(`/attempts/${id}/grade`, body));
+
+const COMMENT_SUGGESTION_TIMEOUT_MS = 60_000;
+
+/**
+ * POST /attempts/:id/comment-suggestion (giáo viên/quản trị): AI soạn nháp nhận xét cho bài Viết/Nói.
+ * Body {} đúng như backend yêu cầu. Không lưu gì ở máy chủ, không cache, mỗi lần gọi tính 1 lượt AI.
+ */
+export const suggestAttemptComment = (attemptId: number) =>
+  unwrap<CommentSuggestion>(api.post(`/attempts/${attemptId}/comment-suggestion`, {}, { timeout: COMMENT_SUGGESTION_TIMEOUT_MS }));
