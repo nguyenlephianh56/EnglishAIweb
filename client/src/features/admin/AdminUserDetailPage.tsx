@@ -22,7 +22,7 @@ type ModalKind = "edit" | "lock" | "promote" | "revoke" | "delete";
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SELECT = "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20";
+const SELECT = "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base sm:text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20";
 
 function Skeleton({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-3xl bg-slate-200 ${className}`} role="status" aria-label="Đang tải" />;

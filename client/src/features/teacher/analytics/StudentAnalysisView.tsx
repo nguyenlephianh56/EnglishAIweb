@@ -24,7 +24,7 @@ export default function StudentAnalysisView({ result }: { result: StudentAnalysi
             const meta = ANY_SKILL_META[skill];
             const stat = skills[skill];
             return (
-              <li key={skill} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+              <li key={skill} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-sm">
                 <span className={`inline-flex items-center gap-1.5 font-bold ${meta.text}`}>
                   <meta.icon className="size-4" aria-hidden="true" />
                   {meta.label}

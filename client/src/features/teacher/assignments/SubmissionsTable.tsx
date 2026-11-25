@@ -82,7 +82,7 @@ export default function SubmissionsTable({ items, maxAttempts }: { items: Submis
                   {s.bestAttemptId !== null && (
                     <Link
                       to={`/teacher/grading/${s.bestAttemptId}`}
-                      className="inline-flex h-10 items-center rounded-xl px-4 text-xs font-bold text-brand hover:bg-brand-light focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
+                      className="inline-flex h-11 items-center rounded-xl px-4 text-xs sm:h-10 font-bold text-brand hover:bg-brand-light focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
                     >
                       Chấm bài
                       <span className="sr-only"> của {s.name}</span>

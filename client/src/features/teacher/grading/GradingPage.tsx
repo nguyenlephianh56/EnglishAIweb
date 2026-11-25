@@ -82,7 +82,7 @@ export default function GradingPage() {
                 id="grading-assignment"
                 value={selectedId}
                 onChange={(e) => choose(Number(e.target.value))}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base sm:text-sm font-semibold text-slate-800 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
               >
                 {list.map((a) => (
                   <option key={a.assignmentId} value={a.assignmentId}>

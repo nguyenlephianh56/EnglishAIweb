@@ -160,7 +160,7 @@ export default function AssignedPage() {
                   id="assigned-class"
                   value={filters.classId ? String(filters.classId) : "all"}
                   onChange={(e) => update({ classId: e.target.value === "all" ? undefined : e.target.value })}
-                  className="h-11 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
+                  className="h-11 appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-base sm:text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
                 >
                   <option value="all">Tất cả lớp</option>
                   {joinedClasses.map((c) => (

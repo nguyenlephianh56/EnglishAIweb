@@ -32,11 +32,11 @@ export default function Modal({ open, onClose, title, description, children, siz
         if (e.target === ref.current) onClose(); // bấm vào lớp nền mờ
       }}
       aria-labelledby={titleId}
-      className={`m-auto w-[calc(100%-2rem)] ${size === "lg" ? "max-w-3xl" : "max-w-md"} rounded-3xl bg-white p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm`}
+      className={`m-auto w-[calc(100%-2rem)] ${size === "lg" ? "max-w-3xl" : "max-w-md"} max-h-[calc(100dvh-2rem)] overflow-hidden rounded-3xl bg-white p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm`}
     >
-      <div className="p-6 sm:p-8">
+      <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h2 id={titleId} className="font-heading text-2xl font-extrabold tracking-tight text-slate-900">
               {title}
             </h2>
@@ -46,7 +46,7 @@ export default function Modal({ open, onClose, title, description, children, siz
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="-mr-2 -mt-1 grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+            className="-mr-3 -mt-2 grid size-11 shrink-0 sm:-mr-2 sm:-mt-1 sm:size-9 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
           >
             <X className="size-5" aria-hidden="true" />
           </button>

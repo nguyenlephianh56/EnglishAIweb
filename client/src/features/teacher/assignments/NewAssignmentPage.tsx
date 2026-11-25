@@ -127,7 +127,7 @@ export default function NewAssignmentPage() {
                 }}
                 aria-invalid={errors.classId ? true : undefined}
                 aria-describedby={errors.classId ? "assign-class-error" : undefined}
-                className={`h-12 w-full appearance-none rounded-xl border bg-white pl-4 pr-10 text-sm text-slate-900 outline-none transition-colors focus:ring-4 disabled:bg-slate-50 ${
+                className={`h-12 w-full appearance-none rounded-xl border bg-white pl-4 pr-10 text-base sm:text-sm text-slate-900 outline-none transition-colors focus:ring-4 disabled:bg-slate-50 ${
                   errors.classId ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : "border-slate-200 focus:border-brand focus:ring-brand/20"
                 }`}
               >

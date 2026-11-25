@@ -27,7 +27,7 @@ function OrbitChip({ icon: Icon, label, color, className }: { icon: typeof Mic; 
 
 export default function AuthLayout({ mode, title, subtitle, children }: AuthLayoutProps) {
   return (
-    <div className="grid min-h-screen bg-white lg:grid-cols-2">
+    <div className="grid min-h-dvh bg-white lg:grid-cols-2">
       {/* Trái: giới thiệu (ẩn dưới lg) */}
       <aside className="relative hidden flex-col overflow-hidden bg-linear-to-br from-brand via-brand-dark to-indigo-800 p-12 text-white lg:flex">
         <Logo tone="light" />
@@ -60,8 +60,8 @@ export default function AuthLayout({ mode, title, subtitle, children }: AuthLayo
       </aside>
 
       {/* Phải: tab + form */}
-      <main className="flex flex-col px-6 py-6 sm:px-12 lg:px-16">
-        <div className="flex items-center justify-between">
+      <main className="flex flex-col px-4 py-6 sm:px-12 lg:px-16">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="lg:hidden">
             <Logo />
           </div>
@@ -91,7 +91,7 @@ export default function AuthLayout({ mode, title, subtitle, children }: AuthLayo
             })}
           </nav>
 
-          <h1 className="mt-8 font-heading text-3xl font-extrabold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="mt-8 break-words font-heading text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{title}</h1>
           <p className="mt-1.5 text-slate-600">{subtitle}</p>
           <div className="mt-6">{children}</div>
         </div>

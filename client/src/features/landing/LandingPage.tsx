@@ -125,7 +125,7 @@ function useScrollSpy(ids: string[]) {
 function SectionHeading({ id, title, desc }: { id: string; title: string; desc: string }) {
   return (
     <div className="max-w-2xl">
-      <h2 id={id} className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">
+      <h2 id={id} className="font-heading text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
         {title}
       </h2>
       <p className="mt-3 text-lg text-slate-600">{desc}</p>
@@ -159,10 +159,10 @@ export default function LandingPage() {
   const { active, goTo } = useScrollSpy(SPY_IDS);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-dvh bg-slate-50">
       {/* Thanh điều hướng */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <nav className="mx-auto flex h-18 max-w-6xl items-center justify-between gap-4 px-5" aria-label="Điều hướng chính">
+        <nav className="mx-auto flex h-18 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-5" aria-label="Điều hướng chính">
           <Logo />
           <ul className="hidden items-center gap-1 md:flex">
             {NAV_LINKS.map((l) => {
@@ -186,7 +186,7 @@ export default function LandingPage() {
               );
             })}
           </ul>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button to="/login" variant="ghost" size="sm">
               Đăng nhập
             </Button>
@@ -200,13 +200,13 @@ export default function LandingPage() {
       <main>
         {/* Hero */}
         <section id="hero" className="overflow-hidden bg-linear-to-br from-brand via-brand-dark to-indigo-800 text-white">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:py-24 lg:grid-cols-2">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-5 py-16 md:py-24 lg:grid-cols-2">
             <div>
               <p className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-100">
                 <Sparkles className="size-4" aria-hidden="true" />
                 Học tập cùng AI
               </p>
-              <h1 className="mt-5 font-heading text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="mt-5 font-heading text-3xl font-extrabold leading-[1.1] tracking-tight min-[400px]:text-4xl sm:text-5xl lg:text-6xl">
                 Học tiếng Anh theo đúng <span className="text-teal-300">trình độ của bạn</span>
               </h1>
               <p className="mt-5 max-w-lg text-lg text-indigo-100">
@@ -242,7 +242,7 @@ export default function LandingPage() {
         </section>
 
         {/* 4 kỹ năng */}
-        <section className="mx-auto max-w-6xl scroll-mt-20 px-5 py-16 md:py-20" id="ky-nang" aria-labelledby="h-ky-nang">
+        <section className="mx-auto max-w-6xl scroll-mt-20 px-4 sm:px-5 py-16 md:py-20" id="ky-nang" aria-labelledby="h-ky-nang">
           <SectionHeading id="h-ky-nang" title="Bốn kỹ năng, mỗi kỹ năng một cách luyện" desc="Bài tập được chia theo kỹ năng và cấp độ A1 đến B2, để bạn luyện đúng phần mình cần." />
           <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {SKILLS.map(({ name, icon: Icon, color, bg, desc }) => (
@@ -259,7 +259,7 @@ export default function LandingPage() {
 
         {/* Tính năng AI */}
         <section className="scroll-mt-20 bg-white py-16 md:py-20" id="tinh-nang-ai" aria-labelledby="h-ai">
-          <div className="mx-auto max-w-6xl px-5">
+          <div className="mx-auto max-w-6xl px-4 sm:px-5">
             <SectionHeading id="h-ai" title="AI chỉ ra lỗi và gợi ý bước tiếp theo" desc="Bạn biết mình sai ở đâu, vì sao sai và nên luyện gì tiếp theo." />
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               <FeaturePanel icon={<PenLine className="size-6" />} iconClass="bg-skill-writing/10 text-skill-writing" title="Chấm bài Viết" desc="Điểm theo từng tiêu chí, lỗi được đánh dấu ngay trên bài, kèm giải thích tiếng Việt và bản sửa.">
@@ -320,7 +320,7 @@ export default function LandingPage() {
         </section>
 
         {/* Cách hoạt động */}
-        <section className="mx-auto max-w-6xl scroll-mt-20 px-5 py-16 md:py-20" id="cach-hoat-dong" aria-labelledby="h-cach">
+        <section className="mx-auto max-w-6xl scroll-mt-20 px-4 sm:px-5 py-16 md:py-20" id="cach-hoat-dong" aria-labelledby="h-cach">
           <SectionHeading id="h-cach" title="Bắt đầu chỉ với ba bước" desc="Từ lúc đăng ký đến lúc thấy tiến bộ đầu tiên." />
           <ol className="mt-10 grid gap-8 md:grid-cols-3">
             {STEPS.map((s, i) => (
@@ -334,10 +334,10 @@ export default function LandingPage() {
         </section>
 
         {/* Dành cho giáo viên */}
-        <section className="mx-auto max-w-6xl scroll-mt-20 px-5 pb-16 md:pb-24" id="giao-vien" aria-labelledby="h-gv">
+        <section className="mx-auto max-w-6xl scroll-mt-20 px-4 sm:px-5 pb-16 md:pb-24" id="giao-vien" aria-labelledby="h-gv">
           <div className="grid items-center gap-10 rounded-[2rem] bg-brand-light p-8 md:p-12 lg:grid-cols-2">
             <div>
-              <h2 id="h-gv" className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">
+              <h2 id="h-gv" className="font-heading text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">
                 Dành cho giáo viên
               </h2>
               <p className="mt-3 text-lg text-slate-600">Soạn bài nhanh hơn, giao bài đúng hạn và biết ngay học sinh đang yếu ở đâu.</p>
@@ -360,9 +360,9 @@ export default function LandingPage() {
             </div>
 
             <div className="rounded-3xl bg-white p-6 shadow-lg shadow-indigo-900/10" aria-hidden="true">
-              <div className="flex items-center justify-between">
-                <p className="font-heading text-lg font-bold text-slate-900">Lớp 12A1</p>
-                <span className="rounded-lg bg-brand-light px-3 py-1 font-heading text-sm font-bold tracking-widest text-brand">ABC123</span>
+              <div className="flex items-center justify-between gap-3">
+                <p className="min-w-0 truncate font-heading text-lg font-bold text-slate-900">Lớp 12A1</p>
+                <span className="shrink-0 rounded-lg bg-brand-light px-3 py-1 font-heading text-sm font-bold tracking-widest text-brand">ABC123</span>
               </div>
               <div className="mt-5 rounded-2xl bg-slate-50 p-4">
                 <p className="flex items-center gap-2 font-semibold text-slate-900">
@@ -374,7 +374,7 @@ export default function LandingPage() {
                   <span className="h-2.5 flex-1 rounded-full bg-slate-200">
                     <span className="block h-full w-3/4 rounded-full bg-secondary" />
                   </span>
-                  <span className="text-sm font-bold text-slate-600">18/24 đã nộp</span>
+                  <span className="shrink-0 text-sm font-bold text-slate-600">18/24 đã nộp</span>
                 </div>
               </div>
               <p className="mt-4 text-xs text-slate-400">Ví dụ minh họa</p>
@@ -385,7 +385,7 @@ export default function LandingPage() {
 
       {/* Chân trang */}
       <footer className="bg-slate-900 text-slate-300">
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 md:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:px-5 py-12 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>
             <Logo tone="light" />
             <p className="mt-4 max-w-xs text-sm">Ứng dụng web học kỹ năng tiếng Anh thích ứng, có AI chấm bài Viết và Nói.</p>
@@ -418,7 +418,7 @@ export default function LandingPage() {
             </ul>
           </nav>
         </div>
-        <div className="border-t border-white/10 px-5 py-5 text-center text-sm text-slate-400">Đồ án Cơ sở 4, Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU), 2026</div>
+        <div className="border-t border-white/10 px-4 sm:px-5 py-5 text-center text-sm text-slate-400">Đồ án Cơ sở 4, Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU), 2026</div>
       </footer>
     </div>
   );

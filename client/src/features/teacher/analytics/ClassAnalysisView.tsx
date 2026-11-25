@@ -44,7 +44,7 @@ function SkillStatCard({ skill, stat }: { skill: LibrarySkill; stat: ClassSkillS
   const Icon = meta.icon;
   return (
     <li className="rounded-2xl border border-slate-200 p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${meta.tint} ${meta.text}`}>
           <Icon className="size-3.5" aria-hidden="true" />
           {meta.label}

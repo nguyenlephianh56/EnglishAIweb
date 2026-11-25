@@ -45,9 +45,9 @@ export default function CopyCodeButton({ code, className = "" }: { code: string;
         type="button"
         onClick={copy}
         aria-label={`Sao chép mã lớp ${code}`}
-        className={`rounded-md text-xs font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 ${
+        className={`inline-flex min-h-11 items-center rounded-md px-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 ${
           status === "copied" ? "text-green-600" : status === "failed" ? "text-red-600" : "text-brand hover:text-brand-dark"
-        } ${className}`}
+        } sm:min-h-0 sm:px-0 ${className}`}
       >
         {status === "copied" ? "Đã sao chép" : status === "failed" ? "Không sao chép được" : "Sao chép"}
       </button>

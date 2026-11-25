@@ -152,7 +152,7 @@ function EditorBody({ prompt, onDirtyChange }: { prompt: PromptDetail; onDirtyCh
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           aria-invalid={invalid ? true : undefined}
-          className={`min-h-64 w-full resize-y rounded-xl border bg-white px-4 py-3 font-mono text-[13px] leading-6 text-slate-900 outline-none transition-colors focus:ring-4 disabled:bg-slate-50 ${
+          className={`min-h-64 w-full resize-y rounded-xl border bg-white px-4 py-3 font-mono text-base sm:text-[13px] leading-6 text-slate-900 outline-none transition-colors focus:ring-4 disabled:bg-slate-50 ${
             invalid ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : "border-slate-200 focus:border-brand focus:ring-brand/20"
           }`}
         />

@@ -130,7 +130,7 @@ export default function UsersPage() {
               id="users-role"
               value={role}
               onChange={(e) => setParam("role", e.target.value)}
-              className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
+              className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-base sm:text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
             >
               <option value="all">Mọi vai trò</option>
               {ROLES.map((r) => (
@@ -228,7 +228,7 @@ export default function UsersPage() {
                           <div className="flex items-center gap-2">
                           <Link
                             to={`/admin/users/${u.id}`}
-                            className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-brand hover:bg-brand-light focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
+                            className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 sm:h-9 text-xs font-bold text-brand hover:bg-brand-light focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
                           >
                             <Eye className="size-4" aria-hidden="true" />
                             Chi tiết<span className="sr-only"> của {u.name}</span>

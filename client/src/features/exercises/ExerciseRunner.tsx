@@ -238,10 +238,10 @@ export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseR
   return (
     <>
     {exam && <ExamBar remainingMs={remainingMs} durationSec={exam.durationSec} />}
-    <div className={`mx-auto px-5 py-8 lg:px-8 ${isWriting ? "max-w-6xl" : "max-w-4xl"}`}>
+    <div className={`mx-auto px-4 py-8 sm:px-5 lg:px-8 ${isWriting ? "max-w-6xl" : "max-w-4xl"}`}>
       <BackLink to={backTo}>{assignment ? "Bài được giao" : "Thư viện luyện tập"}</BackLink>
 
-      <h1 className="mt-4 font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">{exercise.topic}</h1>
+      <h1 className="mt-4 break-words font-heading text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">{exercise.topic}</h1>
       <p className="mt-3 flex flex-wrap items-center gap-2">
         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${skill.tint} ${skill.text}`}>
           <SkillIcon className="size-3.5" aria-hidden="true" />
@@ -295,8 +295,8 @@ export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseR
       {/* Thanh tiến độ */}
       {supported && (
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-bold text-slate-900" id="runner-progress-label">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+            <span className="min-w-0 font-bold text-slate-900" id="runner-progress-label">
               {progressText}
             </span>
             <span className="flex items-center gap-3 font-semibold text-slate-500">

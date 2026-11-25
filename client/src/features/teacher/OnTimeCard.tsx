@@ -41,7 +41,7 @@ export default function OnTimeCard({ classes, classId, onClassChange, stats, sam
             id="ontime-class"
             value={String(classId)}
             onChange={(e) => onClassChange(e.target.value === "all" ? "all" : Number(e.target.value))}
-            className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
+            className="h-10 appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 text-base sm:text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
           >
             <option value="all">Tất cả lớp</option>
             {classes.map((c) => (

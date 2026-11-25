@@ -22,7 +22,7 @@ export default function AIFeedbackCard({ criteria, items = CRITERIA as { key: Cr
   return (
     <section className={`rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 ${className}`} aria-labelledby="ai-feedback-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 id="ai-feedback-title" className="flex items-center gap-2 font-heading text-xl font-bold text-slate-900">
             <Sparkles className="size-5 text-brand" aria-hidden="true" />
             {title}
@@ -48,8 +48,8 @@ export default function AIFeedbackCard({ criteria, items = CRITERIA as { key: Cr
             const v = scores[c.key] as number;
             return (
               <li key={c.key}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-800">{c.label}</span>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 break-words font-bold text-slate-800">{c.label}</span>
                   <span className="font-semibold text-slate-600">{formatScore(v)}/10</span>
                 </div>
                 <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={c.label} aria-valuemin={0} aria-valuemax={10} aria-valuenow={v}>

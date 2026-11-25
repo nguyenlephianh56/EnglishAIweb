@@ -25,7 +25,7 @@ function StartScreen({ exercise, durationSec, onStart }: { exercise: StudentExer
   ];
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-8 lg:px-8">
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-5 lg:px-8">
       <BackLink to={LIBRARY}>Thư viện luyện tập</BackLink>
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="exam-title">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-red-600">

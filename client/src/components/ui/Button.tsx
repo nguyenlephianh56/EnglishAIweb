@@ -39,7 +39,7 @@ const inertVariants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-10 px-4 text-xs rounded-xl",
+  sm: "h-11 px-4 text-xs rounded-xl sm:h-10",
   md: "h-12 px-6 text-sm rounded-xl",
   lg: "h-14 px-8 text-base rounded-2xl",
 };

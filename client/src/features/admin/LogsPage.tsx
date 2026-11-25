@@ -11,7 +11,7 @@ import { useAuditLogs } from "./useAdminAi";
 import type { AuditFilters } from "./useAdminAi";
 import type { AuditLogItem } from "../../types/adminAi";
 
-const SELECT = "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20";
+const SELECT = "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base sm:text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20";
 const th = "px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -63,7 +63,7 @@ function LogRow({ log }: { log: AuditLogItem }) {
               aria-expanded={open}
               aria-label={open ? "Thu gọn chi tiết" : "Xem chi tiết"}
               onClick={() => setOpen((v) => !v)}
-              className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
+              className="grid size-11 place-items-center rounded-lg text-slate-400 sm:size-9 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
             >
               <ChevronDown className={`size-5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
