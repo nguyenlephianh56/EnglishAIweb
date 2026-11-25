@@ -8,11 +8,13 @@ interface OnTimeCardProps {
   classId: number | "all";
   onClassChange: (id: number | "all") => void;
   stats: OnTimeStats;
+  /** Số bài giao gần nhất được dùng để tính */
+  sampleSize: number;
 }
 
 const COLORS = { onTime: "#22C55E", late: "#F59E0B", missing: "#CBD5E1" };
 
-export default function OnTimeCard({ classes, classId, onClassChange, stats }: OnTimeCardProps) {
+export default function OnTimeCard({ classes, classId, onClassChange, stats, sampleSize }: OnTimeCardProps) {
   const total = stats.onTime + stats.late + stats.missing;
   const percent = total > 0 ? Math.round((stats.onTime / total) * 100) : 0;
   const rows = [
@@ -29,7 +31,7 @@ export default function OnTimeCard({ classes, classId, onClassChange, stats }: O
           <h2 id="h-ontime" className="font-heading text-xl font-bold text-slate-900">
             Tỷ lệ nộp đúng hạn
           </h2>
-          <p className="mt-1 text-sm text-slate-500">Tổng hợp 30 ngày gần đây</p>
+          <p className="mt-1 text-sm text-slate-500">{sampleSize > 0 ? `Dựa trên ${sampleSize} bài giao gần nhất` : "Chưa có bài giao nào trong 30 ngày"}</p>
         </div>
         <div className="relative">
           <label htmlFor="ontime-class" className="sr-only">

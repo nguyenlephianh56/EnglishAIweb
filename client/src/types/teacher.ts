@@ -1,4 +1,4 @@
-import type { SkillKey } from "./student";
+import type { LibrarySkill } from "./library";
 
 /** Một phần tử của GET /classes khi đăng nhập là giáo viên */
 export interface ClassSummary {
@@ -30,45 +30,35 @@ export interface ClassDetail {
   students: ClassStudent[];
 }
 
+/** Thống kê nộp bài của các bài giao gần nhất: đúng hạn / nộp trễ / quá hạn chưa nộp */
 export interface OnTimeStats {
   onTime: number;
   late: number;
   missing: number;
 }
 
-export type AttentionKind = "MISSING" | "SCORE_DROP" | "WEAK_SKILL";
-
+/** Học sinh cần chú ý: có bài giao quá hạn mà chưa nộp ("Chưa nộp {overdueCount} bài quá hạn") */
 export interface AttentionStudent {
   id: number;
   name: string;
+  /** Lớp của bài quá hạn gần nhất */
   className: string;
-  kind: AttentionKind;
-  /** Nội dung huy hiệu, ví dụ "Chưa nộp 3 bài" */
-  reason: string;
+  classId: number;
+  overdueCount: number;
 }
 
 export type AssignmentStatus = "DUE_SOON" | "ONGOING" | "CLOSED";
 
 export interface RecentAssignment {
+  /** assignmentId */
   id: number;
   title: string;
-  skill: SkillKey;
+  skill: LibrarySkill;
   className: string;
   dueAt: string;
   submitted: number;
   total: number;
   status: AssignmentStatus;
-  /** Số bài đã nộp nhưng chưa chấm */
-  ungraded: number;
-}
-
-/** Phần dữ liệu trang Tổng quan giáo viên mà backend CHƯA có API (đang là dữ liệu giả) */
-export interface TeacherOverviewMock {
-  pendingGrading: number;
-  todayGrading: number;
-  completionRate: number;
-  completionDelta: number;
-  onTime: OnTimeStats;
-  attentionStudents: AttentionStudent[];
-  recentAssignments: RecentAssignment[];
+  /** Tỷ lệ học sinh có bài chưa được giáo viên chấm (bài Viết/Nói); null khi chưa tải được bài nộp */
+  ungradedRatio: number | null;
 }

@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import Button from "../../components/ui/Button";
-import { SKILL_META } from "../student/skillMeta";
+import { Link } from "react-router-dom";
+import { ANY_SKILL_META } from "../student/skillMeta";
 import { formatDueLabel } from "../../utils/format";
 import type { AssignmentStatus, RecentAssignment } from "../../types/teacher";
 
@@ -46,11 +47,11 @@ export default function RecentAssignmentsCard({ assignments }: { assignments: Re
             </thead>
             <tbody className="divide-y divide-slate-100">
               {assignments.map((a) => {
-                const skill = SKILL_META[a.skill];
+                const skill = ANY_SKILL_META[a.skill] ?? ANY_SKILL_META.FOUNDATION;
                 const SkillIcon = skill.icon;
                 const percent = a.total > 0 ? Math.round((a.submitted / a.total) * 100) : 0;
                 const status = STATUS[a.status];
-                const needsGrading = (a.status === "DUE_SOON" || a.status === "CLOSED") && a.ungraded > 0;
+                const needsGrading = (a.status === "DUE_SOON" || a.status === "CLOSED") && a.ungradedRatio !== null && a.ungradedRatio > 0;
                 return (
                   <tr key={a.id}>
                     <td className="px-4 py-4">
@@ -60,7 +61,12 @@ export default function RecentAssignmentsCard({ assignments }: { assignments: Re
                           <SkillIcon className="size-4" aria-hidden="true" />
                           <span className="sr-only">{skill.label}</span>
                         </span>
-                        <span className="font-bold text-slate-900">{a.title}</span>
+                        <Link
+                          to={`/teacher/assignments/${a.id}`}
+                          className="rounded font-bold text-slate-900 hover:text-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
+                        >
+                          {a.title}
+                        </Link>
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-slate-700">{a.className}</td>
@@ -79,13 +85,12 @@ export default function RecentAssignmentsCard({ assignments }: { assignments: Re
                       <span className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold ${status.tone}`}>{status.label}</span>
                     </td>
                     <td className="px-4 py-4">
-                      {/* TODO: trỏ tới bài cụ thể khi có route chi tiết */}
                       {needsGrading ? (
-                        <Button to="/teacher/grading" variant="ghost" size="sm">
+                        <Button to={`/teacher/grading?assignmentId=${a.id}`} variant="ghost" size="sm">
                           Chấm bài
                         </Button>
                       ) : (
-                        <Button to="/teacher/assignments" variant="ghost" size="sm">
+                        <Button to={`/teacher/assignments/${a.id}`} variant="ghost" size="sm">
                           Xem bài
                         </Button>
                       )}

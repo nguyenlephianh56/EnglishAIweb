@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { Link } from "react-router-dom";
 import { BookOpen, CircleAlert, PenLine, School, Sparkles, TrendingUp, Users } from "lucide-react";
 import Button from "../../components/ui/Button";
 import StatCard from "../../components/ui/StatCard";
@@ -42,7 +43,7 @@ export default function OverviewPage() {
         <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
           <span className="flex items-center gap-2">
             <CircleAlert className="size-5 shrink-0" aria-hidden="true" />
-            Không tải được danh sách lớp từ máy chủ.
+            Không tải được dữ liệu tổng quan từ máy chủ.
           </span>
           <Button variant="outline" size="sm" onClick={() => o.refetch()}>
             Thử lại
@@ -69,11 +70,41 @@ export default function OverviewPage() {
           subClass="text-green-600"
           loading={o.isLoading}
         />
-        {/* TODO: số liệu giả, nối API chấm bài */}
-        <StatCard icon={PenLine} tint="bg-amber-50 text-amber-600" label="Bài chờ chấm" value={formatNumber(o.mock.pendingGrading)} sub={`${o.mock.todayGrading} bài cần chấm hôm nay`} subClass="text-amber-600" />
-        {/* TODO: số liệu giả, nối API thống kê */}
-        <StatCard icon={TrendingUp} tint="bg-green-50 text-green-600" label="Tỷ lệ hoàn thành" value={`${o.mock.completionRate}%`} sub={`+${o.mock.completionDelta.toLocaleString("vi-VN")}% so với tuần trước`} subClass="text-green-600" />
+        <Link to="/teacher/grading" className="block rounded-3xl transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25">
+          <StatCard
+            icon={PenLine}
+            tint="bg-amber-50 text-amber-600"
+            label="Bài chờ chấm"
+            value={formatNumber(o.pendingGrading.count)}
+            sub={`${formatNumber(o.pendingGrading.waitingAi)} bài đang chờ AI chấm`}
+            subClass="text-amber-600"
+            loading={o.isLoading || o.submissionsLoading}
+          />
+        </Link>
+        <StatCard
+          icon={TrendingUp}
+          tint="bg-green-50 text-green-600"
+          label="Tỷ lệ hoàn thành"
+          value={o.completion.rate === null ? "—" : `${o.completion.rate}%`}
+          sub={`${formatNumber(o.completion.submitted)}/${formatNumber(o.completion.total)} lượt nộp trong 30 ngày`}
+          subClass="text-green-600"
+          loading={o.isLoading}
+        />
       </div>
+
+      {!o.isLoading && !o.isError && (o.failedCount > 0 || o.truncated) && (
+        <div className="mt-4 space-y-2">
+          {o.failedCount > 0 && (
+            <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-800">
+              <span>Một số bài giao chưa tải được</span>
+              <Button variant="outline" size="sm" onClick={o.retryFailed}>
+                Thử lại
+              </Button>
+            </div>
+          )}
+          {o.truncated && <p className="text-xs text-slate-500">Danh sách bài giao quá dài nên một số bài cũ chưa được tính vào số liệu.</p>}
+        </div>
+      )}
 
       {o.isLoading ? (
         <div className="mt-6 space-y-6">
@@ -94,16 +125,30 @@ export default function OverviewPage() {
             <Button to="/teacher/classes">Tạo lớp</Button>
           </div>
         </div>
-      ) : hasClasses ? (
+      ) : !o.isError && !o.hasAssignments && effectiveClassId === "all" ? (
+        <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400" aria-hidden="true">
+            <BookOpen className="size-6" />
+          </span>
+          <p className="mt-3 font-heading text-lg font-bold text-slate-900">Thầy/cô chưa giao bài nào</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Giao bài cho lớp để theo dõi tiến độ nộp bài và chấm điểm ngay tại đây.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Button to="/teacher/assignments/new">Giao bài mới</Button>
+            <Button to="/teacher/classes" variant="outline">
+              Xem lớp học
+            </Button>
+          </div>
+        </div>
+      ) : hasClasses && !o.isError ? (
         <>
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <Suspense fallback={<Skeleton className="h-80" />}>
-              <OnTimeCard classes={o.classes} classId={effectiveClassId} onClassChange={setClassId} stats={o.mock.onTime} />
+              <OnTimeCard classes={o.classes} classId={effectiveClassId} onClassChange={setClassId} stats={o.onTime} sampleSize={o.analysedCount} />
             </Suspense>
-            <AttentionCard students={o.mock.attentionStudents} />
+            <AttentionCard students={o.attentionStudents} />
           </div>
           <div className="mt-6">
-            <RecentAssignmentsCard assignments={o.mock.recentAssignments} />
+            <RecentAssignmentsCard assignments={o.recentAssignments} />
           </div>
         </>
       ) : null}
