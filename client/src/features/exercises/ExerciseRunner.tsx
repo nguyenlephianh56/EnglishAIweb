@@ -16,7 +16,12 @@ import ReportExerciseButton from "./ReportExerciseButton";
 import { countWords } from "./answerUtils";
 import { EXERCISE_REGISTRY, emptyValueFor, exerciseTypeLabel, isAnswerableType, isAnsweredFor, progressFor, toPayloadFor } from "./registry";
 import { assignmentDetailKey } from "./useExerciseData";
+import ExamBar from "./exam/ExamBar";
+import { clearExamSession } from "./exam/examConfig";
+import type { ExamSession } from "./exam/examConfig";
+import { useExamClock } from "./exam/useExamClock";
 import { ElapsedClock, WaitedSeconds } from "./writing/clocks";
+import { MIN_SPEAKING_SECONDS } from "./renderers/SpeakingRecorder";
 import { speakingErrorMessage } from "./speaking/speakingErrors";
 import { isAiOrNetworkError } from "./writing/submitErrors";
 import { formatDraftTime, useWritingDraft } from "./writing/useWritingDraft";
@@ -34,6 +39,8 @@ interface ExerciseRunnerProps {
   exercise: StudentExercise;
   /** Có khi làm bài giao; không có = tự luyện */
   assignment?: Omit<StudentAssignmentDetail, "exercise">;
+  /** Chế độ thi thử (chỉ tự luyện): có đồng hồ đếm ngược theo deadline, hết giờ tự nộp. onRestart = quay về màn hình bắt đầu thi. */
+  exam?: ExamSession & { onRestart?: () => void };
 }
 
 const fmtDue = (iso: string) => {
@@ -45,7 +52,7 @@ const fmtDue = (iso: string) => {
  * Component làm bài DÙNG CHUNG cho tự luyện (/student/library/:id) và bài giao (/student/assigned/:id):
  * đề + renderer theo registry, thanh tiến độ, nộp bài (POST /attempts), cảnh báo rời trang khi đang làm dở.
  */
-export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerProps) {
+export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseRunnerProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const supported = isAnswerableType(exercise.type);
@@ -68,6 +75,14 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   const [touched, setTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const finished = useRef(false); // đã nộp xong: không chặn điều hướng nữa
+
+  // ---- Thi thử: đồng hồ tính từ deadline, hết giờ thì khóa nhập và tự nộp ----
+  const remainingMs = useExamClock(exam?.deadline ?? null);
+  const timeUp = Boolean(exam) && remainingMs <= 0;
+  const timedOutRef = useRef(false); // bài được nộp do hết giờ
+  const timeUpHandled = useRef(false); // đã xử lý việc hết giờ (nộp hoặc báo không có gì để nộp)
+  const [graceOver, setGraceOver] = useState(false); // bài Nói: đã chờ xong bản ghi đang dừng
+  const [nothingSent, setNothingSent] = useState(false);
 
   // Bài Nói: giữ audio_id đã tải lên (gắn với đúng bản ghi) để nộp lại không phải tải lại; "uploading" -> "grading"
   const uploaded = useRef<{ blob: Blob; audioId: string } | null>(null);
@@ -97,13 +112,20 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   }
 
   const mutation = useMutation({
-    mutationFn: ({ body, blob }: { body: SubmitAttemptBody; blob?: Blob }) => (blob ? submitSpeaking({ assignmentId: body.assignmentId, exerciseId: body.exerciseId }, blob) : submitAttempt(body)),
+    mutationFn: ({ body, blob }: { body: SubmitAttemptBody; blob?: Blob }) => (blob ? submitSpeaking({ assignmentId: body.assignmentId, exerciseId: body.exerciseId, mode: body.mode }, blob) : submitAttempt(body)),
     onSuccess: (outcome) => {
       finished.current = true;
       draft.clear(); // nộp xong (kể cả khi AI chưa chấm được vì bài đã lưu trên máy chủ) thì bỏ nháp
       void queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY });
       if (assignment) void queryClient.invalidateQueries({ queryKey: assignmentDetailKey(assignment.assignmentId) });
-      navigate(`/student/results/${outcome.result.attemptId}`, { state: outcome.gradingError ? { gradingError: outcome.gradingError } : undefined });
+      let state: { gradingError?: typeof outcome.gradingError; exam?: { durationSec: number; usedSec: number; timedOut: boolean } } | undefined;
+      if (outcome.gradingError) state = { gradingError: outcome.gradingError };
+      if (exam) {
+        const usedSec = Math.min(exam.durationSec, Math.max(0, Math.round((Date.now() - (exam.deadline - exam.durationSec * 1000)) / 1000)));
+        state = { ...state, exam: { durationSec: exam.durationSec, usedSec, timedOut: timedOutRef.current } };
+        clearExamSession(exercise.id);
+      }
+      navigate(`/student/results/${outcome.result.attemptId}`, { state });
     },
     onError: () => {
       // Lỗi như hết lượt nộp: tải lại số lượt để màn hình phản ánh đúng
@@ -124,7 +146,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   const locked = exhausted || (LOCK_WHEN_OVERDUE && overdue);
 
   // Khóa hẳn: hết lượt, chưa làm gì, hoặc bài Viết chưa đủ số từ. Còn bỏ trống một phần thì được nộp sau khi xác nhận.
-  const canSubmit = supported && !locked && !submitting && (complete || (Boolean(def?.allowPartialSubmit) && progress.done > 0));
+  const canSubmit = supported && !locked && !submitting && !timeUp && (complete || (Boolean(def?.allowPartialSubmit) && progress.done > 0));
 
   // ---- Cảnh báo rời trang khi đang làm dở ----
   const dirty = touched && !finished.current;
@@ -142,13 +164,51 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   function send() {
     if (!supported || mutation.isPending) return; // chặn nộp đúp
     setConfirmOpen(false);
-    const target = assignment ? { assignmentId: assignment.assignmentId } : { exerciseId: exercise.id };
+    const target = assignment ? { assignmentId: assignment.assignmentId } : { exerciseId: exercise.id, ...(exam ? { mode: "exam" as const } : {}) };
     if (isSpeaking) {
       const blob = (value as SpeakingValue).blob;
       if (blob) mutation.mutate({ body: { ...target, answer: null }, blob });
       return;
     }
     mutation.mutate({ body: { ...target, answer: toPayloadFor(type, value as never) } });
+  }
+
+  // Hết giờ: tự nộp phần đã làm, không hỏi xác nhận. Bài Nói đang ghi âm thì chờ bản ghi dừng (tối đa 1,5 giây) rồi mới quyết định.
+  const speakingBlob = isSpeaking ? (value as SpeakingValue).blob : null;
+  useEffect(() => {
+    if (!timeUp || timeUpHandled.current) return;
+    setConfirmOpen(false);
+    if (submitting || finished.current) {
+      timeUpHandled.current = true; // đang nộp (hoặc đã nộp) trước khi hết giờ
+      return;
+    }
+    const sendable = supported && !locked && (complete || (Boolean(def?.allowPartialSubmit) && progress.done > 0));
+    if (sendable) {
+      timeUpHandled.current = true;
+      timedOutRef.current = true;
+      send();
+      return;
+    }
+    if (!isSpeaking || graceOver) {
+      timeUpHandled.current = true;
+      setNothingSent(true);
+      return;
+    }
+    const t = window.setTimeout(() => setGraceOver(true), 1500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeUp, submitting, complete, progress.done, graceOver, speakingBlob]);
+
+  function leaveExam(to: string) {
+    finished.current = true; // không còn gì để giữ: bỏ chặn rời trang
+    clearExamSession(exercise.id);
+    navigate(to);
+  }
+
+  function restartExam() {
+    finished.current = true;
+    clearExamSession(exercise.id);
+    exam?.onRestart?.();
   }
 
   function onSubmitClick() {
@@ -173,7 +233,11 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
   const missing = Math.max(0, progress.total - progress.done);
   const progressText = isWriting ? `Đã viết ${progress.done}/${progress.total} từ tối thiểu` : isSpeaking ? (complete ? "Đã có bản ghi âm" : "Chưa có bản ghi âm") : `Đã trả lời ${progress.done}/${progress.total} ${unit}`;
 
+  const nothingReason = isWriting ? `Bài viết chưa đủ ${progress.total} từ tối thiểu nên chưa được nộp.` : isSpeaking ? `Chưa có bản ghi âm đủ ${MIN_SPEAKING_SECONDS} giây nên chưa được nộp.` : "Em chưa trả lời câu nào nên chưa có bài để nộp.";
+
   return (
+    <>
+    {exam && <ExamBar remainingMs={remainingMs} durationSec={exam.durationSec} />}
     <div className={`mx-auto px-5 py-8 lg:px-8 ${isWriting ? "max-w-6xl" : "max-w-4xl"}`}>
       <BackLink to={backTo}>{assignment ? "Bài được giao" : "Thư viện luyện tập"}</BackLink>
 
@@ -185,6 +249,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
         </span>
         <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">{exercise.level}</span>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{exerciseTypeLabel(exercise.type)}</span>
+        {exam && <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">Thi thử</span>}
       </p>
       <ReportExerciseButton exerciseId={exercise.id} />
 
@@ -259,6 +324,19 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
         </div>
       )}
 
+      {nothingSent && (
+        <section role="alert" className="mt-6 rounded-3xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="font-heading text-xl font-bold text-red-700">Hết giờ</p>
+          <p className="mt-1 text-sm font-semibold text-red-700">{nothingReason} Hết giờ nên hệ thống không nộp bài nào.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Button onClick={restartExam}>Làm lại</Button>
+            <Button variant="outline" onClick={() => leaveExam("/student/library")}>
+              Về thư viện
+            </Button>
+          </div>
+        </section>
+      )}
+
       <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <DynamicExerciseView
           type={exercise.type}
@@ -270,7 +348,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
             if (isWriting) draft.save((v as { text?: string }).text ?? "");
           }}
           mode="answering"
-          disabled={submitting}
+          disabled={submitting || timeUp}
         />
       </div>
 
@@ -279,6 +357,11 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
           <Notice type="error">{isSpeaking ? speakingErrorMessage(mutation.error) : getErrorMessage(mutation.error, "Không nộp được bài, vui lòng thử lại.")}</Notice>
           {isSpeaking && isAiOrNetworkError(mutation.error) && (
             <Button variant="outline" size="sm" leftIcon={<Repeat />} disabled={submitting || locked} onClick={send}>
+              Thử nộp lại
+            </Button>
+          )}
+          {exam && timeUp && !isSpeaking && !isWriting && (
+            <Button variant="outline" size="sm" leftIcon={<Repeat />} disabled={submitting} onClick={send}>
               Thử nộp lại
             </Button>
           )}
@@ -309,6 +392,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
         </p>
       )}
 
+      {!timeUp && (
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
           {!supported
@@ -331,6 +415,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
           {submitting ? "Đang chấm…" : "Nộp bài"}
         </Button>
       </div>
+      )}
 
       {/* Xác nhận khi còn bỏ trống */}
       <Modal
@@ -360,7 +445,7 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
       </Modal>
 
       {/* Chặn điều hướng trong ứng dụng khi đang làm dở */}
-      <Modal open={blocker.state === "blocked"} onClose={() => blocker.reset?.()} title="Rời khỏi bài đang làm?" description={isWriting ? "Bản nháp được lưu trên máy này, nhưng bài chưa được nộp." : isSpeaking ? "Bản ghi âm chưa nộp sẽ bị mất nếu em rời trang." : "Bài làm dở sẽ không được lưu và sẽ mất nếu em rời trang."}>
+      <Modal open={blocker.state === "blocked"} onClose={() => blocker.reset?.()} title="Rời khỏi bài đang làm?" description={exam ? "Đồng hồ thi vẫn tiếp tục chạy khi em rời trang. Hãy quay lại trước khi hết giờ để làm tiếp." : isWriting ? "Bản nháp được lưu trên máy này, nhưng bài chưa được nộp." : isSpeaking ? "Bản ghi âm chưa nộp sẽ bị mất nếu em rời trang." : "Bài làm dở sẽ không được lưu và sẽ mất nếu em rời trang."}>
         <div className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           Hãy nộp bài trước nếu em muốn giữ kết quả.
@@ -375,5 +460,6 @@ export default function ExerciseRunner({ exercise, assignment }: ExerciseRunnerP
         </div>
       </Modal>
     </div>
+    </>
   );
 }

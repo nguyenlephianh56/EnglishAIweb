@@ -16,6 +16,7 @@ import AssignedPage from "../features/student/AssignedPage";
 import NotificationsPage from "../features/student/NotificationsPage";
 import PathPage from "../features/student/PathPage";
 import PracticePage from "../features/exercises/PracticePage";
+import ExamPage from "../features/exercises/exam/ExamPage";
 import AssignmentExercisePage from "../features/exercises/AssignmentExercisePage";
 import ResultPage from "../features/exercises/ResultPage";
 import TeacherOverviewPage from "../features/teacher/OverviewPage";
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
           { path: "results/:attemptId", element: <ResultPage /> },
           { path: "library", element: <LibraryPage /> },
           { path: "library/:id", element: <PracticePage /> },
+          { path: "library/:id/exam", element: <ExamPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "path", element: <PathPage /> },
           { path: "notifications", element: <NotificationsPage /> },

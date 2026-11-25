@@ -2,6 +2,12 @@ import { api, unwrap } from "./client";
 import type { AttemptReview, AttemptReviewRaw, CommentSuggestion, TeacherGradeBody, TeacherGradeResult } from "../types/attemptReview";
 import type { AttemptDetail, AttemptResult, AssignmentAttemptExtras, AudioUploadResult, GradingError, SubmitAttemptBody, SubmitOutcome } from "../types/attempt";
 
+/**
+ * Backend hiện chỉ nhận mode "practice" cho POST /attempts (gửi "exam" bị 400), nên thi thử nộp y như luyện tập.
+ * Đổi thành true khi backend mở mode "exam": body sẽ có thêm mode: "exam".
+ */
+export const SEND_EXAM_MODE = false;
+
 type ResultWithExtras = AttemptResult & Partial<AssignmentAttemptExtras>;
 /** 201/200 = kết quả; 202 = { attemptId, attempt, gradingError } */
 type SubmitResponse = ResultWithExtras | { attemptId: number; attempt: ResultWithExtras; gradingError: GradingError };
@@ -12,8 +18,12 @@ const normalize = (data: SubmitResponse): SubmitOutcome => ("gradingError" in da
  * POST /attempts: nộp bài. Có assignmentId = bài giao (tối đa 3 lần), không có = tự luyện.
  * Bài Viết có thể trả 202 (đã lưu nhưng AI chấm lỗi): gộp thành { result, gradingError }.
  */
-export const submitAttempt = async (body: SubmitAttemptBody, options: { timeoutMs?: number } = {}): Promise<SubmitOutcome> =>
-  normalize(await unwrap<SubmitResponse>(api.post("/attempts", body, options.timeoutMs ? { timeout: options.timeoutMs } : undefined)));
+export const submitAttempt = async (body: SubmitAttemptBody, options: { timeoutMs?: number } = {}): Promise<SubmitOutcome> => {
+  // Thi thử chỉ có ở phía giao diện: bỏ `mode` khỏi body trừ khi bật SEND_EXAM_MODE
+  const { mode, ...rest } = body;
+  const payload = SEND_EXAM_MODE && mode ? { ...rest, mode } : rest;
+  return normalize(await unwrap<SubmitResponse>(api.post("/attempts", payload, options.timeoutMs ? { timeout: options.timeoutMs } : undefined)));
+};
 
 /** Nộp bài Nói: backend chữ hóa âm thanh rồi chấm nên chờ tới 90 giây */
 export const SPEAKING_SUBMIT_TIMEOUT_MS = 90_000;
