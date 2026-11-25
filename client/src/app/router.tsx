@@ -40,6 +40,7 @@ import AdminLibraryPage from "../features/admin/LibraryPage";
 import ProposalsPage from "../features/admin/ProposalsPage";
 import StatsPage from "../features/admin/StatsPage";
 import UsersPage from "../features/admin/UsersPage";
+import AdminUserDetailPage from "../features/admin/AdminUserDetailPage";
 
 // Trang xem thử thành phần bài tập: chỉ đăng ký khi chạy `npm run dev`, bản build không có
 const DevExercisesPage = import.meta.env.DEV ? lazy(() => import("../features/exercises/DevExercisesPage")) : null;
@@ -110,6 +111,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <OverviewPage /> },
           { path: "users", element: <UsersPage /> },
+          { path: "users/:id", element: <AdminUserDetailPage /> },
           { path: "library", element: <AdminLibraryPage /> },
           { path: "library/new", element: <NewExercisePage /> },
           { path: "library/ai", element: <GenerateExercisePage /> },

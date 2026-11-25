@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { approveTeacher, listUsers, lockUser, unlockUser } from "../../api/admin";
+import { approveTeacher, getUser, listUsers, lockUser, unlockUser } from "../../api/admin";
 import { listExercises } from "../../api/exercises";
 import { getErrorMessage } from "../../api/client";
 import type { AdminUser } from "../../types/admin";
@@ -14,6 +14,12 @@ const STALE = 30 * 1000;
 
 /** Toàn bộ tài khoản (GET /admin/users) */
 export const useAdminUsers = () => useQuery({ queryKey: ADMIN_USERS_KEY, queryFn: () => listUsers(), staleTime: STALE });
+
+export const adminUserKey = (id: number) => [...ADMIN_USERS_KEY, "detail", id] as const;
+
+/** Một tài khoản kèm số liệu (GET /admin/users/:id). Tắt khi id không hợp lệ; 404 không thử lại. */
+export const useAdminUserDetail = (id: number) =>
+  useQuery({ queryKey: adminUserKey(id), queryFn: () => getUser(id), enabled: Number.isInteger(id) && id > 0, staleTime: STALE, retry: false });
 
 /** Giáo viên chờ duyệt (GET /admin/users?role=TEACHER&status=PENDING), mới nhất trước */
 export const usePendingTeachers = () =>

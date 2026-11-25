@@ -11,6 +11,11 @@ export const promptLabel = (key: string) => PROMPT_LABEL[key] ?? key;
 /** Hành động trong nhật ký; hành động lạ hiện nguyên chuỗi */
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "user.approve": "Duyệt giáo viên",
+  "user.update": "Sửa thông tin tài khoản",
+  "user.delete": "Xóa tài khoản",
+  "user.anonymize": "Ẩn danh tài khoản",
+  "user.promote_admin": "Bổ nhiệm quản trị viên",
+  "user.revoke_admin": "Thu hồi quyền quản trị",
   "exercise.propose": "Đề xuất bài",
   "exercise.approve": "Duyệt bài",
   "exercise.reject": "Từ chối bài",
