@@ -27,7 +27,10 @@ export default function Modal({ open, onClose, title, description, children, siz
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
       onClick={(e) => {
         if (e.target === ref.current) onClose(); // bấm vào lớp nền mờ
       }}
