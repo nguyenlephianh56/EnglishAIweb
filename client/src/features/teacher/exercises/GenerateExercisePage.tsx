@@ -79,7 +79,7 @@ function aiErrorHint(error: unknown): string | undefined {
   return undefined;
 }
 
-/** /teacher/exercises/ai: nhờ AI soạn một bài tập (POST /exercises/generate). Bài sinh ra là bản nháp, giáo viên cần xem lại. */
+/** Trang nhờ AI soạn một bài tập, dùng chung cho quản trị viên và giáo viên. */
 export default function GenerateExercisePage() {
   const queryClient = useQueryClient();
   const [type, setType] = useState<ExerciseTypeKey>("multiple_choice");
@@ -96,7 +96,7 @@ export default function GenerateExercisePage() {
   const countField = COUNT_FIELD[type];
   const errors = submitted ? validate(topic, type, count) : {};
 
-  const { listPath, listLabel, reviewPath } = useExerciseBase();
+  const { isAdmin, listPath, listLabel, reviewPath } = useExerciseBase();
   const mutation = useMutation({
     mutationFn: generateExercise,
     onSuccess: () => {
@@ -105,6 +105,7 @@ export default function GenerateExercisePage() {
   });
   const pending = mutation.isPending;
   const result: ExerciseListItem | undefined = mutation.data;
+  const published = result?.status === "PUBLISHED" && result.inLibrary;
 
   function changeType(next: ExerciseTypeKey) {
     setType(next);
@@ -141,7 +142,7 @@ export default function GenerateExercisePage() {
         {listLabel}
       </Link>
       <h1 className="mt-4 font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Nhờ AI sinh bài</h1>
-      <p className="mt-2 text-slate-500">Chọn dạng bài, cấp độ và chủ đề, AI sẽ soạn một bài tập và lưu vào Bản nháp để thầy/cô xem lại.</p>
+      <p className="mt-2 text-slate-500">{isAdmin ? "AI sẽ soạn bài theo lựa chọn của bạn. Bài tạo thành công sẽ xuất hiện ngay trong Thư viện luyện tập." : "Chọn dạng bài, cấp độ và chủ đề. AI sẽ soạn bài và lưu vào Bản nháp để thầy/cô xem lại."}</p>
 
       {result ? (
         <section className="mt-8 rounded-3xl border border-green-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="gen-done">
@@ -167,11 +168,15 @@ export default function GenerateExercisePage() {
               <dd className="mt-1 font-bold text-slate-900">{result.level}</dd>
             </div>
           </dl>
-          <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-            Đây là bản nháp do AI soạn. Thầy/cô cần xem lại nội dung và đáp án trước khi dùng cho học sinh.
-          </p>
+          <div className="mt-5">
+            {published ? (
+              <Notice type="success">Đã xuất bản. Học sinh có thể tìm bài trong Thư viện luyện tập.</Notice>
+            ) : (
+              <Notice type="warning">Đã lưu bản nháp. Hãy xem lại nội dung và đáp án trước khi gửi duyệt.</Notice>
+            )}
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button to={reviewPath(result.id)}>Xem và chỉnh bản nháp</Button>
+            <Button to={reviewPath(result.id)}>{published ? "Xem và sửa bài" : "Xem và chỉnh bản nháp"}</Button>
             <Button variant="outline" onClick={reset}>
               Sinh bài khác
             </Button>

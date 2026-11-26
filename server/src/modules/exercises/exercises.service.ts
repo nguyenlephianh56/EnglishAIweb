@@ -433,6 +433,46 @@ export async function hideExercise(
     select: EXERCISE_SELECT,
   });
 }
+// POST /api/v1/exercises/:id/publish (admin xuất bản bản nháp của admin hoặc bài đã ẩn).
+export async function publishExercise(user: CurrentUser, id: number) {
+  assertActiveTeacherOrAdmin(user);
+  if (user.role !== Role.ADMIN) {
+    throw businessError(403, "FORBIDDEN", "Chỉ quản trị viên được xuất bản bài tập.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const exercise = await tx.exercise.findUnique({ where: { id }, select: EXERCISE_SELECT });
+    if (!exercise) throw exerciseNotFound();
+    if (exercise.status === ExerciseStatus.PUBLISHED && exercise.inLibrary) return exercise;
+
+    const adminDraft = exercise.status === ExerciseStatus.DRAFT &&
+      (exercise.source === ExerciseSource.ADMIN || exercise.createdById === user.id);
+    if (!adminDraft && exercise.status !== ExerciseStatus.HIDDEN) {
+      throw businessError(409, "CONFLICT", "Chỉ có thể xuất bản trực tiếp bản nháp của quản trị viên hoặc bài đã ẩn.");
+    }
+
+    const updated = await tx.exercise.updateMany({
+      where: { id, status: exercise.status },
+      data: { status: ExerciseStatus.PUBLISHED, inLibrary: true },
+    });
+    if (updated.count === 0) {
+      const current = await tx.exercise.findUnique({ where: { id }, select: EXERCISE_SELECT });
+      if (!current) throw exerciseNotFound();
+      if (current.status === ExerciseStatus.PUBLISHED && current.inLibrary) return current;
+      throw businessError(409, "CONFLICT", "Bài đã đổi trạng thái. Hãy tải lại và thử lại.");
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "exercise.publish",
+        detail: { exercise_id: id, from: exercise.status, to: ExerciseStatus.PUBLISHED },
+      },
+    });
+    return tx.exercise.findUniqueOrThrow({ where: { id }, select: EXERCISE_SELECT });
+  });
+}
+
 // POST /api/v1/exercises/:id/propose  (GV đề xuất bài của mình lên thư viện)
 export const proposeExercise = async (user: CurrentUser, id: number) => {
   if (user.role !== Role.TEACHER) {

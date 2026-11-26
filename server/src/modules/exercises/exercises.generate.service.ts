@@ -7,12 +7,12 @@ import type { PromptTemplateDb } from "../../ai/prompts/prompt-templates";
 import { buildGeneratedExerciseSchema } from "./exercises.generate.output.schema";
 import type { GeneratedExerciseDraft } from "./exercises.generate.output.schema";
 import type { GenerateExerciseInput } from "./exercises.generate.schema";
-import { saveGeneratedDraft } from "./exercises.generate.save";
+import { saveGeneratedExercise } from "./exercises.generate.save";
 
 /**
  * T11: luồng thật của POST /exercises/generate.
  *   1. generateExerciseDraft: gọi AI + kiểm hợp lệ (lỗi thì ném, CHƯA ghi gì vào DB);
- *   2. saveGeneratedDraft: lưu 1 bản ghi DRAFT rồi trả về.
+ *   2. saveGeneratedExercise: xuất bản cho admin hoặc lưu bản nháp cho giáo viên.
  * Lưu DB lỗi thì ném nguyên; KHÔNG gọi lại AI (đã tốn 1 lượt, log `ok` đã ghi ở lớp AI).
  */
 export async function generateExercise(
@@ -25,7 +25,7 @@ export async function generateExercise(
     role: user.role,
   });
 
-  return saveGeneratedDraft(user.id, input, draft);
+  return saveGeneratedExercise(user, input, draft);
 }
 
 /** Đầu vào đã được route kiểm + userId/role do server lấy từ token (không nhận từ client). */

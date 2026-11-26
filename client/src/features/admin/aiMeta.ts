@@ -18,6 +18,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "user.revoke_admin": "Thu hồi quyền quản trị",
   "exercise.propose": "Đề xuất bài",
   "exercise.approve": "Duyệt bài",
+  "exercise.publish": "Xuất bản bài",
   "exercise.reject": "Từ chối bài",
   "report.update": "Cập nhật báo lỗi",
   "prompt.update": "Sửa prompt",

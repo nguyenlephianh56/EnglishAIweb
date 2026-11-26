@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Check, EyeOff, X } from "lucide-react";
+import { Check, Eye, EyeOff, X } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Textarea from "../../components/ui/Textarea";
 import Notice from "../account/Notice";
+import type { ExerciseListItem } from "../../types/exercise";
 
 export const REJECT_REASON_LIMIT = 1000;
 
@@ -70,11 +71,10 @@ export function RejectModal({ open, topic, pending, error, onClose, onConfirm }:
   );
 }
 
-/** Ẩn bài (DELETE /exercises/:id): bài chuyển sang HIDDEN, hiện chưa có API khôi phục. */
+/** Ẩn bài khỏi thư viện và các bài đã giao. */
 export function HideModal({ open, topic, pending, error, onClose, onConfirm }: BaseProps & { onConfirm: () => void }) {
   return (
     <Modal open={open} onClose={() => (pending ? undefined : onClose())} title="Ẩn bài này?" description={`Bài “${topic}” sẽ bị ẩn khỏi thư viện và các bài đã giao.`}>
-      <p className="text-sm text-slate-600">Hiện chưa có chức năng khôi phục bài đã ẩn trên giao diện.</p>
       {error && (
         <div className="mt-4">
           <Notice type="error">{error}</Notice>
@@ -87,6 +87,28 @@ export function HideModal({ open, topic, pending, error, onClose, onConfirm }: B
         <Button variant="danger" leftIcon={<EyeOff />} loading={pending} onClick={onConfirm}>
           Ẩn bài
         </Button>
+      </div>
+    </Modal>
+  );
+}
+
+export function canPublishDirectly(exercise: ExerciseListItem, adminId: number | undefined) {
+  return exercise.status === "HIDDEN" ||
+    (exercise.status === "DRAFT" && (exercise.source === "ADMIN" || (adminId !== undefined && exercise.createdById === adminId)));
+}
+
+export function PublishModal({ open, topic, pending, error, hidden, onClose, onConfirm }: BaseProps & { hidden: boolean; onConfirm: () => void }) {
+  return (
+    <Modal
+      open={open}
+      onClose={() => (pending ? undefined : onClose())}
+      title={hidden ? "Hiện lại bài này?" : "Xuất bản bài này?"}
+      description={`Bài “${topic}” sẽ được xuất bản và học sinh có thể làm bài trong Thư viện luyện tập.`}
+    >
+      {error && <Notice type="error">{error}</Notice>}
+      <div className="mt-6 flex justify-end gap-3">
+        <Button variant="outline" disabled={pending} onClick={onClose}>Hủy</Button>
+        <Button leftIcon={<Eye />} loading={pending} onClick={onConfirm}>{hidden ? "Hiện lại" : "Xuất bản"}</Button>
       </div>
     </Modal>
   );

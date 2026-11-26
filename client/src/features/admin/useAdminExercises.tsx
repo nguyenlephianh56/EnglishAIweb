@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { approveExercise, deleteExercise, listExercises, rejectExercise } from "../../api/exercises";
+import { approveExercise, deleteExercise, listExercises, publishExercise, rejectExercise } from "../../api/exercises";
 import { ADMIN_EXERCISES_KEY, refreshExerciseCaches } from "../teacher/exercises/exerciseCache";
 import { EXERCISE_COUNT_KEY, useAdminUsers } from "./useAdminData";
 import type { ExerciseListParams } from "../../types/exercise";
@@ -32,7 +32,7 @@ export function useCreatorNames() {
 }
 
 /**
- * Duyệt / từ chối / ẩn bài. Làm mới cache sau mỗi lần, kể cả khi lỗi (409: bài không còn chờ duyệt),
+ * Duyệt / từ chối / ẩn / xuất bản bài. Làm mới cache sau mỗi lần, kể cả khi bài đã đổi trạng thái,
  * để danh sách phản ánh đúng trạng thái trên máy chủ.
  */
 export function useExerciseDecisions() {
@@ -41,5 +41,6 @@ export function useExerciseDecisions() {
   const approve = useMutation({ mutationFn: (id: number) => approveExercise(id), onSettled });
   const reject = useMutation({ mutationFn: ({ id, reason }: { id: number; reason?: string }) => rejectExercise(id, reason), onSettled });
   const hide = useMutation({ mutationFn: (id: number) => deleteExercise(id), onSettled });
-  return { approve, reject, hide };
+  const publish = useMutation({ mutationFn: (id: number) => publishExercise(id), onSettled });
+  return { approve, reject, hide, publish };
 }

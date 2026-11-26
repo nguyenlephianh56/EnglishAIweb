@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { approveExercise, deleteExercise, getExercise, proposeExercise, rejectExercise, updateExercise } from "../../../api/exercises";
+import { approveExercise, deleteExercise, getExercise, proposeExercise, publishExercise, rejectExercise, updateExercise } from "../../../api/exercises";
 import { refreshExerciseCaches } from "./exerciseCache";
 import { TEACHER_EXERCISES_KEY } from "./useTeacherExercises";
 import type { UpdateExercisePayload } from "../../../types/exercise";
@@ -33,5 +33,6 @@ export function useExerciseMutations(id: number) {
   // Chỉ quản trị viên: duyệt / từ chối bài đang chờ duyệt (409 nếu bài không còn ở trạng thái đó)
   const approve = useMutation({ mutationFn: () => approveExercise(id), onSettled: refresh });
   const reject = useMutation({ mutationFn: (reason?: string) => rejectExercise(id, reason), onSettled: refresh });
-  return { update, propose, remove, approve, reject };
+  const publish = useMutation({ mutationFn: () => publishExercise(id), onSettled: refresh });
+  return { update, propose, remove, approve, reject, publish };
 }

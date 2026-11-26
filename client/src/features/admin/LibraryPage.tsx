@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { CircleAlert, EyeOff, FilePlus2, Pencil, Plus, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { CircleAlert, Eye, EyeOff, FilePlus2, Pencil, Plus, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 import Notice from "../account/Notice";
 import { getErrorMessage } from "../../api/client";
+import { useAuth } from "../../hooks/useAuth";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { formatNumber } from "../../utils/format";
 import { ANY_SKILL_META } from "../student/skillMeta";
@@ -14,7 +15,7 @@ import { LEVEL_OPTIONS, SKILL_OPTIONS } from "../student/libraryFilters";
 import { typeLabel } from "../teacher/assignments/assignmentMeta";
 import ExerciseFilterModal from "../teacher/exercises/ExerciseFilterModal";
 import { formatUpdated, STATUS_BADGE, TYPE_FILTER_OPTIONS } from "../teacher/exercises/exerciseMeta";
-import { HideModal } from "./ExerciseDecisionForms";
+import { canPublishDirectly, HideModal, PublishModal } from "./ExerciseDecisionForms";
 import { SkillBadge, SourceBadge, StatusBadge } from "./ExerciseBadges";
 import { ADMIN_EXERCISES_PAGE_SIZE, useAdminExerciseList, useExerciseDecisions } from "./useAdminExercises";
 import { EXERCISE_STATUSES, useExerciseStatusCounts } from "./useAdminData";
@@ -26,6 +27,7 @@ const th = "px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-
 
 /** /admin/library: toàn bộ bài tập ở mọi trạng thái; xem/sửa, ẩn bài, tạo bài mới hoặc nhờ AI sinh bài. */
 export default function LibraryPage() {
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const status = EXERCISE_STATUSES.find((s) => s === params.get("status"));
   const q = params.get("q") ?? "";
@@ -37,7 +39,7 @@ export default function LibraryPage() {
 
   const list = useAdminExerciseList({ status, skill, level, type, topic: q.trim() || undefined, page });
   const { counts } = useExerciseStatusCounts();
-  const { hide } = useExerciseDecisions();
+  const { hide, publish } = useExerciseDecisions();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,8 +51,8 @@ export default function LibraryPage() {
   }, []);
 
   const [filterOpen, setFilterOpen] = useState(false);
-  const [toHide, setToHide] = useState<ExerciseListItem | null>(null);
-  const [hideError, setHideError] = useState<string | undefined>();
+  const [decision, setDecision] = useState<{ kind: "hide" | "publish"; exercise: ExerciseListItem } | null>(null);
+  const [decisionError, setDecisionError] = useState<string | undefined>();
 
   function update(patch: Record<string, string | undefined>, replace = false) {
     const next = new URLSearchParams(params);
@@ -89,21 +91,28 @@ export default function LibraryPage() {
     update({ q: undefined, status: undefined, skill: undefined, level: undefined, type: undefined });
   }
 
-  async function confirmHide() {
-    if (!toHide) return;
-    const target = toHide;
-    setHideError(undefined);
+  function openDecision(kind: "hide" | "publish", exercise: ExerciseListItem) {
+    setDecisionError(undefined);
+    setDecision({ kind, exercise });
+  }
+
+  async function confirmDecision() {
+    if (!decision) return;
+    const { kind, exercise } = decision;
+    const mutation = kind === "hide" ? hide : publish;
+    if (mutation.isPending) return;
+    setDecisionError(undefined);
     try {
-      await hide.mutateAsync(target.id);
-      setToHide(null);
-      setFlash({ type: "success", text: `Đã ẩn bài “${target.topic}”.` });
+      await mutation.mutateAsync(exercise.id);
+      setDecision(null);
+      setFlash({ type: "success", text: kind === "hide" ? `Đã ẩn bài “${exercise.topic}”.` : `Đã xuất bản bài “${exercise.topic}” vào thư viện.` });
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
-        setToHide(null);
-        setFlash({ type: "warning", text: `Bài “${target.topic}” không còn tồn tại. Danh sách đã được làm mới.` });
+        setDecision(null);
+        setFlash({ type: "warning", text: `Bài “${exercise.topic}” không còn tồn tại. Danh sách đã được làm mới.` });
         return;
       }
-      setHideError(getErrorMessage(err, "Không ẩn được bài, vui lòng thử lại."));
+      setDecisionError(getErrorMessage(err, "Thao tác không thành công, vui lòng thử lại."));
     }
   }
 
@@ -204,7 +213,7 @@ export default function LibraryPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
-            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400" aria-hidden="true">
+            <span className="mx-auto grid size-12 place-items-center rounded-xl bg-brand-light text-brand" aria-hidden="true">
               <FilePlus2 className="size-6" />
             </span>
             {hasFilters ? (
@@ -270,8 +279,13 @@ export default function LibraryPage() {
                             Xem/Sửa
                           </Button>
                           {e.status !== "HIDDEN" && (
-                            <Button variant="ghost" size="sm" leftIcon={<EyeOff />} onClick={() => { setHideError(undefined); setToHide(e); }}>
+                            <Button variant="ghost" size="sm" leftIcon={<EyeOff />} onClick={() => openDecision("hide", e)}>
                               Ẩn
+                            </Button>
+                          )}
+                          {canPublishDirectly(e, user?.id) && (
+                            <Button variant="outline" size="sm" leftIcon={<Eye />} onClick={() => openDecision("publish", e)}>
+                              {e.status === "HIDDEN" ? "Hiện lại" : "Xuất bản"}
                             </Button>
                           )}
                         </div>
@@ -296,7 +310,8 @@ export default function LibraryPage() {
         }}
       />
 
-      <HideModal open={toHide !== null} topic={toHide?.topic ?? ""} pending={hide.isPending} error={hideError} onClose={() => setToHide(null)} onConfirm={() => void confirmHide()} />
+      <HideModal open={decision?.kind === "hide"} topic={decision?.exercise.topic ?? ""} pending={hide.isPending} error={decisionError} onClose={() => setDecision(null)} onConfirm={() => void confirmDecision()} />
+      <PublishModal open={decision?.kind === "publish"} topic={decision?.exercise.topic ?? ""} hidden={decision?.exercise.status === "HIDDEN"} pending={publish.isPending} error={decisionError} onClose={() => setDecision(null)} onConfirm={() => void confirmDecision()} />
     </div>
   );
 }

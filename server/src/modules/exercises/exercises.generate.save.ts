@@ -1,11 +1,11 @@
-import { ExerciseSource, ExerciseStatus, Prisma } from "@prisma/client";
+import { ExerciseSource, ExerciseStatus, Prisma, Role } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { EXERCISE_SELECT } from "./exercises.service";
 import type { GeneratedExerciseDraft } from "./exercises.generate.output.schema";
 import type { GenerateExerciseInput } from "./exercises.generate.schema";
 
 /**
- * T11: lưu MỘT bài AI sinh ra thành bản nháp.
+ * Lưu bài AI đã kiểm tra. Admin xuất bản ngay, giáo viên lưu bản nháp.
  * Chỉ gọi hàm này SAU khi AI + validateExercise đã thành công.
  *
  * - type/skill/level/topic: lấy từ ĐẦU VÀO của người dùng (đã qua Zod ở route),
@@ -16,11 +16,12 @@ import type { GenerateExerciseInput } from "./exercises.generate.schema";
  *   (DB có CHECK chỉ cho phép NULL ở writing/speaking).
  * Lỗi DB được ném nguyên cho controller xử lý (500 chung); hàm này không log gì.
  */
-export async function saveGeneratedDraft(
-  userId: number,
+export async function saveGeneratedExercise(
+  user: { id: number; role: Role },
   input: Pick<GenerateExerciseInput, "type" | "skill" | "level" | "topic">,
   draft: Pick<GeneratedExerciseDraft, "content" | "answer" | "explanation">
 ) {
+  const publish = user.role === Role.ADMIN;
   return prisma.exercise.create({
     data: {
       type: input.type,
@@ -34,9 +35,9 @@ export async function saveGeneratedDraft(
           : (draft.answer as Prisma.InputJsonValue),
       explanation: draft.explanation,
       source: ExerciseSource.AI,
-      status: ExerciseStatus.DRAFT,
-      inLibrary: false,
-      createdById: userId,
+      status: publish ? ExerciseStatus.PUBLISHED : ExerciseStatus.DRAFT,
+      inLibrary: publish,
+      createdById: user.id,
     },
     select: EXERCISE_SELECT,
   });

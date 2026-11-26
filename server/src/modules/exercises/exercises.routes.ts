@@ -55,6 +55,8 @@ exerciseRoutes.delete(
   requireRole(Role.TEACHER, Role.ADMIN),
   exercisesController.deleteExercise
 );
+exerciseRoutes.post("/:id/publish", requireRole(Role.ADMIN), exercisesController.publishExercise);
+
 // POST /api/v1/exercises/:id/propose (chỉ TEACHER; ADMIN và STUDENT bị 403;
 // bài của GV khác hoặc không tồn tại -> 404; status không phải DRAFT -> 409)
 exerciseRoutes.post(

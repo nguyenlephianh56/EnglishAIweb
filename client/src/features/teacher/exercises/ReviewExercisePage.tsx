@@ -3,13 +3,13 @@ import type { KeyboardEvent } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { ArrowLeft, Check, CircleAlert, EyeOff, Send, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, Eye, EyeOff, Send, Sparkles, Trash2, X } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import Notice from "../../account/Notice";
 import { getErrorMessage } from "../../../api/client";
 import { useAuth } from "../../../hooks/useAuth";
-import { ApproveModal, HideModal, RejectModal } from "../../admin/ExerciseDecisionForms";
+import { ApproveModal, canPublishDirectly, HideModal, PublishModal, RejectModal } from "../../admin/ExerciseDecisionForms";
 import { isAnswerableType } from "../../exercises/registry";
 import { typeLabel } from "../assignments/assignmentMeta";
 import ExerciseForm from "./form/ExerciseForm";
@@ -93,17 +93,18 @@ export default function ReviewExercisePage() {
   }
   const exercise = detail.data;
   // key theo trạng thái: khi bài đổi trạng thái (đã gửi duyệt...) thì dựng lại ở chế độ chỉ xem
-  return <ReviewExerciseView key={`${exercise.id}-${exercise.status}`} exercise={exercise} isOwner={exercise.createdById === user?.id} />;
+  return <ReviewExerciseView key={`${exercise.id}-${exercise.status}`} exercise={exercise} userId={user?.id} />;
 }
 
-function ReviewExerciseView({ exercise, isOwner }: { exercise: ExerciseListItem; isOwner: boolean }) {
+function ReviewExerciseView({ exercise, userId }: { exercise: ExerciseListItem; userId?: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { update, propose, remove, approve, reject } = useExerciseMutations(exercise.id);
+  const { update, propose, remove, approve, reject, publish } = useExerciseMutations(exercise.id);
   const { isAdmin, backPath, listPath } = useExerciseBase();
 
   const status = exercise.status ?? "DRAFT";
   const supported = isFormType(exercise.type);
+  const isOwner = exercise.createdById === userId;
   // Giáo viên: chỉ bản nháp của mình. Quản trị viên: sửa được ở mọi trạng thái.
   const editable = supported && (isAdmin || (isOwner && status === "DRAFT"));
   const form = useExerciseForm("edit", exercise);
@@ -111,12 +112,12 @@ function ReviewExerciseView({ exercise, isOwner }: { exercise: ExerciseListItem;
   const [tab, setTab] = useState<Tab>(editable ? "edit" : "preview");
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<"propose" | "delete" | "approve" | "reject" | "hide" | null>(null);
+  const [confirm, setConfirm] = useState<"propose" | "delete" | "approve" | "reject" | "hide" | "publish" | null>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ edit: null, preview: null });
   const leaving = useRef(false); // đang rời trang chủ động (gửi duyệt/xóa xong): không chặn nữa
 
-  const busy = update.isPending || propose.isPending || remove.isPending || approve.isPending || reject.isPending;
+  const busy = update.isPending || propose.isPending || remove.isPending || approve.isPending || reject.isPending || publish.isPending;
   const dirty = editable && form.dirty;
 
   // ---- Cảnh báo khi rời trang với thay đổi chưa lưu ----
@@ -199,6 +200,19 @@ function ReviewExerciseView({ exercise, isOwner }: { exercise: ExerciseListItem;
     }
   }
 
+  async function doPublish() {
+    setConfirm(null);
+    if (dirty && !(await save())) return;
+    setActionError(null);
+    try {
+      const published = await publish.mutateAsync();
+      leaving.current = true;
+      navigate(listPath, { state: { notice: `Đã xuất bản bài “${published.topic}” vào thư viện.` } });
+    } catch (err) {
+      onActionFailed(err);
+    }
+  }
+
   async function doApprove() {
     setConfirm(null);
     if (dirty && !(await save())) return;
@@ -263,7 +277,7 @@ function ReviewExerciseView({ exercise, isOwner }: { exercise: ExerciseListItem;
 
       <div className="mt-5 space-y-3">
         {exercise.source === "AI" && (status === "DRAFT" || (isAdmin && status === "PROPOSED")) && (
-          <Notice type="warning">{isAdmin ? "Bài do AI tạo — hãy kiểm tra từng câu hỏi và đáp án trước khi duyệt." : "Bản nháp do AI tạo — hãy kiểm tra từng câu hỏi và đáp án trước khi gửi duyệt."}</Notice>
+          <Notice type="warning">{isAdmin ? "Bài do AI tạo. Hãy kiểm tra nội dung và đáp án trước khi đưa vào thư viện." : "Bản nháp do AI tạo. Hãy kiểm tra nội dung và đáp án trước khi gửi duyệt."}</Notice>
         )}
         {!editable && readOnlyReason && <Notice type="warning">{readOnlyReason}</Notice>}
         {notice && <Notice type="success">{notice}</Notice>}
@@ -326,6 +340,11 @@ function ReviewExerciseView({ exercise, isOwner }: { exercise: ExerciseListItem;
             <span />
           )}
           <div className="flex flex-wrap items-center gap-3">
+            {canPublishDirectly(exercise, userId) && (
+              <Button variant="outline" leftIcon={<Eye />} loading={publish.isPending} disabled={busy} onClick={() => setConfirm("publish")}>
+                {status === "HIDDEN" ? "Hiện lại" : "Xuất bản"}
+              </Button>
+            )}
             {status === "PROPOSED" && (
               <>
                 <Button variant="danger" leftIcon={<X />} disabled={busy} onClick={() => setConfirm("reject")}>
@@ -364,6 +383,7 @@ function ReviewExerciseView({ exercise, isOwner }: { exercise: ExerciseListItem;
       <ApproveModal open={confirm === "approve"} topic={exercise.topic} pending={false} onClose={() => setConfirm(null)} onConfirm={() => void doApprove()} />
       <RejectModal open={confirm === "reject"} topic={exercise.topic} pending={false} onClose={() => setConfirm(null)} onConfirm={(r) => void doReject(r)} />
       <HideModal open={confirm === "hide"} topic={exercise.topic} pending={false} onClose={() => setConfirm(null)} onConfirm={() => void doHide()} />
+      <PublishModal open={confirm === "publish"} topic={exercise.topic} hidden={status === "HIDDEN"} pending={publish.isPending} onClose={() => setConfirm(null)} onConfirm={() => void doPublish()} />
 
       <Modal
         open={confirm === "propose"}

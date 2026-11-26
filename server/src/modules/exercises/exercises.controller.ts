@@ -170,6 +170,20 @@ export const deleteExercise = async (
     handleError(error, res, next);
   }
 };
+export const publishExercise = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) return failure(res, "UNAUTHORIZED", "Vui lòng đăng nhập", 401);
+
+    const id = parseExerciseId(req, res);
+    if (id === null) return;
+
+    const published = await exercisesService.publishExercise(req.user, id);
+    return success(res, published, 200);
+  } catch (error) {
+    handleError(error, res, next);
+  }
+};
+
 // POST /api/v1/exercises/:id/propose
 // GV đề xuất bài DRAFT của mình: DRAFT -> PROPOSED. Không có body.
 export const proposeExercise = async (

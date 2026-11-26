@@ -30,8 +30,11 @@ export const getStudentExercise = (id: number) => unwrap<StudentExercise>(api.ge
 /** Thời gian chờ tối đa khi nhờ AI sinh bài: backend có thể gọi mô hình hai lần */
 export const GENERATE_TIMEOUT_MS = 60_000;
 
-/** POST /exercises/generate: AI soạn MỘT bài và lưu ngay ở trạng thái DRAFT (source AI). Trả 201 kèm bài vừa lưu. */
+/** AI soạn một bài. Admin xuất bản ngay, giáo viên nhận bản nháp. */
 export const generateExercise = (body: GenerateExercisePayload) => unwrap<ExerciseListItem>(api.post("/exercises/generate", body, { timeout: GENERATE_TIMEOUT_MS }));
+
+/** POST /exercises/:id/publish: admin đưa bài nháp của admin hoặc bài đã ẩn vào thư viện. */
+export const publishExercise = (id: number) => unwrap<ExerciseListItem>(api.post(`/exercises/${id}/publish`));
 
 /** POST /exercises/:id/approve (quản trị viên): PROPOSED -> PUBLISHED và vào thư viện. 409 nếu bài không còn ở trạng thái chờ duyệt. */
 export const approveExercise = (id: number) => unwrap<ExerciseListItem>(api.post(`/exercises/${id}/approve`));
