@@ -10,6 +10,7 @@ import { SPEAKING_SUBMIT_TIMEOUT_MS, submitAttempt, uploadAttemptAudio } from ".
 import { formatDate, formatTime } from "../../utils/format";
 import { ANY_SKILL_META } from "../student/skillMeta";
 import { ASSIGNMENTS_KEY } from "../student/useAssignments";
+import { SKILL_PROFILE_KEY } from "../student/useSkillProfile";
 import { DynamicExerciseView } from "./ExerciseView";
 import { BackLink } from "./RunnerShell";
 import ReportExerciseButton from "./ReportExerciseButton";
@@ -125,6 +126,7 @@ export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseR
       finished.current = true;
       draft.clear(); // nộp xong (kể cả khi AI chưa chấm được vì bài đã lưu trên máy chủ) thì bỏ nháp
       void queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY });
+      if (outcome.result.graded) void queryClient.invalidateQueries({ queryKey: SKILL_PROFILE_KEY });
       if (assignment) void queryClient.invalidateQueries({ queryKey: assignmentDetailKey(assignment.assignmentId) });
       let state: { gradingError?: typeof outcome.gradingError; exam?: { durationSec: number; usedSec: number; timedOut: boolean } } | undefined;
       if (outcome.gradingError) state = { gradingError: outcome.gradingError };
@@ -334,7 +336,7 @@ export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseR
 
       {nothingSent && (
         <section role="alert" className="mt-6 rounded-3xl border border-red-200 bg-red-50 p-6 text-center">
-          <p className="font-heading text-xl font-bold text-red-700">Hết giờ</p>
+          <p className="font-heading text-xl font-extrabold text-red-700">Hết giờ</p>
           <p className="mt-1 text-sm font-semibold text-red-700">{nothingReason} Hết giờ nên hệ thống không nộp bài nào.</p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <Button onClick={restartExam}>Làm lại</Button>

@@ -7,8 +7,8 @@
  * Hạn chế đã biết:
  * - Chỉ đọc tối đa MAX_ATTEMPTS_READ attempt gần nhất của kỹ năng; bài rất cũ có thể
  *   mất attempt điểm cao nhất, và attempt chưa chấm vẫn chiếm chỗ trong giới hạn này.
- * - skill_profiles.score là NOT NULL nên khi không còn điểm hợp lệ, hàm KHÔNG ghi gì:
- *   chưa có dòng thì không tạo, đã có dòng thì giữ nguyên dòng cũ (T15 cần xử lý hiển thị).
+ * - Khi không còn điểm hợp lệ, giữ hồ sơ cũ theo mặc định. Luồng gỡ điểm giáo viên có thể
+ *   yêu cầu xóa dòng hồ sơ của kỹ năng vì skill_profiles.score là NOT NULL.
  */
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { env } from "../../config/env";
@@ -21,7 +21,7 @@ import { calcProfileScore } from "./skill-profiles.score";
 type StudentId = Parameters<typeof fetchSkillAttempts>[1];
 type SkillKey = Parameters<typeof fetchSkillAttempts>[2];
 
-export type RecomputeOptions = { windowSize?: number };
+export type RecomputeOptions = { windowSize?: number; clearWhenUnscored?: boolean };
 
 function resolveWindowSize(opts?: RecomputeOptions): number {
   const n = opts?.windowSize ?? env.SKILL_WINDOW_SIZE;
@@ -55,7 +55,12 @@ export async function recomputeSkillProfile(
     // Điểm của mỗi bài = COALESCE(teacher_score, score). window đã bỏ attempt không có điểm hợp lệ.
     const windowScores = window.map((a) => a.teacherScore ?? a.score);
     const score = calcProfileScore(windowScores, windowSize);
-    if (score === null) return null; // không có điểm hợp lệ: không ghi gì (câu (c))
+    if (score === null) {
+      if (opts?.clearWhenUnscored) {
+        await tx.skillProfile.deleteMany({ where: { studentId, skill } });
+      }
+      return null;
+    }
 
     const level = scoreToLevel(score, window.length);
     const errorStats = mergeErrorStats(window);

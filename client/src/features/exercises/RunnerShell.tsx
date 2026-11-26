@@ -28,8 +28,13 @@ export function PageSkeleton({ rows = 3 }: { rows?: number }) {
   );
 }
 
-/** Lỗi tải: hiện đúng message của server (ví dụ "Không tìm thấy bài tập"), có nút Thử lại và đường quay về */
-export function PageError({ error, onRetry, backTo, backLabel }: { error: unknown; onRetry: () => void; backTo: string; backLabel: string }) {
+/** Hiện lỗi và đường quay về. Chỉ hiện nút Thử lại khi có thao tác tải lại. */
+export function PageError({ error, onRetry, backTo, backLabel }: {
+  error: unknown;
+  onRetry?: () => void;
+  backTo: string;
+  backLabel: string;
+}) {
   return (
     <div className="mx-auto max-w-4xl px-5 py-8 lg:px-8">
       <BackLink to={backTo}>{backLabel}</BackLink>
@@ -40,9 +45,11 @@ export function PageError({ error, onRetry, backTo, backLabel }: { error: unknow
         <p className="mt-3 font-heading text-lg font-bold text-red-700">Không mở được trang này</p>
         <p className="mt-1 text-sm font-semibold text-red-700">{getErrorMessage(error, "Đã có lỗi xảy ra, vui lòng thử lại.")}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
-          <Button variant="outline" onClick={onRetry}>
-            Thử lại
-          </Button>
+          {onRetry && (
+            <Button variant="outline" onClick={onRetry}>
+              Thử lại
+            </Button>
+          )}
           <Button to={backTo}>{backLabel}</Button>
         </div>
       </div>

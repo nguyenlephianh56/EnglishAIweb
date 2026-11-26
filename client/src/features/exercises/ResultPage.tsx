@@ -6,6 +6,7 @@ import Button from "../../components/ui/Button";
 import Notice from "../account/Notice";
 import { getErrorMessage } from "../../api/client";
 import { regradeAttempt } from "../../api/attempts";
+import { SKILL_PROFILE_KEY } from "../student/useSkillProfile";
 import { formatDateTime, formatScore } from "../teacher/grading/gradingMeta";
 import { formatClock } from "./exam/examConfig";
 import { BackLink, PageError, PageSkeleton } from "./RunnerShell";
@@ -42,6 +43,7 @@ export default function ResultPage() {
     onSuccess: (out) => {
       setGradingMessage(out.gradingError?.message);
       qc.invalidateQueries({ queryKey: attemptKey(attemptId) });
+      if (out.result.graded) void qc.invalidateQueries({ queryKey: SKILL_PROFILE_KEY });
     },
     onError: (e) => setRegradeError(getErrorMessage(e)),
   });
@@ -80,7 +82,7 @@ export default function ResultPage() {
       <BackLink to={backTo}>{backLabel}</BackLink>
 
       <header className="mt-4">
-        <h1 className="font-heading text-2xl font-bold text-slate-900 sm:text-3xl">Kết quả bài làm</h1>
+        <h1 className="font-heading text-2xl font-extrabold text-slate-900 sm:text-3xl">Kết quả bài làm</h1>
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
           {exercise && <span className="font-semibold text-slate-700">{exercise.topic}</span>}
           <span>Lần {attempt.attemptNo}</span>

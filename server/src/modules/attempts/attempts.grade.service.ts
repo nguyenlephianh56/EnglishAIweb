@@ -9,6 +9,7 @@ import {
   createTeacherEditNotification,
   type TeacherEditNotifyInput,
 } from "../notifications/notifications.teacher-edit.service";
+import { refreshProfileAfterGrading } from "../skill-profiles/skill-profiles.refresh";
 import { finalScoreOf } from "./attempt-list";
 import type { TeacherGradeInput } from "./attempts.grade.schema";
 
@@ -58,6 +59,7 @@ type TeacherGradeNotify =
 type TeacherGradeOutcome = {
   result: TeacherGradeResult;
   notify: TeacherGradeNotify | null;
+  finalScoreChanged: boolean;
 };
 
 export async function updateTeacherGrade(
@@ -134,10 +136,17 @@ export async function updateTeacherGrade(
         max_score: before.max_score,
       },
       notify,
+      finalScoreChanged: finalBefore !== finalAfter,
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
   if (outcome === null) return null;
+
+  if (outcome.finalScoreChanged) {
+    await refreshProfileAfterGrading(prisma, outcome.result.id, {
+      clearWhenUnscored: outcome.result.final_score === null,
+    });
+  }
 
   const { notify } = outcome;
   if (notify !== null) {
