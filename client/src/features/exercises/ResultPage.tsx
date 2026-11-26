@@ -6,8 +6,9 @@ import Button from "../../components/ui/Button";
 import Notice from "../account/Notice";
 import { getErrorMessage } from "../../api/client";
 import { regradeAttempt } from "../../api/attempts";
+import { formatPracticeSubmissionTime, PRACTICE_HISTORY_KEY } from "../student/practiceHistory";
 import { SKILL_PROFILE_KEY } from "../student/useSkillProfile";
-import { formatDateTime, formatScore } from "../teacher/grading/gradingMeta";
+import { formatDateTime, formatScore, isAiGradedType } from "../teacher/grading/gradingMeta";
 import { formatClock } from "./exam/examConfig";
 import { BackLink, PageError, PageSkeleton } from "./RunnerShell";
 import ReportExerciseButton from "./ReportExerciseButton";
@@ -17,12 +18,13 @@ import SpeakingResult from "./SpeakingResult";
 import WritingResult from "./WritingResult";
 import type { GradingError, StudentExercise } from "../../types/attempt";
 
-/** Trang kết quả một lần nộp: /student/results/:attemptId. Luôn lấy qua GET /attempts/:id nên tải lại trang vẫn xem được. */
-export default function ResultPage() {
+/** Kết quả lần nộp, dùng chung sau khi nộp bài và khi mở từ lịch sử. */
+export default function ResultPage({ fromHistory = false }: { fromHistory?: boolean }) {
   const params = useParams();
   const attemptId = Number(params.attemptId);
   const location = useLocation();
   const qc = useQueryClient();
+  const historyTo = `/student/history${location.search}`;
   const navState = location.state as { gradingError?: GradingError; exam?: { durationSec?: unknown; usedSec?: unknown; timedOut?: unknown } } | null;
   const gradingFromNav = navState?.gradingError;
   // Chỉ có khi vừa nộp từ thi thử; tải lại trang thì không còn
@@ -30,10 +32,10 @@ export default function ResultPage() {
   const [gradingMessage, setGradingMessage] = useState<string | undefined>(gradingFromNav?.message);
   const [regradeError, setRegradeError] = useState<string>();
 
-  const attemptQ = useAttemptDetail(attemptId);
+  const attemptQ = useAttemptDetail(attemptId, fromHistory);
   const attempt = attemptQ.data;
   const assignmentId = attempt?.assignmentId ?? 0;
-  const practiceId = attempt && attempt.assignmentId === null ? attempt.exerciseId : 0;
+  const practiceId = !fromHistory && attempt && attempt.assignmentId === null ? attempt.exerciseId : 0;
   const assignmentQ = useAssignmentDetail(assignmentId);
   const practiceQ = usePracticeExercise(practiceId);
 
@@ -43,21 +45,24 @@ export default function ResultPage() {
     onSuccess: (out) => {
       setGradingMessage(out.gradingError?.message);
       qc.invalidateQueries({ queryKey: attemptKey(attemptId) });
+      void qc.invalidateQueries({ queryKey: PRACTICE_HISTORY_KEY });
       if (out.result.graded) void qc.invalidateQueries({ queryKey: SKILL_PROFILE_KEY });
     },
     onError: (e) => setRegradeError(getErrorMessage(e)),
   });
 
+  const fallbackTo = fromHistory ? historyTo : "/student/library";
+  const fallbackLabel = fromHistory ? "Về lịch sử làm bài" : "Về thư viện";
   if (!Number.isInteger(attemptId) || attemptId <= 0) {
-    return <PageError error={new Error("Không tìm thấy kết quả này.")} backTo="/student/library" backLabel="Về thư viện" />;
+    return <PageError error={new Error("Không tìm thấy kết quả này.")} backTo={fallbackTo} backLabel={fallbackLabel} />;
   }
   if (attemptQ.isLoading) return <PageSkeleton rows={2} />;
   if (attemptQ.isError || !attempt) {
-    return <PageError error={attemptQ.error} onRetry={() => attemptQ.refetch()} backTo="/student/library" backLabel="Về thư viện" />;
+    return <PageError error={attemptQ.error} onRetry={() => attemptQ.refetch()} backTo={fallbackTo} backLabel={fallbackLabel} />;
   }
 
   const isAssignment = attempt.assignmentId !== null;
-  const exercise: StudentExercise | undefined = isAssignment ? assignmentQ.data?.exercise : practiceQ.data;
+  const exercise: StudentExercise | undefined = attempt.reviewExercise ?? (isAssignment ? assignmentQ.data?.exercise : practiceQ.data);
   const assignment = assignmentQ.data;
   const submitted = attempt.submittedAnswer as { text?: unknown } | null;
   const exerciseLoading = isAssignment ? assignmentQ.isLoading : practiceQ.isLoading;
@@ -72,10 +77,12 @@ export default function ResultPage() {
   const percent = shown !== null && attempt.maxScore > 0 ? Math.min(100, Math.max(0, (shown / attempt.maxScore) * 100)) : 0;
   const adjusted = attempt.teacherScore !== null || (attempt.finalScore !== null && attempt.finalScore !== attempt.score);
 
-  const backTo = isAssignment ? "/student/assigned" : "/student/library";
-  const backLabel = isAssignment ? "Về bài được giao" : "Về thư viện";
+  const backTo = isAssignment ? "/student/assigned" : fallbackTo;
+  const backLabel = isAssignment ? "Về bài được giao" : fallbackLabel;
   const attemptsLeft = assignment ? assignment.maxAttempts - assignment.attemptsUsed : attempt.attemptNo < 3 ? 1 : 0;
-  const retakeTo = isAssignment ? (attemptsLeft > 0 ? `/student/assigned/${attempt.assignmentId}` : null) : `/student/library/${attempt.exerciseId}`;
+  const retakeTo = isAssignment
+    ? (attemptsLeft > 0 ? `/student/assigned/${attempt.assignmentId}` : null)
+    : (attempt.canRetake === false ? null : `/student/library/${attempt.exerciseId}`);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-8 lg:px-8">
@@ -88,7 +95,9 @@ export default function ResultPage() {
           <span>Lần {attempt.attemptNo}</span>
           <span className="inline-flex items-center gap-1">
             <Clock className="size-4" aria-hidden="true" />
-            {formatDateTime(attempt.submittedAt)}
+            <time dateTime={attempt.submittedAt}>
+              {fromHistory ? formatPracticeSubmissionTime(attempt.submittedAt) : formatDateTime(attempt.submittedAt)}
+            </time>
           </span>
           {attempt.isLate && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">Nộp trễ</span>}
         </p>
@@ -105,6 +114,11 @@ export default function ResultPage() {
       )}
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-label="Điểm số">
+        {fromHistory && exercise && (
+          <p className="mb-1 text-sm font-semibold text-slate-600">
+            {isAiGradedType(exercise.type) ? "Điểm AI" : "Điểm chấm tự động"}
+          </p>
+        )}
         {pending ? (
           <p className="font-heading text-3xl font-extrabold text-slate-400">Đang chờ chấm</p>
         ) : (
@@ -181,7 +195,9 @@ export default function ResultPage() {
         <Button to={backTo} variant="outline">
           {backLabel}
         </Button>
-        {/* "Xem lịch sử các lần làm": tạm ẩn vì chưa có trang lịch sử */}
+        {!fromHistory && !isAssignment && (
+          <Button to="/student/history" variant="outline">Xem lịch sử làm bài</Button>
+        )}
       </div>
       {isAssignment && !retakeTo && <p className="mt-3 text-sm text-slate-500">Em đã dùng hết lượt làm bài này.</p>}
     </div>

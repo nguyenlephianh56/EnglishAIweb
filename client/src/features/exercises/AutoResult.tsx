@@ -6,17 +6,17 @@ import type { AnswerableExerciseType, ExerciseContentMap } from "../../types/exe
 import type { AttemptDetail, StudentExercise } from "../../types/attempt";
 
 /**
- * Kết quả bài chấm tự động: hiện lại bài với đúng/sai từng câu (renderer chế độ review).
- * Đáp án chỉ có khi được lộ (tự luyện: ngay; bài giao: sau hạn nộp); chưa lộ thì chỉ hiện bài đã làm và dòng báo.
+ * Hiện lại bài làm đã nộp. Nếu API cung cấp đáp án thì đối chiếu từng câu.
  */
 export default function AutoResult({ attempt, exercise }: { attempt: AttemptDetail; exercise: StudentExercise | undefined }) {
   const revealed = attempt.answer !== undefined && attempt.answer !== null;
+  const awaitingDeadline = attempt.assignmentId !== null && !revealed && attempt.explanation === undefined;
 
   if (!exercise || !isAnswerableType(exercise.type)) {
     return (
       <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-600">
         Không tải được nội dung bài để xem lại. Điểm của em vẫn được lưu ở trên.
-        {!revealed && " Đáp án sẽ hiện sau hạn nộp."}
+        {awaitingDeadline && " Đáp án sẽ hiện sau hạn nộp."}
       </p>
     );
   }
@@ -31,7 +31,7 @@ export default function AutoResult({ attempt, exercise }: { attempt: AttemptDeta
 
   return (
     <div>
-      {!revealed && (
+      {awaitingDeadline && (
         <p role="status" className="mb-5 flex items-start gap-2 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm font-semibold text-sky-800">
           <Info className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           Đáp án sẽ hiện sau hạn nộp. Trong lúc chờ, em chỉ xem được điểm và bài mình đã làm.
@@ -62,7 +62,7 @@ export default function AutoResult({ attempt, exercise }: { attempt: AttemptDeta
         result={revealed ? { correctAnswer: attempt.answer, explanation } : undefined}
       />
 
-      {revealed && detailed.length > 0 && (
+      {detailed.length > 0 && (
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <p className="text-sm font-bold text-slate-900">Giải thích chi tiết</p>
           <ul className="mt-3 space-y-3 text-sm text-slate-700">

@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getStudentExercise } from "../../api/exercises";
 import { getStudentAssignment } from "../../api/assignments";
 import { getAttempt } from "../../api/attempts";
+import type { AttemptDetail } from "../../types/attempt";
+import { getPracticeHistoryAttempt } from "../student/practiceHistory";
+import type { PracticeHistoryDetail } from "../student/practiceHistory";
 
 const validId = (id: number) => Number.isInteger(id) && id > 0;
 
@@ -18,4 +21,10 @@ export const useAssignmentDetail = (id: number) =>
   useQuery({ queryKey: assignmentDetailKey(id), queryFn: () => getStudentAssignment(id), enabled: validId(id), retry: false, staleTime: 15 * 1000 });
 
 /** Một lần nộp (GET /attempts/:id) */
-export const useAttemptDetail = (id: number) => useQuery({ queryKey: attemptKey(id), queryFn: () => getAttempt(id), enabled: validId(id), retry: false });
+export const useAttemptDetail = (id: number, fromHistory = false) =>
+  useQuery<AttemptDetail & Partial<Pick<PracticeHistoryDetail, "reviewExercise" | "canRetake">>>({
+    queryKey: fromHistory ? [...attemptKey(id), "history"] : attemptKey(id),
+    queryFn: () => fromHistory ? getPracticeHistoryAttempt(id) : getAttempt(id),
+    enabled: validId(id),
+    retry: false,
+  });

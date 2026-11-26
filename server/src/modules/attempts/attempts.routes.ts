@@ -22,6 +22,7 @@ import { createCommentSuggestionRouter } from "./attempts.suggest.routes";
 import { runCommentSuggestion } from "./attempts.suggest.service";
 import { createAttemptReviewRouter } from "./attempts.review.routes";
 import { findAttemptReview } from "./attempts.review.service";
+import { practiceHistoryRoutes } from "./practice-history.routes";
 
 export const attemptRoutes = Router();
 
@@ -68,6 +69,8 @@ attemptRoutes.get(
   validateQuery(listAttemptsQuerySchema),
   attemptsController.listAttempts
 );
+
+attemptRoutes.use("/practice-history", practiceHistoryRoutes);
 
 // GET /api/v1/attempts/:id  (chi tiết 1 lần nộp của CHÍNH HS; chỉ STUDENT)
 // Đặt sau route "/" ở trên. Quyền kiểm TRƯỚC khi kiểm :id, để GV/Admin luôn nhận 403.

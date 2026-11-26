@@ -11,6 +11,7 @@ import PendingPage from "../features/auth/PendingPage";
 import HomePage from "../features/student/HomePage";
 import AccountPage from "../features/account/AccountPage";
 import LibraryPage from "../features/student/LibraryPage";
+import PracticeHistoryPage from "../features/student/PracticeHistoryPage";
 import ProfilePage from "../features/student/ProfilePage";
 import AssignedPage from "../features/student/AssignedPage";
 import NotificationsPage from "../features/student/NotificationsPage";
@@ -68,6 +69,8 @@ export const router = createBrowserRouter([
           { path: "assigned/:assignmentId", element: <AssignmentExercisePage /> },
           { path: "results/:attemptId", element: <ResultPage /> },
           { path: "library", element: <LibraryPage /> },
+          { path: "history", element: <PracticeHistoryPage /> },
+          { path: "history/:attemptId", element: <ResultPage fromHistory /> },
           { path: "library/:id", element: <PracticePage /> },
           { path: "library/:id/exam", element: <ExamPage /> },
           { path: "profile", element: <ProfilePage /> },
