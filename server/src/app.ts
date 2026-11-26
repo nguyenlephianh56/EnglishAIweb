@@ -5,6 +5,7 @@ import { prisma } from "./config/prisma";
 import { getAiDailyLimitsConfig } from "./ai/ai.usage.settings";
 import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
+import { userRoutes } from "./modules/users/users.routes";
 import { adminRoutes } from "./modules/admin/admin.routes";
 import { analysisRoutes } from "./modules/analysis/analysis.routes";
 import { analyticsRoutes } from "./modules/analytics/analytics.routes";
@@ -66,6 +67,7 @@ app.get("/api/v1/health/db", async (_req, res) => {
 
 // Auth routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
 
 // Admin routes
 app.use("/api/v1/admin", adminRoutes);

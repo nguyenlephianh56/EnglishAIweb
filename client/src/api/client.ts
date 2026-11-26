@@ -38,9 +38,9 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Đăng nhập/đăng ký/đổi mật khẩu sai thông tin cũng có thể trả 401 nhưng KHÔNG phải phiên hết hạn:
+// Đăng nhập/đăng ký sai thông tin cũng có thể trả 401 nhưng KHÔNG phải phiên hết hạn:
 // bỏ qua để không xóa token hay phát sự kiện, trang chỉ cần hiện thông báo lỗi.
-const isAuthAttempt = (url = "") => url.startsWith("/auth/login") || url.startsWith("/auth/register") || url.startsWith("/users/me/password");
+const isAuthAttempt = (url = "") => url.startsWith("/auth/login") || url.startsWith("/auth/register");
 
 // 401 = token hết hạn/không hợp lệ: xóa token và báo cho useAuth
 api.interceptors.response.use(

@@ -1,14 +1,7 @@
 import { api, unwrap } from "./client";
 import type { AuthUser } from "../types/auth";
 
-// ============================================================================
-// TODO: nối khi backend xong. Hiện backend CHƯA có hai API này (module users còn trống).
-// Hợp đồng đề xuất (bật cờ trong features/account/config.ts sau khi backend làm xong):
-//   PATCH /users/me           body { name }                         -> data = AuthUser mới
-//   POST  /users/me/password  body { currentPassword, newPassword } -> data = null
-// Mật khẩu hiện tại sai nên trả 400 (không phải 401) để không bị hiểu là hết phiên.
-// ============================================================================
-
+// PATCH /users/me sẽ được bật khi có API cập nhật hồ sơ.
 export interface UpdateProfilePayload {
   name: string;
 }
