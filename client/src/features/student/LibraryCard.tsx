@@ -1,7 +1,7 @@
-import { ArrowRight, BookOpen, Headphones, Layers, Mic, PenLine } from "lucide-react";
+import { ArrowRight, BookOpen, Headphones, Layers, Mic, PenLine, Timer } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Button from "../../components/ui/Button";
-import { exerciseTypeLabel } from "../exercises/registry";
+import { exerciseTypeLabel, isAnswerableType } from "../exercises/registry";
 import type { ExerciseSummary, LibrarySkill } from "../../types/library";
 
 // Màu phần đầu thẻ theo kỹ năng: nền nhạt, màu nhãn, màu ô icon
@@ -40,17 +40,26 @@ export default function LibraryCard({ exercise: e }: LibraryCardProps) {
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">{e.level}</span>
         </div>
-        <h3 className="mt-3 font-heading text-lg font-bold text-slate-900">{e.topic}</h3>
+        <h3 className="mt-3 break-words font-heading text-lg font-bold text-slate-900">{e.topic}</h3>
         <p className="mt-1.5 text-sm text-slate-500">{exerciseTypeLabel(e.type)}</p>
 
         <div className="mt-auto pt-5">
           {e.questionCount !== null && (
             <p className="border-t border-slate-100 pt-4 text-xs text-slate-500">{e.questionCount === "AI chấm" ? "AI chấm" : `${e.questionCount} câu`}</p>
           )}
-          <div className="mt-4">
-            <Button to={`/student/library/${e.id}`} fullWidth rightIcon={<ArrowRight />}>
-              Bắt đầu
-            </Button>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <div className="sm:min-w-[8rem] sm:flex-1">
+              <Button to={`/student/library/${e.id}`} fullWidth rightIcon={<ArrowRight />}>
+                Bắt đầu
+              </Button>
+            </div>
+            {isAnswerableType(e.type) && (
+              <div className="sm:min-w-[8rem] sm:flex-1">
+                <Button to={`/student/library/${e.id}/exam`} variant="outline" fullWidth leftIcon={<Timer />}>
+                  Thi thử
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

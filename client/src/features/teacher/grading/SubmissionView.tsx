@@ -101,7 +101,7 @@ function AutoView({ review }: { review: AttemptReview }) {
     answer: exercise.answer,
     explanation: exercise.explanation,
     exerciseId: exercise.id,
-    assignmentId: review.assignment.id,
+    assignmentId: review.assignment?.id,
     mode: "assignment",
     attemptNo: 0,
     submittedAnswer: review.submitted_answer,

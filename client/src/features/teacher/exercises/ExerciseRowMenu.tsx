@@ -92,7 +92,7 @@ export default function ExerciseRowMenu({ exercise, isOwner, busy, onPropose, on
         aria-label={`Thao tác với bài “${exercise.topic}”`}
         disabled={busy}
         onClick={toggle}
-        className="grid size-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:text-slate-300"
+        className="grid size-11 place-items-center rounded-lg text-slate-500 sm:size-9 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25 disabled:cursor-not-allowed disabled:text-slate-300"
       >
         <MoreHorizontal className="size-5" aria-hidden="true" />
       </button>

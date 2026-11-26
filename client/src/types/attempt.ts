@@ -66,6 +66,8 @@ export interface SubmitAttemptBody {
   assignmentId?: number;
   /** Đúng dạng backend nhận (xem registry.toPayload). Bài Nói: { audio_id } */
   answer: unknown;
+  /** Chỉ đặt khi thi thử; chỉ được gửi đi nếu SEND_EXAM_MODE (api/attempts.ts) bật */
+  mode?: "exam";
 }
 
 /** Kết quả POST /attempts (và POST /attempts/:id/regrade) sau khi gộp hai dạng 200/201 và 202 */

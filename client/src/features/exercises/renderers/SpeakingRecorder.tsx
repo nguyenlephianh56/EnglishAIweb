@@ -87,6 +87,12 @@ export default function SpeakingRecorder({ content, value, onChange, mode, disab
     [releaseMic],
   );
 
+  // Bị khóa khi đang ghi (hết giờ thi thử): dừng ghi để lấy bản ghi đã có
+  useEffect(() => {
+    const rec = recorderRef.current;
+    if (disabled && recording && rec && rec.state !== "inactive") rec.stop();
+  }, [disabled, recording]);
+
   // Đường dẫn tạm để nghe lại; thu hồi khi đổi bản ghi hoặc gỡ component
   const blob = value?.blob ?? null;
   useEffect(() => {

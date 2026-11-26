@@ -59,7 +59,7 @@ export default function ListeningFill({ content, value, onChange, mode, disabled
       aria-label={`Chỗ trống số ${i + 1}`}
       aria-invalid={verdict && !verdict[i] ? true : undefined}
       onChange={(e) => setAt(i, e.target.value)}
-      className={`h-10 ${width} rounded-lg border-2 px-3 text-[15px] font-semibold outline-none transition-colors focus:ring-4 disabled:cursor-default ${
+      className={`h-10 ${width} rounded-lg border-2 px-3 text-base sm:text-[15px] font-semibold outline-none transition-colors focus:ring-4 disabled:cursor-default ${
         verdict
           ? verdict[i]
             ? "border-green-500 bg-green-50 text-green-800 focus:ring-green-500/20"

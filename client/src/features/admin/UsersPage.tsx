@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { CircleAlert, Lock, LockOpen, Search, UserCheck, UserX } from "lucide-react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { CircleAlert, Eye, Lock, LockOpen, Search, UserCheck, UserX } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Modal from "../../components/ui/Modal";
@@ -57,6 +57,8 @@ export default function UsersPage() {
   const [search, setSearch] = useSearchParams();
   const users = useAdminUsers();
   const actions = useUserActions();
+  // Thông báo từ trang chi tiết (ví dụ vừa xóa tài khoản)
+  const flash = (useLocation().state as { notice?: string } | null)?.notice;
 
   const roleParam = search.get("role");
   const statusParam = search.get("status");
@@ -104,6 +106,11 @@ export default function UsersPage() {
       <h1 className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Tài khoản</h1>
       <p className="mt-2 text-slate-500">Duyệt giáo viên mới, khóa hoặc mở khóa tài khoản người dùng.</p>
 
+      {flash && (
+        <div className="mt-6">
+          <Notice type="success">{flash}</Notice>
+        </div>
+      )}
       {actions.notice && (
         <div className="mt-6">
           <Notice type={actions.notice.type}>{actions.notice.text}</Notice>
@@ -123,7 +130,7 @@ export default function UsersPage() {
               id="users-role"
               value={role}
               onChange={(e) => setParam("role", e.target.value)}
-              className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
+              className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-base sm:text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20"
             >
               <option value="all">Mọi vai trò</option>
               {ROLES.map((r) => (
@@ -218,7 +225,16 @@ export default function UsersPage() {
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatDate(new Date(u.createdAt))}</td>
                         <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                          <Link
+                            to={`/admin/users/${u.id}`}
+                            className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 sm:h-9 text-xs font-bold text-brand hover:bg-brand-light focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/25"
+                          >
+                            <Eye className="size-4" aria-hidden="true" />
+                            Chi tiết<span className="sr-only"> của {u.name}</span>
+                          </Link>
                           <RowActions user={u} selfId={me?.id} busyId={actions.busyId} onApprove={() => actions.run("approve", u)} onLock={() => setLocking(u)} onUnlock={() => actions.run("unlock", u)} />
+                          </div>
                         </td>
                       </tr>
                     ))}

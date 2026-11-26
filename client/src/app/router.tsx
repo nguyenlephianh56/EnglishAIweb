@@ -16,6 +16,7 @@ import AssignedPage from "../features/student/AssignedPage";
 import NotificationsPage from "../features/student/NotificationsPage";
 import PathPage from "../features/student/PathPage";
 import PracticePage from "../features/exercises/PracticePage";
+import ExamPage from "../features/exercises/exam/ExamPage";
 import AssignmentExercisePage from "../features/exercises/AssignmentExercisePage";
 import ResultPage from "../features/exercises/ResultPage";
 import TeacherOverviewPage from "../features/teacher/OverviewPage";
@@ -40,6 +41,7 @@ import AdminLibraryPage from "../features/admin/LibraryPage";
 import ProposalsPage from "../features/admin/ProposalsPage";
 import StatsPage from "../features/admin/StatsPage";
 import UsersPage from "../features/admin/UsersPage";
+import AdminUserDetailPage from "../features/admin/AdminUserDetailPage";
 
 // Trang xem thử thành phần bài tập: chỉ đăng ký khi chạy `npm run dev`, bản build không có
 const DevExercisesPage = import.meta.env.DEV ? lazy(() => import("../features/exercises/DevExercisesPage")) : null;
@@ -67,6 +69,7 @@ export const router = createBrowserRouter([
           { path: "results/:attemptId", element: <ResultPage /> },
           { path: "library", element: <LibraryPage /> },
           { path: "library/:id", element: <PracticePage /> },
+          { path: "library/:id/exam", element: <ExamPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "path", element: <PathPage /> },
           { path: "notifications", element: <NotificationsPage /> },
@@ -110,6 +113,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <OverviewPage /> },
           { path: "users", element: <UsersPage /> },
+          { path: "users/:id", element: <AdminUserDetailPage /> },
           { path: "library", element: <AdminLibraryPage /> },
           { path: "library/new", element: <NewExercisePage /> },
           { path: "library/ai", element: <GenerateExercisePage /> },

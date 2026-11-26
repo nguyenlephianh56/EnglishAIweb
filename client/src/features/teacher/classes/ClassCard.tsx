@@ -13,7 +13,7 @@ function AvatarStack({ count }: { count: number }) {
   const shown = Math.min(count, MAX_AVATARS);
   const rest = count - shown;
   return (
-    <div className="absolute bottom-4 left-4 flex -space-x-2" aria-hidden="true">
+    <div className="absolute bottom-4 left-2 flex -space-x-2 sm:left-4" aria-hidden="true">
       {Array.from({ length: shown }, (_, i) => (
         <span key={i} className="grid size-8 place-items-center rounded-full border-2 border-white/80 bg-white/90 text-slate-500">
           <User className="size-4" />
@@ -27,20 +27,20 @@ function AvatarStack({ count }: { count: number }) {
 export default function ClassCard({ item: c }: { item: ClassSummary }) {
   return (
     <article className="flex overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className={`relative w-28 shrink-0 overflow-hidden sm:w-40 ${classGradient(c.id)}`} aria-hidden="true">
+      <div className={`relative w-24 shrink-0 overflow-hidden sm:w-40 ${classGradient(c.id)}`} aria-hidden="true">
         <span className="absolute -right-10 -top-10 size-32 rounded-full bg-white/10" />
         <span className="absolute -right-4 top-6 size-20 rounded-full bg-white/10" />
         <span className="absolute inset-0 grid place-items-center px-2 font-heading text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{classAbbr(c.name)}</span>
         <AvatarStack count={c.studentCount} />
       </div>
 
-      <div className="min-w-0 flex-1 p-5">
+      <div className="min-w-0 flex-1 p-4 sm:p-5">
         <h2 className="truncate font-heading text-lg font-bold text-slate-900" title={c.name}>
           {c.name}
         </h2>
         <p className="mt-1 text-sm text-slate-500">{formatNumber(c.studentCount)} học sinh</p>
 
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-slate-50 px-3 py-2.5">
           <p className="min-w-0 text-xs text-slate-500">
             Mã lớp <span className="ml-1.5 font-mono text-sm font-bold tracking-wider text-slate-900">{c.code}</span>
           </p>

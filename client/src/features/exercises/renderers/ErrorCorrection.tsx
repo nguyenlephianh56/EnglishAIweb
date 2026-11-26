@@ -54,7 +54,7 @@ export default function ErrorCorrection({ content, value, onChange, mode, disabl
             placeholder="Nhập bản sửa..."
             aria-invalid={ok === false ? true : undefined}
             onChange={(e) => onChange([e.target.value])}
-            className={`h-12 w-full max-w-md rounded-xl border-2 px-4 text-[15px] outline-none transition-colors focus:ring-4 disabled:cursor-default ${
+            className={`h-12 w-full max-w-md rounded-xl border-2 px-4 text-base sm:text-[15px] outline-none transition-colors focus:ring-4 disabled:cursor-default ${
               ok === undefined
                 ? "border-slate-300 bg-white text-slate-900 focus:border-brand focus:ring-brand/20 disabled:bg-slate-50"
                 : ok

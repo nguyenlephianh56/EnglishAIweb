@@ -7,6 +7,7 @@ import Notice from "../account/Notice";
 import { getErrorMessage } from "../../api/client";
 import { regradeAttempt } from "../../api/attempts";
 import { formatDateTime, formatScore } from "../teacher/grading/gradingMeta";
+import { formatClock } from "./exam/examConfig";
 import { BackLink, PageError, PageSkeleton } from "./RunnerShell";
 import ReportExerciseButton from "./ReportExerciseButton";
 import { attemptKey, useAssignmentDetail, useAttemptDetail, usePracticeExercise } from "./useExerciseData";
@@ -21,7 +22,10 @@ export default function ResultPage() {
   const attemptId = Number(params.attemptId);
   const location = useLocation();
   const qc = useQueryClient();
-  const gradingFromNav = (location.state as { gradingError?: GradingError } | null)?.gradingError;
+  const navState = location.state as { gradingError?: GradingError; exam?: { durationSec?: unknown; usedSec?: unknown; timedOut?: unknown } } | null;
+  const gradingFromNav = navState?.gradingError;
+  // Chỉ có khi vừa nộp từ thi thử; tải lại trang thì không còn
+  const examInfo = typeof navState?.exam?.durationSec === "number" && typeof navState.exam.usedSec === "number" ? { durationSec: navState.exam.durationSec, usedSec: navState.exam.usedSec, timedOut: navState.exam.timedOut === true } : null;
   const [gradingMessage, setGradingMessage] = useState<string | undefined>(gradingFromNav?.message);
   const [regradeError, setRegradeError] = useState<string>();
 
@@ -88,6 +92,15 @@ export default function ResultPage() {
         </p>
         <ReportExerciseButton exerciseId={attempt.exerciseId} />
       </header>
+
+      {examInfo && (
+        <div role="status" className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-800">
+          <p>
+            Thi thử: dùng {formatClock(examInfo.usedSec)} / {formatClock(examInfo.durationSec)}
+          </p>
+          {examInfo.timedOut && <p>Hết giờ, bài được tự động nộp</p>}
+        </div>
+      )}
 
       <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-label="Điểm số">
         {pending ? (

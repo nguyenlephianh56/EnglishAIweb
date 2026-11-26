@@ -74,7 +74,7 @@ function PromptsTab() {
                 }`}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-slate-900">{promptLabel(p.key)}</span>
+                  <span className="min-w-0 break-words font-bold text-slate-900">{promptLabel(p.key)}</span>
                   <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${p.is_default ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>{p.is_default ? "Mặc định" : "Đã chỉnh sửa"}</span>
                 </span>
                 <span className="mt-1 block text-xs text-slate-400">{p.updated_at ? `Cập nhật ${formatDate(new Date(p.updated_at))}` : "Chưa chỉnh sửa"}</span>
@@ -128,8 +128,8 @@ export default function AiConfigPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 lg:px-8">
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Cấu hình AI</h1>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-5 lg:px-8">
+      <h1 className="font-heading text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">Cấu hình AI</h1>
       <p className="mt-2 text-slate-500">Điều chỉnh prompt gửi cho AI và số lượt dùng AI mỗi ngày.</p>
 
       <div role="tablist" aria-label="Cấu hình AI" className="mt-6 flex flex-wrap gap-2">

@@ -22,3 +22,18 @@ export const isUserStatus = (v: string | null): v is UserStatus => v !== null &&
 
 /** Bỏ dấu và chữ hoa để tìm tên tiếng Việt: "Nguyễn" khớp "nguyen" */
 export const normalizeText = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/gi, "d").toLowerCase().trim();
+
+/** Tài khoản đã bị ẩn danh có email dạng deleted-<id>@deleted.invalid */
+export const isAnonymizedEmail = (email: string) => /^deleted-\d+@deleted\.invalid$/i.test(email);
+
+const MINUTE = 60 * 1000;
+/** "Vừa xong" / "5 phút trước" / "3 giờ trước" / "4 ngày trước"; quá 30 ngày thì ghi ngày dd/MM/yyyy */
+export function formatRelative(iso: string, now = Date.now()): string {
+  const d = new Date(iso);
+  const diff = now - d.getTime();
+  if (diff < MINUTE) return "Vừa xong";
+  if (diff < 60 * MINUTE) return `${Math.floor(diff / MINUTE)} phút trước`;
+  if (diff < 24 * 60 * MINUTE) return `${Math.floor(diff / (60 * MINUTE))} giờ trước`;
+  if (diff < 30 * 24 * 60 * MINUTE) return `${Math.floor(diff / (24 * 60 * MINUTE))} ngày trước`;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}

@@ -50,7 +50,7 @@ export default function WritingEditor({ content, value, onChange, mode, disabled
           placeholder={review ? undefined : "Viết bài của em ở đây..."}
           aria-describedby={`${id}-count`}
           onChange={(e) => onChange({ text: e.target.value })}
-          className="min-h-72 w-full resize-y rounded-2xl border-2 border-slate-300 bg-white p-4 text-[15px] leading-7 text-slate-900 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20 read-only:bg-slate-50 disabled:bg-slate-50 disabled:text-slate-500"
+          className="min-h-72 w-full resize-y rounded-2xl border-2 border-slate-300 bg-white p-4 text-base sm:text-[15px] leading-7 text-slate-900 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20 read-only:bg-slate-50 disabled:bg-slate-50 disabled:text-slate-500"
         />
 
         <div id={`${id}-count`} className="mt-3">

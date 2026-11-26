@@ -110,7 +110,7 @@ function ListeningExtra({ title, content }: { title: string; content: (typeof LI
 export default function DevExercisesPage() {
   const [locked, setLocked] = useState(false);
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-dvh bg-slate-50">
       <div className="mx-auto max-w-4xl px-5 py-8 lg:px-8">
         <Link to="/" className="text-sm font-bold text-slate-500 hover:text-brand">
           ← Về trang chủ

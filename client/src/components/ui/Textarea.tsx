@@ -27,7 +27,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textare
   const describedBy = [error ? errorId : hint ? hintId : null].filter(Boolean).join(" ") || undefined;
 
   const classes = [
-    "min-h-28 w-full resize-y rounded-xl border bg-white px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition-colors duration-150 placeholder:text-slate-400 focus:ring-4 read-only:bg-slate-50 read-only:text-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
+    "min-h-28 w-full resize-y rounded-xl border bg-white px-4 py-3 text-base sm:text-sm leading-6 text-slate-900 outline-none transition-colors duration-150 placeholder:text-slate-400 focus:ring-4 read-only:bg-slate-50 read-only:text-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
     error ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : "border-slate-200 focus:border-brand focus:ring-brand/20",
   ].join(" ");
 

@@ -27,7 +27,7 @@ export default function SelectField<V extends string>({ label, value, options, o
           disabled={disabled}
           aria-describedby={hint ? `${id}-hint` : undefined}
           onChange={(e) => onChange(e.target.value as V)}
-          className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-sm text-slate-900 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
+          className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-4 pr-10 text-base sm:text-sm text-slate-900 outline-none transition-colors focus:border-brand focus:ring-4 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>

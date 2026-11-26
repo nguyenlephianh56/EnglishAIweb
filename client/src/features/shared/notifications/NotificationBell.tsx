@@ -69,7 +69,7 @@ export default function NotificationBell({ source }: { source: NotificationSourc
           aria-label="Thông báo"
           className="absolute right-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-6rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
             <p className="font-heading text-sm font-bold text-slate-900">Thông báo</p>
             {unread > 0 && <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">{unread} mới</span>}
           </div>

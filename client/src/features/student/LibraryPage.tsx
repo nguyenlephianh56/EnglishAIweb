@@ -85,8 +85,8 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 lg:px-8">
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Thư viện luyện tập</h1>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-5 lg:px-8">
+      <h1 className="font-heading text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:text-4xl">Thư viện luyện tập</h1>
       <p className="mt-2 text-slate-500">Luyện tập theo kỹ năng và trình độ phù hợp với bạn.</p>
 
       <div className="mt-6 flex items-start gap-3">
@@ -137,7 +137,7 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      <div className="mt-8 flex items-center justify-between gap-4">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-heading text-base font-bold text-slate-900" aria-live="polite">
           {lib.isLoading ? "Đang tải..." : `${lib.total} bài luyện tập`}
         </h2>
