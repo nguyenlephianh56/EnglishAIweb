@@ -58,6 +58,14 @@ export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseR
   const supported = isAnswerableType(exercise.type);
   const type = exercise.type as AnswerableExerciseType;
   const content = exercise.content as ExerciseContentMap[AnswerableExerciseType];
+  const rendererContent = exercise.type === "listening_fill" && content
+    ? {
+        ...content,
+        audioPath: assignment
+          ? `/assignments/${assignment.assignmentId}/listening-audio`
+          : `/exercises/${exercise.id}/listening-audio`,
+      }
+    : content;
 
   const isWriting = exercise.type === "writing";
   const isSpeaking = exercise.type === "speaking";
@@ -340,7 +348,7 @@ export default function ExerciseRunner({ exercise, assignment, exam }: ExerciseR
       <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <DynamicExerciseView
           type={exercise.type}
-          content={exercise.content}
+          content={rendererContent}
           value={value}
           onChange={(v) => {
             setValue(v);

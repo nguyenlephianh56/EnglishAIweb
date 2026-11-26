@@ -114,6 +114,8 @@ export interface ListeningFillContent {
   blanks: number;
   /** Bản đọc đầy đủ (không khuyết), dùng cho âm thanh. Thiếu thì chưa phát được. */
   spoken?: string;
+  /** API tương đối với /api/v1, do màn làm bài đặt theo ngữ cảnh. */
+  audioPath?: string;
 }
 export interface WritingContent {
   prompt: string;

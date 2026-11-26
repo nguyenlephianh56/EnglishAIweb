@@ -2,13 +2,14 @@ import { Router } from "express";
 import { Role } from "@prisma/client";
 import * as exercisesController from "./exercises.controller";
 import {
-  createExerciseSchema,updateExerciseSchema,rejectExerciseSchema,} from "./exercises.schema";
-import { validate } from "../../middlewares/validate";
+  createExerciseSchema,exerciseIdParamSchema,updateExerciseSchema,rejectExerciseSchema,} from "./exercises.schema";
+import { validate, validateParams } from "../../middlewares/validate";
 import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
 import { aiRateLimit } from "../../middlewares/aiRateLimit";
 import { generateExerciseSchema } from "./exercises.generate.schema";
 import * as generateController from "./exercises.generate.controller";
+import { listeningAudio } from "./listening-audio";
 
 export const exerciseRoutes = Router();
 
@@ -37,6 +38,7 @@ exerciseRoutes.post(
 // GET /api/v1/exercises/:id  (mọi vai trò đã đăng nhập; quyền xem từng bài do service quyết định)
 exerciseRoutes.get("/", exercisesController.listExercises);
 exerciseRoutes.get("/:id", exercisesController.getExercise);
+exerciseRoutes.get("/:id/listening-audio", validateParams(exerciseIdParamSchema), listeningAudio("exercise"));
 
 // PATCH /api/v1/exercises/:id  (TEACHER chủ bài hoặc ADMIN; STUDENT bị 403;
 // GV khác nhận 404 từ service)

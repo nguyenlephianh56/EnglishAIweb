@@ -13,6 +13,7 @@ import {
 } from "../../middlewares/validate";
 import { authenticateActiveAccount } from "../../middlewares/auth";
 import { requireRole } from "../../middlewares/requireRole";
+import { listeningAudio } from "../exercises/listening-audio";
 
 export const assignmentRoutes = Router();
 
@@ -42,6 +43,13 @@ assignmentRoutes.get(
   requireRole(Role.STUDENT),
   validateParams(assignmentIdParamSchema),
   assignmentsController.getAssignment
+);
+
+assignmentRoutes.get(
+  "/:id/listening-audio",
+  requireRole(Role.STUDENT),
+  validateParams(assignmentIdParamSchema),
+  listeningAudio("assignment")
 );
 
 // GET /api/v1/assignments/:id/submissions (GV chủ lớp hoặc admin).

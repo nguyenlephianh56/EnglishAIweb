@@ -1,6 +1,7 @@
 import { Fragment, useId, useState } from "react";
 import { Check, Eye, EyeOff } from "lucide-react";
 import AudioPlayer from "../AudioPlayer";
+import ListeningAudioPlayer from "../ListeningAudioPlayer";
 import { BLANK_PATTERN, compareAnswer } from "../answerUtils";
 import { BrokenContent, ExplanationBox } from "./ReviewParts";
 import type { ExerciseRendererProps } from "../rendererTypes";
@@ -30,7 +31,8 @@ export default function ListeningFill({ content, value, onChange, mode, disabled
   const correct = result?.correctAnswer;
   const verdict = review && correct ? compareAnswer("listening_fill", answers, correct) : undefined;
   const spoken = typeof content.spoken === "string" && content.spoken.trim() ? content.spoken : undefined;
-  const fullText = correct ? (spoken ?? fillScript(content.script, correct)) : undefined;
+  const canFill = inline && correct?.length === n && correct.every(answer => answer.trim() !== "");
+  const fullText = correct ? spoken ?? (canFill ? fillScript(content.script, correct) : undefined) : undefined;
 
   function setAt(i: number, text: string) {
     const next = [...answers];
@@ -83,7 +85,9 @@ export default function ListeningFill({ content, value, onChange, mode, disabled
 
   return (
     <div>
-      <AudioPlayer spoken={spoken} />
+      {content.audioPath
+        ? <ListeningAudioPlayer key={content.audioPath} path={content.audioPath} />
+        : <AudioPlayer spoken={fullText ?? spoken} />}
 
       <p className="mb-3 mt-6 text-sm font-semibold text-slate-500">Nghe và điền từ còn thiếu vào {n} chỗ trống, theo đúng thứ tự nghe được.</p>
 
