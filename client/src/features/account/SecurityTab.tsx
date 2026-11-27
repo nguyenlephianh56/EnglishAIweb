@@ -101,13 +101,10 @@ export default function SecurityTab() {
 
         {notice && <Notice type={notice.type}>{notice.text}</Notice>}
 
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <span title={ready ? undefined : "Sắp ra mắt"}>
-            <Button type="submit" loading={loading} disabled={!canSubmit}>
-              Đổi mật khẩu
-            </Button>
-          </span>
-          {!ready && <p className="text-xs font-semibold text-slate-500">Sắp ra mắt: hiện chưa đổi được mật khẩu.</p>}
+        <div className="pt-1">
+          <Button type="submit" loading={loading} disabled={!canSubmit}>
+            Đổi mật khẩu
+          </Button>
         </div>
       </form>
 
